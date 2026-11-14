@@ -1,5 +1,5 @@
 # Buyer data (LGPD): never commit the database or its backups
-data/
+/data/
 *.db
 *.db-*
 

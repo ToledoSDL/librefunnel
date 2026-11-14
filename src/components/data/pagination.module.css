@@ -1,0 +1,33 @@
+@layer components {
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+  }
+
+  .pageLink {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: max(var(--tap-min), 2.25rem);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-weight: 600;
+    text-decoration: none;
+
+    @media (any-hover: hover) {
+      &:hover {
+        background: var(--hover-surface);
+      }
+    }
+  }
+
+  .pageCount {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+}

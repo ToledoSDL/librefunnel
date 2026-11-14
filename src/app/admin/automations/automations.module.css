@@ -1,0 +1,85 @@
+@layer screens {
+  .list {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+  }
+
+  .row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    padding-block: var(--space-3);
+
+    &:has(> .lead) {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    @media (min-width: 640px) {
+      grid-template-columns: minmax(0, 1fr) auto;
+
+      &:has(> .lead) {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+    }
+  }
+
+  .divided > .row + .row {
+    border-top: 1px solid var(--border);
+  }
+
+  /* The rail joins one channel logo to the next, so the rows read as a sequence in time. */
+  .timeline > .row:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: calc(var(--space-3) + 2.5rem);
+    bottom: calc(-1 * var(--space-3));
+    left: calc(1.25rem - 0.5px);
+    width: 1px;
+    background: var(--border-strong);
+  }
+
+  .lead {
+    align-self: start;
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  .preview {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+
+    @media (min-width: 640px) {
+      justify-content: flex-end;
+    }
+  }
+
+  .lead ~ .actions {
+    grid-column: 2;
+
+    @media (min-width: 640px) {
+      grid-column: auto;
+    }
+  }
+}

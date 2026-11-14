@@ -1,0 +1,113 @@
+@layer screens {
+  .sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+
+    & form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+  }
+
+  .studio {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    width: 100%;
+  }
+
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .preset,
+  .custom {
+    width: max(var(--tap-min), 2.25rem);
+    height: max(var(--tap-min), 2.25rem);
+    border: 2px solid var(--surface);
+    border-radius: var(--radius-full);
+    box-shadow: 0 0 0 1px var(--border-strong);
+    cursor: pointer;
+
+    &[aria-checked="true"] {
+      box-shadow: 0 0 0 2px var(--text);
+    }
+  }
+
+  .custom {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: var(--text-lg);
+    line-height: 1;
+
+    & input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    &:has(:focus-visible) {
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  .preview {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+  }
+
+  .previewBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    font-size: var(--text-sm);
+
+    & img {
+      width: auto;
+      height: 1.5rem;
+    }
+
+    & span {
+      color: var(--text-muted);
+      font-size: var(--text-xs);
+    }
+  }
+
+  .previewBody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+
+  .previewLine {
+    height: var(--space-6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .previewButton {
+    display: grid;
+    place-items: center;
+    min-height: 2.75rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-weight: 800;
+  }
+}

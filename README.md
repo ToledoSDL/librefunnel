@@ -1,188 +1,120 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-escuro.svg">
-    <img alt="funil-aberto: a operação de venda online inteira, num processo só" src="docs/banner-claro.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.svg">
+    <img alt="LibreFunnel" src="docs/banner-light.svg" width="100%">
   </picture>
 </p>
 
 <p align="center">
-  <a href="https://github.com/thiagopatzdorf/funil-aberto/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/thiagopatzdorf/funil-aberto/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-16a34a?style=flat-square">
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white">
-  <img alt="Zero dependências" src="https://img.shields.io/badge/depend%C3%AAncias-0-16a34a?style=flat-square">
-  <img alt="Pix sem gateway" src="https://img.shields.io/badge/Pix-sem%20gateway-32bcad?style=flat-square">
-  <a href="CONTRIBUTING.md"><img alt="PRs bem-vindos" src="https://img.shields.io/badge/PRs-bem--vindos-16a34a?style=flat-square"></a>
+  <a href="https://github.com/ToledoSDL/librefunnel/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ToledoSDL/librefunnel/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-254ccb"></a>
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-111827?logo=nextdotjs&logoColor=white">
 </p>
 
-<p align="center">
-  <a href="https://funil.genesisinnovation.com.br/v/metodo-demo"><b>Ver a demo no ar</b></a> ·
-  <a href="https://funil.fabweb.io">Conceito</a> ·
-  <a href="#rodar-em-1-minuto">Rodar</a> ·
-  <a href="#o-que-faz">O que faz</a> ·
-  <a href="AGENTS.md">AGENTS.md</a> ·
-  <a href="CONTRIBUTING.md">Contribuir</a>
-</p>
+# LibreFunnel
 
-# funil-aberto
+A free, self-hosted sales funnel for Brazilian infoproduct sellers: sales page, Pix checkout, members area, recovery and analytics in one app.
 
-<!-- resumo: A operação de venda online (digital/DR) num processo só e de código aberto (MIT): tracker com atribuição por UTM e Meta CAPI, página de VSL com CTA no segundo certo, checkout com Pix direto na chave do vendedor (sem gateway), área de membros, recuperação de checkout abandonado por WhatsApp e e-mail, robô de mensagens por palavra-chave e biblioteca de anúncios; Python stdlib + SQLite. -->
+## Why
 
-> *"É possível fazer um open source que substitua todos os softwares que alguém usa numa operação de digital/DR/venda online?
-> Tracker, VSL, Manychat, área de membros, spy, checkout, remarketing. Vejo todo mundo criando a própria; não faria mais sentido
-> todos criarem uma só?"* — pergunta no X, 13/11/2026
+Selling a course online usually means paying monthly for a page builder, a checkout, a members area, a cart recovery tool and an attribution tracker, plus a fee on every sale. LibreFunnel does all of it in one app that runs on a free server. Pix goes straight to your own key, so there is no fee unless you turn on automatic confirmation.
 
-Faz. Este repositório é essa uma só: **sem mensalidade, sem gateway, sem dependência**. Um `python3 app.py` e a operação está de pé,
-do anúncio à aula.
+## Features
 
-<table>
-  <tr>
-    <td width="68%"><img src="docs/telas/vsl.webp" alt="Página de VSL com faixa de urgência, título e vídeo"><br><sub><b>VSL</b>: o botão de compra aparece no segundo que você escolher, e a retenção é medida por quartil.</sub></td>
-    <td width="32%"><img src="docs/telas/checkout-celular.webp" alt="Checkout no celular com cronômetro, garantia e botão Comprar agora"><br><sub><b>Checkout</b> no celular, com cronômetro, garantia e order bump.</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/telas/painel.webp" alt="Painel com receita, vendas, conversão, gráfico de 14 dias e vendas por origem"><br><sub><b>Painel</b>: receita, conversão e qual campanha vendeu, do clique no anúncio ao Pix pago.</sub></td>
-    <td><img src="docs/telas/pix-celular.webp" alt="Página do Pix com QR Code, passos e botão Copiar código Pix"><br><sub><b>Pix</b> direto na sua chave: QR, copia e cola, e a página muda sozinha quando o pagamento cai.</sub></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/telas/membros.webp" alt="Área de membros com capa, progresso e módulos"><br><sub><b>Área de membros</b>, liberada no pagamento: módulos, aulas e progresso. Fotos da demo do Unsplash (créditos em <code>static/demo/CREDITOS.md</code>).</sub></td>
-  </tr>
-</table>
+- **Sales page (VSL)**: video with the buy button revealed at the second you choose, offer deadline, guarantee, testimonials and FAQ.
+- **Pix checkout**: paid straight to your Pix key at zero fees, or confirmed automatically through Mercado Pago (0.99% per sale, CPF or CNPJ), Woovi or AbacatePay (from R$ 0.80 per Pix, CNPJ only).
+- **Order bump**: an extra product offered on the checkout.
+- **Members area**: modules, lessons and progress. Buyers sign in with a magic link sent by e-mail, no passwords.
+- **Abandoned checkout recovery**: by e-mail (any SMTP, such as a free Gmail app password) and by WhatsApp (self-hosted Evolution API, optional). It stops when the buyer pays or opts out, and WhatsApp messages never go out between 21:00 and 09:00.
+- **WhatsApp auto-replies**: keyword answers, with opt-out when the buyer replies `SAIR`.
+- **Attribution**: UTMs with first and last touch, and sales sent to Meta through the Conversions API.
+- **Admin dashboard**: revenue, funnel, sources, orders with release and refund, messages, connections and CSV export. Products, course content, automations, e-mail, Pix providers and Meta are set up there too, each connection with a **Testar** button, and changes apply instantly.
 
-## Rodar em 1 minuto
+## Quick start
 
-    git clone https://github.com/thiagopatzdorf/funil-aberto && cd funil-aberto
-    ADMIN_TOKEN=troque-isto WEBHOOK_SECRET=troque-isto python3 app.py
-    # VSL:    http://localhost:8080/v/metodo-demo
-    # Painel: http://localhost:8080/entrar  (entra com o ADMIN_TOKEN)
+You need a Linux server with a public IP and ports 80 and 443 open. The free [Oracle Cloud Always Free](https://www.oracle.com/cloud/free/) tier works well. The [deployment guide](docs/deploy.md) walks through every click, from creating the server to the first sale.
 
-Nada para instalar além do Python 3.10+. Sem credencial nenhuma mensagem sai da máquina: tudo fica marcado como `simulado` até você
-ligar os canais em `/painel/conexoes`.
+1. **Point a hostname at your server.** Use a free [DuckDNS](https://www.duckdns.org) name (`yourstore.duckdns.org`) or an `A` record on your own domain.
+2. **Connect to the server and install Docker.**
 
-## Como uma venda passa por ele
+   ```sh
+   ssh -i your-key.key ubuntu@YOUR_SERVER_IP
+   curl -fsSL https://get.docker.com | sudo sh
+   sudo usermod -aG docker $USER && exit
+   ```
 
-```mermaid
-flowchart LR
-  A[Anúncio<br>UTM · fbclid] --> B[VSL<br>/v/produto]
-  B -->|CTA no segundo certo| C[Checkout<br>/c/produto]
-  C -->|Pix na sua chave| D{Pagou?}
-  D -->|webhook assinado<br>ou clique no painel| E[Área de membros<br>/m/token]
-  D -->|não| F[Recuperação<br>WhatsApp · e-mail · Telegram]
-  F --> C
-  E --> G[Meta CAPI Purchase<br>+ integrações Composio]
-  C -.-> H[(SQLite<br>tudo é evento da mesma pessoa)]
-  E -.-> H
+   On Oracle Cloud, also open the server's own firewall: `sudo iptables -I INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT && sudo netfilter-persistent save`.
+
+3. **Download LibreFunnel.** Reconnect with `ssh`, then:
+
+   ```sh
+   git clone https://github.com/ToledoSDL/librefunnel.git
+   cd librefunnel
+   cp .env.example .env
+   ```
+
+4. **Fill in `.env`.** Open it with `nano .env` and set at least `BASE_URL`, `DOMAIN`, `ADMIN_PASSWORD`, `SECRET` and `POSTGRES_PASSWORD` (see [Configuration](#configuration)).
+5. **Start it.**
+
+   ```sh
+   docker compose up -d --build
+   ```
+
+6. **Open `https://yourstore.duckdns.org/admin`** and sign in with `ADMIN_PASSWORD`. Caddy issues the HTTPS certificate on its own. A demo product is already there: set your Pix key, price and lessons in the Products tab, then set up e-mail in **Conexões** so buyers receive their access link.
+
+## Configuration
+
+Server settings live in `.env`. Each line in [`.env.example`](.env.example) explains itself. The minimum to sell:
+
+| Variable            | What it is                                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `BASE_URL`          | Public address of the store, such as `https://yourstore.duckdns.org` (no trailing slash).                                                 |
+| `DOMAIN`            | The same hostname without `https://`. Caddy uses it to get the certificate.                                                               |
+| `ADMIN_PASSWORD`    | Dashboard password, at least 16 characters. Generate with `openssl rand -base64 24`.                                                      |
+| `SECRET`            | Signs cookies and access links and encrypts the keys saved in **Conexões**, at least 32 characters. Generate with `openssl rand -hex 32`. |
+| `POSTGRES_PASSWORD` | Password of the PostgreSQL database that runs next to the app. Generate with `openssl rand -hex 24`.                                      |
+
+Optional: `EVOLUTION_KEY` for the WhatsApp server bundled with the app. The app refuses to start when a required value is missing and says which one in `docker compose logs app`.
+
+After editing `.env`, apply it with:
+
+```sh
+docker compose up -d
 ```
 
-## Já existia? Em pedaços, sim. Junto, não.
+Everything else is managed in `/admin`, with no restart:
 
-Pesquisado em 13/11/2026 antes de escrever uma linha (regra da casa: consulte antes de assar).
+- **Products**: name, price, Pix key, offer deadline, guarantee, order bump, sales video, FAQ, testimonials, modules and lessons with video and cover uploads.
+- **Automations**: recovery steps (channel, delay and text) and WhatsApp keyword replies.
+- **Settings**: brand, your own e-mail and WhatsApp for sale notices, terms URL and how long a Pix order stays valid.
+- **Conexões**: e-mail (Gmail, Brevo, Mailjet or any SMTP), Pix provider, generic payment webhook, Meta Conversions API and WhatsApp. Passwords and keys are stored encrypted and never shown again; **Testar** checks each one. Without e-mail, buyers pay and receive nothing.
 
-| Peça | Open source que já existe | Por que não bastava |
-|---|---|---|
-| Tracker | Umami, Plausible, Matomo, PostHog | medem visita, não ligam o anúncio à venda nem mandam a compra para a Meta (CAPI) |
-| VSL | Video.js, Plyr | player, não página de venda com CTA atrasado e eventos de retenção |
-| Manychat | Typebot (hoje *fair source*, FSL), Chatwoot (MIT), Botpress | bons, mas são outro sistema, outro banco, outra conta |
-| Área de membros | CourseLit, Moodle, Frappe LMS | LMS completos, sem saber quem comprou o quê no seu checkout |
-| Checkout | Autonnel (Apache-2.0), Medusa, Hyperswitch | nenhum com Pix direto na chave do vendedor, sem gateway |
-| Remarketing | Mautic, listmonk | e-mail; sem WhatsApp e sem o estado do pedido |
-| Spy | Biblioteca de Anúncios da Meta (API oficial) | só busca; ninguém guarda o swipe file junto do funil |
+## How Pix confirmation works
 
-O ganho de juntar não é economia de ferramenta: é que **tudo é evento sobre a mesma pessoa**. O anúncio que trouxe o visitante, o quanto ele
-viu da VSL, o checkout que abandonou, a mensagem de recuperação e a compra moram no mesmo banco, e "qual campanha vendeu" vira uma consulta.
+**Manual mode (free, the default).** The buyer pays straight to your Pix key. Open your **bank statement**, find a Pix with the order amount and identifier, then click **Release** on the order in `/admin`. Never release based on a screenshot sent by the buyer: receipts are easy to fake. Release sends the access link right away.
 
-## O que faz
+**Automatic mode (Mercado Pago, Woovi or AbacatePay).** In **Conexões** > **Recebimento do Pix**, paste the provider's keys, click **Salvar e usar este provedor** and register the webhook URL shown there in the provider's dashboard. Each order gets its own Pix from the provider; the webhook only makes the store ask the provider again, and access is released when the amount received covers the order. Refunds, chargebacks and lost MED claims revoke it. Orders keep the provider that issued them when you switch. See [the guide](docs/deploy.md#pix-providers-automatic-confirmation).
 
-- **Tracker** (`/t.js`, uma linha no seu site): grava UTM, `fbclid`, `gclid`, `ttclid` no primeiro toque; eventos `visita`, `vsl_play`,
-  `vsl_25..100`, `cta_visto`, `cta_clique`, `checkout`, `compra`. **Meta Conversions API** server-side: `InitiateCheckout` e `Purchase`
-  com e-mail e telefone em sha256 e `fbc` montado do clique (não depende do pixel do navegador nem do bloqueador de anúncio).
-- **VSL** em `/v/<produto>`: vídeo, botão que aparece no segundo configurado, retenção medida por quartil.
-- **Checkout** em `/c/<produto>`: gera o **Pix copia e cola** (BR Code do Banco Central) com valor e identificador do pedido, direto na
-  sua chave. Sem gateway, sem taxa. Confirmação por webhook assinado (HMAC) do seu banco/gateway, ou um clique no painel.
-  Quer cartão? `link_pagamento` no produto manda para Stripe, Mercado Pago ou qualquer link de pagamento.
-- **Área de membros** em `/m/<token>`: liberada no pagamento, link enviado por e-mail e WhatsApp; módulos, aulas e progresso.
-- **Recuperação de checkout abandonado**: sequência em dados (ex.: WhatsApp em 15 min, e-mail em 4 h, WhatsApp em 24 h); para sozinha quando paga.
-- **Robô de mensagens (estilo Manychat)**: palavra-chave abre um fluxo, cada resposta avança um passo. WhatsApp pela Evolution API ou
-  pela Cloud API oficial; e-mail por SMTP.
-- **Remarketing**: público de quem abandonou (ou comprou) em sha256, pronto para Custom Audience.
-- **Spy**: busca na Biblioteca de Anúncios da Meta e swipe file salvo junto do funil.
-- **Painel** em `/painel` (login em `/entrar`): funil por origem e campanha (visita → play → CTA → checkout → compra → receita), pedidos, mensagens.
+## Development
 
-Produto novo, sequência de recuperação nova e fluxo novo do robô são **dado** em `config.json`, nenhuma linha de código.
+Requires [Bun](https://bun.sh) and Node.js 24.
 
-## Conexões (painel em `/painel/conexoes`)
-
-O painel abre por login (`/entrar`, com o `ADMIN_TOKEN`; o cookie guarda um derivado do token, nunca o token).
-
-- **WhatsApp pela Evolution API**, o mesmo caminho do `maus-conexoes`: o funil cria uma instância só dele, mostra o QR
-  no painel e o dono lê com o celular. A chave da Evolution fica no servidor. Teto de 300 mensagens em 24 h
-  (`FUNIL_TETO_WHATSAPP_DIA`) contra banimento do número. Sem Evolution, a API oficial da Meta (`WA_CLOUD_TOKEN`).
-- **Telegram por bot oficial** (`TELEGRAM_BOT_TOKEN` e `TELEGRAM_BOT_USUARIO`, criados no @BotFather): a página do Pix
-  mostra "Receber o acesso pelo Telegram", o `/start <pedido>` liga o chat ao pedido e o robô responde no bot. O webhook
-  tem um segredo derivado do token no caminho. Não usa a conta pessoal do dono: aviso automático em volume por conta
-  pessoal derruba a credencial de aplicativo.
-- **Integrações pela Composio** (`COMPOSIO_API_KEY`): o dono conecta Gmail, Planilhas, HubSpot, Notion, Slack etc. pelo
-  link da Composio, e o `config.json` diz o que rodar em cada evento:
-
-```json
-"integracoes": [
-  {"evento": "compra", "ferramenta": "GOOGLESHEETS_SPREADSHEETS_VALUES_APPEND",
-   "argumentos": {"spreadsheetId": "...", "range": "Vendas!A1", "values": [["{pedido}", "{nome}", "{email}", "{valor}"]]}}
-]
+```sh
+bun install
+cp .env.example .env   # set BASE_URL=http://localhost:3000, DATA_DIR=data, SECRET and ADMIN_PASSWORD
+bun run dev            # http://localhost:3000
 ```
-  Eventos: `checkout` e `compra`. Campos: `{pedido}`, `{nome}`, `{email}`, `{telefone}`, `{produto}`, `{valor}`, `{status}`.
-  Com `EMAIL_VIA=composio`, o e-mail de acesso sai do Gmail conectado.
 
-A Genesis hospeda uma instância em https://funil.genesisinnovation.com.br (app + Evolution própria num compose, túnel de
-um hostname): `apps/factory/deploy/factory01/instalar-funil-aberto.sh` no repositório da Genesis.
+Without `DATABASE_URL`, development and tests run on [PGlite](https://pglite.dev), PostgreSQL compiled to WebAssembly: the dev database lives in `DATA_DIR/pglite` and tests use one in memory, so no Docker or database server is needed. Migrations apply on startup. After changing `src/lib/schema.ts`, run `bun run migration` to write the next migration.
 
-## Configuração
+Before opening a pull request, run the same checks as CI:
 
-Docker: `docker build -t funil-aberto . && docker run -p 8080:8080 -v funil:/data -e ADMIN_TOKEN=... -e WEBHOOK_SECRET=... funil-aberto`.
-Testes: `python3 -m pytest -q tests` (sobem o servidor de verdade e percorrem o funil inteiro).
+```sh
+bun run check
+```
 
-| Variável | Para quê | Sem ela |
-|---|---|---|
-| `ADMIN_TOKEN` | login do painel e API admin (`Authorization: Bearer`) | painel fechado |
-| `WEBHOOK_SECRET` | assinatura HMAC-SHA256 (`X-Assinatura`) do webhook de pagamento e da entrada do robô | webhook recusado |
-| `META_PIXEL_ID`, `META_CAPI_TOKEN` (`META_TEST_EVENT_CODE`) | Conversions API | evento simulado |
-| `EVOLUTION_URL`, `EVOLUTION_KEY`, `EVOLUTION_INSTANCIA` ou `WA_CLOUD_TOKEN`, `WA_PHONE_ID` | WhatsApp | mensagem simulada |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USUARIO` | Telegram | mensagem simulada |
-| `COMPOSIO_API_KEY` (`EMAIL_VIA=composio`) | integrações e Gmail | integração simulada |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | e-mail | mensagem simulada |
-| `META_AD_LIBRARY_TOKEN` | spy pela API | devolve o link da biblioteca pública |
-| `BASE_URL` | links nas mensagens | `http://localhost:8080` |
-| `PORT`, `BIND` | porta e endereço em que o servidor escuta (`BIND=127.0.0.1` atrás de proxy na mesma máquina) | `8080`, `0.0.0.0` |
-| `DATA_DIR`, `FUNIL_CONFIG` | pasta do SQLite e caminho de outro `config.json` | `./data`, o `config.json` ao lado do app |
-| `EMAIL_VIA` | `composio` manda o e-mail de acesso pelo Gmail conectado na Composio | SMTP |
-| `COMPOSIO_USUARIO`, `COMPOSIO_URL` | dono das contas conectadas na Composio; outro endereço da API (testes) | derivado do `BASE_URL`; a API pública |
-| `CONEXOES_URL`, `CONEXOES_SERVICO_TOKEN`, `CONEXOES_USUARIO` | WhatsApp por um serviço de conexões que já tem o número ligado (o `maus-conexoes` da Genesis): o funil não abre outro QR | Evolution própria ou Cloud API |
-| `FUNIL_TETO_WHATSAPP_DIA` | teto de mensagens de WhatsApp em 24 h | `300` |
-| `TELEGRAM_API` | outro endereço da Bot API (testes) | `https://api.telegram.org` |
+Stack: Next.js 16 (App Router, standalone output), React 19, PostgreSQL with Drizzle ORM, nodemailer, Docker Compose and Caddy. Business rules live in `src/lib`, pages in `src/app`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Sem credencial nada sai da máquina e o painel mostra `simulado`: "simulado" nunca aparece como "enviado".
+## License
 
-### API
-
-- `POST /t` `{"vid","nome","produto",utm...}` → `{"vid"}`
-- `POST /api/webhook/pagamento` `{"pedido","status":"pago"}` com `X-Assinatura: hex(hmac_sha256(WEBHOOK_SECRET, corpo))`. Idempotente.
-- `POST /api/bot/entrada` `{"canal":"whatsapp","de":"55...","texto":"quero","enviar":true}` (mesma assinatura) → `{"respostas":[...]}`
-- Com `Authorization: Bearer $ADMIN_TOKEN`: `GET /api/admin/funil`, `GET /api/admin/publico?status=pendente`,
-  `POST /api/admin/pedido/<id>/pago`, `POST /api/admin/recuperacao`, `GET /api/admin/spy?q=...`, `GET|POST /api/admin/anuncios`.
-
-## Limites declarados
-
-- **Pix estático não avisa sozinho que foi pago.** O BR Code estático é um código de transferência; a confirmação vem do webhook do seu
-  banco (Efí, Inter, Mercado Pago e outros têm Pix com webhook) ou do clique no painel. Pix dinâmico (cobrança com vencimento) é a próxima fatia.
-- **A API da Biblioteca de Anúncios** só devolve anúncio comercial na UE e no Reino Unido; para o Brasil ela devolve o link da página pública e
-  você salva o que achar no swipe file.
-- **WhatsApp pela Cloud API oficial** só aceita texto livre até 24 h depois da última mensagem da pessoa; recuperação fora dessa janela precisa
-  de template aprovado (pela Evolution API não há essa trava, mas o número corre risco de bloqueio se mandar em massa).
-- Um processo e um SQLite: aguenta bem uma operação; várias réplicas exigem trocar o armazenamento (`nucleo.py` é o único arquivo com SQL).
-- LGPD: guarda nome, e-mail e telefone de quem compra. A Meta recebe só hash. Nenhum dado em log.
-
-## Contribuir
-
-PRs são bem-vindos. Comece pelo [`AGENTS.md`](AGENTS.md): mapa do código, regras que os testes cobram, como fazer as mudanças comuns e a
-lista do que ainda falta. O passo a passo curto está em [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-Licença MIT.
+[MIT](LICENSE)

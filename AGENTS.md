@@ -1,109 +1,105 @@
-# AGENTS.md — funil-aberto
+# AGENTS.md
 
-> Contexto para quem vai mexer aqui, gente ou agente (Claude Code, Codex, Cursor, Copilot…). O `CLAUDE.md` importa este
-> arquivo; regra nova entra **aqui**, uma cópia só. *English speakers: the code and docs are in Brazilian Portuguese because the
-> product is Brazilian (Pix, LGPD, WhatsApp-first sales). Issues and PRs in English are welcome.*
+Guidance for anyone changing this repo, human or agent. `CLAUDE.md` is not used: this is the single source.
 
-## O que é, em uma frase
+## What this is
 
-A operação de venda online (digital/DR) inteira num processo só, de código aberto (MIT): tracker com UTM e Meta CAPI, página de VSL,
-checkout com Pix direto na chave do vendedor (sem gateway), order bump, área de membros, recuperação de carrinho por WhatsApp/e-mail/Telegram,
-robô por palavra-chave estilo Manychat, spy da Biblioteca de Anúncios e integrações pela Composio. **Python 3.10+ só com a biblioteca
-padrão + SQLite.** Roda com `python3 app.py`.
+LibreFunnel: a self-hosted, fee-free sales funnel for Brazilian infoproduct sellers. VSL page, Pix checkout (static BR Code or a payment provider), order bump, members area with magic-link login, WhatsApp and e-mail cart recovery, attribution with Meta Conversions API, and an admin dashboard where the seller manages products, course content, automations and settings.
 
-No ar: https://funil.genesisinnovation.com.br/v/metodo-demo · conceito: https://funil.fabweb.io
+Stack: Next.js 16 (App Router, standalone output), React 19 Server Components and Server Actions, TypeScript 7, Bun, Docker Compose with Caddy. Database: PostgreSQL with Drizzle ORM, through `postgres` when `DATABASE_URL` is set and PGlite otherwise (local dev under `DATA_DIR/pglite`, tests in memory).
 
-## Comandos (os mesmos do CI)
+Next.js 16 differs from older versions: read `node_modules/next/dist/docs/` before using an API you are not sure about.
 
-    python3 app.py                                    # http://localhost:8080/v/metodo-demo (ADMIN_TOKEN e WEBHOOK_SECRET para o painel)
-    python3 -m pip install pytest==8.4.2 ruff==0.14.2 # só para desenvolver; o app não tem dependência
-    ruff check .                                      # lint (regras em ruff.toml)
-    python3 -m pytest -q tests                        # ~60 testes, ~45 s: sobem o servidor de verdade e percorrem o funil
-    docker build -t funil-aberto .                    # a imagem que roda em produção
+## Commands
 
-Um PR só entra com os três verdes. O CI (`.github/workflows/ci.yml`) roda exatamente isto.
+```sh
+bun install
+bun run dev            # http://localhost:3000, needs .env (see .env.example; locally DATA_DIR=data, BASE_URL=http://localhost:3000)
+bun run start          # the full server with Docker: store, database, WhatsApp, HTTPS and updater
+bun run check          # typecheck, lint, unused code (knip), formatting and tests: what CI runs
+bun run fix            # fixes lint (blank lines around multi-line consts) and formatting
+bun run test           # tests only (vitest)
+bun run migration      # after editing src/lib/schema.ts: writes the next migration
+bun run release        # patch, minor, major or 1.2.3: checks, bumps, tags and pushes; GitHub publishes the release
+bun run brand          # after changing the logo or the colors: rewrites every logo, icon and banner file
+```
 
-## Mapa do repositório
+A change is done only when `bun run check` passes. CI runs the same plus a Docker build.
 
-| Arquivo | O que mora nele | Não ponha aqui |
-|---|---|---|
-| `app.py` | servidor HTTP (`http.server`), rotas, login do painel, CSP, `liberar()` (o que acontece quando um pedido é pago) e o laço de recuperação | SQL, HTML |
-| `nucleo.py` | **o único arquivo com SQL**: tabelas, migração (`_migrar`), pedidos, membros, eventos, funil, conversas | rede, HTML |
-| `paginas.py` | todo o HTML (funções que devolvem string), um tema por área: `t-checkout`, `t-vsl`, `t-membros`, `t-admin` | `<script>` inline (a CSP bloqueia) |
-| `integracoes.py` | Meta CAPI, envio por canal (`enviar`), e-mail (SMTP ou Gmail pela Composio), recuperação, robô (`responder`), spy | chave em código |
-| `conexoes.py` | os provedores: WhatsApp (maus-conexoes, Evolution própria ou Cloud API), Telegram Bot API, Composio (link, execução, `disparar`) | lógica de negócio |
-| `pix.py` | BR Code estático (copia e cola) com CRC16 do Banco Central | — |
-| `config.json` | **o negócio como dado**: produtos, preços, VSL, order bump, depoimentos, FAQ, sequência de recuperação, fluxos do robô, integrações | — |
-| `static/` | `estilo.css`, `funil.js` (CTA da VSL, cronômetro, QR, Pix), `qrcode.js` (MIT), fontes OFL, `demo/` (imagens e vídeo da demo, com créditos) | biblioteca por CDN |
-| `docs/` | banners do README (claro e escuro) e `telas/` com os prints; refaça os prints quando a tela mudar | imagem de terceiro sem licença |
-| `site/` | a página de conceito (https://funil.fabweb.io), estática | o app |
-| `tests/` | `test_funil.py` (o funil inteiro), `test_conexoes.py` (provedores falsos em HTTP), `test_telas.py` (CSP, formato BRL, vídeo com Range), `test_bump.py`, `test_regras_do_repo.py` (as regras deste arquivo que dá para conferir) | rede de verdade |
-| `.github/` | CI, modelos de PR e de issue | — |
+## Layout
 
-## Regras que o código cobra (e por quê)
+| Path                                       | Holds                                                                                                                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`                                 | pages, route handlers, `ui.tsx` (buyer client components and `ERROR_TEXT`); the admin is one route per section under `src/app/admin/` with a sidebar in `layout.tsx`          |
+| `src/components/`                          | the component library, one component per file in folders by responsibility (see `docs/design-system.md`)                                                                      |
+| `src/lib/`                                 | business rules, one file per domain: `actions` (the only server action edge), `orders`, `members`, `messages`, `tracking`, `dashboard`, `guard`, `db`, catalog                |
+| `src/lib/schema.ts`, `src/lib/migrations/` | Drizzle schema and the SQL migrations generated from it (`bun run migration`), applied at startup; `0001_demo.sql` seeds the demo store                                       |
+| `src/proxy.ts`                             | Content-Security-Policy with a fresh script nonce per page request                                                                                                            |
+| `src/instrumentation.ts`, `src/jobs.ts`    | instrumentation loads `jobs.ts` only in the Node runtime; `jobs.ts` runs migrations, then the background loop: order expiry, outbox, Meta events                              |
+| `tests/`                                   | vitest suites with fake HTTP servers for providers                                                                                                                            |
+| `deploy/`                                  | Dockerfile, Caddyfile, `evolution.sql` (Evolution's database on the shared PostgreSQL), `updater.ts` and `Dockerfile.updater` (restarts and updates the store from the admin) |
+| `docs/`                                    | `deploy.md` (layperson guide), `design-system.md`, `brand.ts` and the brand SVGs it writes, `site/` (concept page)                                                            |
 
-Cada uma tem teste. Se o teste reclamar, conserte o código; não afrouxe o teste.
+## Code rules
 
-1. **Sem dependência externa.** Só biblioteca padrão (`test_app_importa_so_biblioteca_padrao_sem_dependencia_externa`). Quem baixa roda com
-   `python3 app.py` numa VPS de R$ 20. Precisa de algo grande (ex.: Postgres)? Abra uma issue antes: a resposta costuma ser "atrás de
-   uma variável de ambiente, opcional".
-2. **SQL só no `nucleo.py`** (`test_sql_fora_do_nucleo_quebra_a_troca_de_banco`). Trocar SQLite por outro banco tem de ser um arquivo só.
-   Coluna nova entra pela `_migrar()`, que adiciona sem apagar: o banco que está no ar é anterior ao seu código (`test_banco_antigo_...`).
-3. **Toda variável de ambiente lida pelo código está no README** (`test_toda_variavel_de_ambiente_...`).
-4. **Preço nunca vem do formulário.** O valor do pedido sai do `config.json` (`test_valor_inventado_no_formulario_nao_muda_o_preco`).
-5. **Sem script inline nem CDN de terceiro.** A CSP é `script-src 'self'`; fonte e biblioteca ficam em `static/` com a licença ao lado.
-6. **"Simulado" nunca aparece como "enviado".** Sem credencial nada sai da máquina e o status gravado é `simulado`. Envio que pode ter
-   saído mas não confirmou é erro, não sucesso.
-7. **Segredo não vai para log, HTML nem mensagem de erro.** Erro de provedor não ecoa o corpo da resposta. O painel abre por login, e o
-   cookie guarda um HMAC derivado do `ADMIN_TOKEN`, nunca o token.
-8. **Webhook só com assinatura** (`X-Assinatura` = HMAC-SHA256 do corpo com `WEBHOOK_SECRET`), e marcar pago é idempotente.
-9. **Dado pessoal mínimo (LGPD).** A Meta recebe só hash (sha256). O `log_message` do servidor não grava IP nem caminho.
-10. **O mapa acima cita todo arquivo `.py` e toda pasta** (`test_mapa_do_agents_md_...`). Criou módulo? Ponha uma linha na tabela.
+- Simplest thing that solves the current problem. No abstraction, layer or option "for later". No duplicated logic: find and reuse first.
+- In `src/lib`, new code goes into the existing file of its domain; file names are the domain in one lowercase word. In `src/components` and screens, one component per file and no large files. Move or split existing code with a script, never by retyping it.
+- Identifiers and comments in English. Visible text (UI, e-mails, WhatsApp) in pt-BR.
+- Comments: default is none. One line, only for a "why" the code cannot express. Never narrate the code, never leave TODOs or commented-out code.
+- Types: no `any`, `unknown`, `as` casts or `!`. Do not annotate what TypeScript infers. Unused variables and parameters are removed, never prefixed with `_`.
+- Errors that cross a boundary (server actions, route handlers, webhooks) are closed `THIS_CASING` code unions, never prose. The UI translates codes in `ERROR_TEXT`, with the concrete cause and the fix.
+- Never use the em dash character anywhere (code, copy, docs). Use colons, commas, parentheses or periods.
+- Do not run formatters on files you did not change beyond `bun run fix` on the whole repo.
 
-## Como fazer as coisas comuns
+## Data and money rules
 
-- **Produto novo, preço, VSL, order bump, depoimento, FAQ:** só `config.json`. Nenhuma linha de código. Depoimento de exemplo leva
-  `"exemplo": true` (a página mostra o selo); depoimento real precisa de autorização da pessoa.
-- **Passo novo na recuperação de carrinho:** item em `recuperacao` no `config.json` (`apos_minutos`, `canal`, `texto` com `{nome}`, `{link}`).
-- **Fluxo novo do robô:** item em `fluxos` (palavra-chave → passos).
-- **Integração nova (planilha, CRM, Slack…):** item em `integracoes` no `config.json` com o `evento` (`checkout` ou `compra`) e a ferramenta da
-  Composio. Só vira código se a Composio não tiver a ferramenta.
-- **Canal novo de mensagem (ex.: SMS, Instagram Direct):** função de envio em `conexoes.py` com o mesmo contrato (devolve `enviado`,
-  `simulado` ou levanta erro), um ramo em `integracoes.enviar`, o estado em `/painel/conexoes`, e um teste com servidor falso em
-  `test_conexoes.py` (veja a classe `Falso` lá). Sem credencial, o canal fica `simulado`.
-- **Banco/gateway novo que confirma Pix:** adapte o corpo dele para `POST /api/webhook/pagamento` (`{"pedido","status":"pago"}`, assinado).
-  Se ele não assina com HMAC, escreva um adaptador com a verificação que ele oferece e teste a recusa de assinatura errada.
-- **Tela nova:** função em `paginas.py` usando `documento(...)` com o tema da área; JS vai em `static/funil.js`. Confira em 390 px de largura
-  (celular): é onde o comprador está.
+- Money is integer cents. Prices always come from the stored product on the server, never from the request. Orders snapshot their prices.
+- An order becomes paid only after the received amount is checked, inside a transaction with a conditional update so concurrent webhooks release once. Refunds revoke access.
+- Buyer requests and webhooks only write to the database. Every third-party call (e-mail, WhatsApp, Meta, payment provider) runs in the background loop through the outbox, with retries. A provider failure never blocks the buyer.
+- Queries: name every column (no `SELECT *`), aggregate and filter in the database, no N+1, no duplicate reads in one flow, no fetching what the flow does not use. Caching is never the fix for any of these.
+- Validate every external input at the edge (`src/lib/actions.ts`, route handlers). Server secrets (`SECRET`, `ADMIN_PASSWORD`, database) only through environment variables; integration credentials set in `/admin` > Conexões live in the `integration` table, sealed with `guard.seal` (AES-256-GCM, key derived from `SECRET`), read per use and never sent to the browser. Provider errors never echo response bodies.
+- Every module in `src/lib` except `actions.ts` (a `"use server"` edge that client components import) starts with `import "server-only"`.
+- Personal data: Meta receives only hashes. Access credentials go only by e-mail, never by WhatsApp or in a permanent URL.
+- Anything that releases money or access must be attacked as a fraudster before it ships: concurrent requests, replays, underpayment, refund then reuse, reused provider ids.
 
-## O que ainda não tem (bom lugar para começar)
+## UI rules
 
-Em ordem de quanto destrava a operação de alguém. Antes de começar, comente na issue (ou abra uma) para ninguém fazer em dobro.
+- The admin is rendered on demand only (`src/app/admin/page.tsx` checks the session before rendering anything, and every admin action and route handler checks it again) and nothing from it ships to buyers: a `"use client"` module is bundled whole, so admin-only client components live under `src/app/admin/` and buyer pages never import them. Components that need no browser JS stay server components. Every module in `src/lib` starts with `import "server-only"`.
 
-1. **Pix dinâmico com confirmação automática** (cobrança com `txid` pelo PSP: Efí, Inter, Mercado Pago, Asaas). Hoje o Pix é estático e a
-   confirmação vem de webhook seu ou de um clique no painel.
-2. **Cartão nativo** (hoje só por `link_pagamento` para Stripe/Mercado Pago).
-3. **Upsell de um clique depois da compra** e **cupom de desconto**.
-4. **Editar produto pelo painel** (hoje é o `config.json` e reiniciar).
-5. **Teste A/B** de headline/preço na VSL e no checkout, medido pelo próprio funil.
-6. **Templates aprovados da Cloud API do WhatsApp** para recuperação fora da janela de 24 h.
-7. **LGPD de ponta a ponta:** exportar e apagar os dados de um titular pelo painel.
-8. **Postgres opcional** para várias réplicas (só o `nucleo.py` muda).
-9. **Certificado de conclusão** e comentários nas aulas da área de membros.
-10. **Tradução** (es/en) das páginas do comprador.
+- Follow `docs/design-system.md`: tokens, components and patterns live there. Do not invent one-off colors, spacing or components.
+- One-step UX: if an action needs a prerequisite, the action leads to it and comes back. No disabled control without saying why and offering the fix.
+- Every async button shows loading and is disabled while pending. Success messages only after the server confirms. Queued work says it is queued.
+- Check every buyer screen at 390 px wide.
 
-## Pull request
+## No AI slop
 
-- Uma mudança por PR, pequena (mire em até ~300 linhas). Refatoração que ninguém pediu vira outra issue.
-- **Teste que falha sem a sua mudança**, com nome que descreve a falha (`test_valor_inventado_no_formulario_nao_muda_o_preco`, não `test_preco`).
-- No corpo: o que mudou, por quê, o comando que você rodou e o resultado (contagem de testes), e print da tela se mexeu em página.
-- Commit em português no formato `tipo(escopo): descrição` (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`).
-- Não desligue, pule nem afrouxe teste ou regra de lint para o CI passar.
+This repo should read like it was written by one careful engineer. Before you finish, delete anything below.
 
-## De onde vem este repositório
+**Code**
 
-O código nasce no monorepo da Genesis (`apps/sistemas/funil-aberto` em `thiagopatzdorf/fabrica-de-sites`, privado) e é espelhado aqui.
-PRs **são bem-vindos aqui**: depois do merge, um mantenedor leva a mudança para o monorepo, e o espelho **recusa** publicar enquanto houver
-mudança deste repositório que ainda não foi levada (nada que entra aqui se perde na próxima publicação). Por isso o CI deste repositório
-roda em runner do GitHub, não nos da Genesis: runner próprio em repositório público executaria código de PR de qualquer pessoa numa
-máquina nossa.
+- Wrappers that only forward to another function, `utils`/`helpers` grab bags, factories or generics with one caller, options nobody sets.
+- `try/catch` that only logs and rethrows, swallows, or guards something that cannot throw. Fallbacks for states the types already rule out.
+- Defensive checks repeated at every layer: validate once at the edge, trust the types after.
+- Comments that restate the code, section banners, JSDoc that repeats the signature, `console.log` left behind.
+- Vague names (`data`, `info`, `item`, `handleClick`, `processData`, `result2`). Name what it is.
+- Tests that assert implementation details or only that a function "was called". Test behavior.
+
+**Interface**
+
+- Purple/indigo gradients, gradient text, glassmorphism, glow, emoji as icons, sparkle icons.
+- Every element in its own shadowed card, everything `rounded-2xl`, decorative badges and pills, three-column "icon + title + description" feature grids.
+- Grids of equal-weight KPI cards, walls of stacked alerts, placeholder or lorem copy, fake testimonials and fake numbers.
+- Animation that does not explain a state change.
+
+**Writing (UI copy, docs, commit messages)**
+
+- Hype words: seamless, robust, powerful, effortless, leverage, unlock, elevate, supercharge, cutting-edge, game-changing, best-in-class, delve, streamline.
+- Filler openers and closers ("In today's world", "It's important to note", "Whether you're X or Y", "In conclusion").
+- Reflex lists of three, "not just X but Y", a bold lead-in on every bullet, emoji bullets, headings for two-line sections.
+- Write the fact, the number or the command. If a sentence can be deleted without losing information, delete it.
+
+## Working here
+
+- Do not commit, push or rewrite history unless asked.
+- Do not add a dependency without a clear need; pin exact versions.
+- When a doc or this file stops matching the code, update it in the same change.

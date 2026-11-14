@@ -1,0 +1,57 @@
+@layer screens {
+  .page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .bar {
+    padding: var(--space-3) max(var(--gutter), calc((100% - var(--content-max)) / 2));
+    border-bottom: 1px solid var(--border);
+  }
+
+  .main {
+    width: min(100% - 2 * var(--gutter), var(--content-max));
+    margin-inline: auto;
+    padding-block: var(--space-7) var(--space-8);
+  }
+
+  .products {
+    display: grid;
+    gap: var(--space-3);
+    list-style: none;
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .product {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+    height: 100%;
+    padding: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease-out);
+
+    @media (any-hover: hover) {
+      &:hover {
+        border-color: var(--border-strong);
+      }
+    }
+  }
+
+  .thumb {
+    flex: none;
+    width: calc(var(--space-8) * 1.5);
+    height: calc(var(--space-8) * 1.5);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    object-fit: cover;
+  }
+}

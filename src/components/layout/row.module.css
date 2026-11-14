@@ -1,0 +1,31 @@
+@layer components {
+  .row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+
+    &[data-wrap="true"] {
+      flex-wrap: wrap;
+    }
+
+    &[data-justify="between"] {
+      justify-content: space-between;
+    }
+
+    &[data-justify="end"] {
+      justify-content: flex-end;
+    }
+
+    &[data-align="start"] {
+      align-items: flex-start;
+    }
+
+    &[data-align="baseline"] {
+      align-items: baseline;
+    }
+
+    &[data-align="end"] {
+      align-items: flex-end;
+    }
+  }
+}

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>LibreFunnel: a operação de venda online num processo só</title>
+    <meta
+      name="description"
+      content="Código aberto (MIT) que substitui tracker, VSL, checkout com Pix sem gateway, área de membros, recuperação de carrinho, robô de WhatsApp e painel de vendas. Next.js e PostgreSQL, num servidor grátis."
+    />
+    <meta name="robots" content="index, follow" />
+
+    <meta property="og:title" content="LibreFunnel" />
+    <meta
+      property="og:description"
+      content="Código aberto (MIT) que substitui tracker, VSL, checkout com Pix sem gateway, área de membros, recuperação de carrinho, robô de WhatsApp e painel de vendas. Next.js e PostgreSQL, num servidor grátis."
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="LibreFunnel" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f4f0" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141513" />
+    <link rel="alternate" type="text/markdown" href="llms.txt" title="LibreFunnel para assistentes de IA" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "LibreFunnel",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Linux, macOS, Windows",
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/ToledoSDL/librefunnel",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+        "description": "Funil de vendas de código aberto para infoprodutores brasileiros: página de VSL, checkout com Pix sem taxa por venda, order bump, área de membros, recuperação de carrinho por WhatsApp e e-mail, atribuição com Meta Conversions API e painel de vendas.",
+        "softwareVersion": "0.2.0",
+        "inLanguage": "pt-BR",
+        "isAccessibleForFree": true,
+        "featureList": [
+          "Página de VSL",
+          "Checkout com Pix (BR Code estático ou provedor)",
+          "Order bump",
+          "Área de membros com login por link mágico",
+          "Recuperação de carrinho por WhatsApp e e-mail",
+          "Atribuição com Meta Conversions API",
+          "Painel de vendas"
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="marca" href="https://github.com/ToledoSDL/librefunnel"
+        ><img src="icon.svg" width="28" height="28" alt="" />LibreFunnel</a
+      >
+      <section class="heroi">
+        <span class="rotulo">Código aberto · MIT · github.com/ToledoSDL/librefunnel</span>
+        <h1>A operação de venda online inteira num processo só.</h1>
+        <p>
+          Tracker, VSL, checkout, área de membros, recuperação de carrinho, robô de WhatsApp e painel de vendas. Em vez
+          de sete assinaturas que não se falam, um app que sobe com <span class="mono">docker compose up -d</span> numa
+          VPS grátis.
+        </p>
+        <p class="pergunta">
+          “Não faria mais sentido todos criarem uma só?”: a pergunta no X que deu origem a este repositório, em
+          13/11/2026.
+        </p>
+        <div class="acoes">
+          <a class="bt" href="https://github.com/ToledoSDL/librefunnel">Ver o código</a>
+          <a class="bt sec" href="#espinha">Ver como funciona</a>
+        </div>
+        <div class="cmd">
+          git clone https://github.com/ToledoSDL/librefunnel && cd librefunnel cp .env.example .env && docker compose up
+          -d --build # passo a passo completo no README
+        </div>
+      </section>
+
+      <section>
+        <span class="rotulo">O que ele substitui</span>
+        <h2>Sete ferramentas, sete bancos de dados. Ou um.</h2>
+        <div class="troca">
+          <div class="pilha">
+            <div><span>Tracker de atribuição</span><span>/t + Meta CAPI</span></div>
+            <div><span>Player e página de VSL</span><span>/v/&lt;produto&gt;</span></div>
+            <div><span>Checkout</span><span>/c/&lt;produto&gt;</span></div>
+            <div><span>Área de membros</span><span>/m (link no e-mail)</span></div>
+            <div><span>Recuperação de carrinho</span><span>/admin</span></div>
+            <div><span>Robô estilo Manychat</span><span>/api/webhooks/whatsapp</span></div>
+            <div><span>Painel de vendas</span><span>/admin</span></div>
+          </div>
+          <div class="seta" aria-hidden="true">→</div>
+          <div class="um">
+            <h3>Uma pessoa, uma linha do tempo</h3>
+            <p>
+              Cada ferramenta é um módulo que grava eventos sobre o mesmo visitante. Por isso “qual anúncio vendeu?”
+              deixa de ser uma integração entre cinco painéis e vira uma consulta no mesmo banco.
+            </p>
+            <span class="mono">visitante ─┬─ evento ─ pedido ─ membro ─ mensagem</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="espinha">
+        <span class="rotulo">A espinha de eventos</span>
+        <h2>Acompanhe a Ana do anúncio até a aula.</h2>
+        <p>
+          Cada passo abaixo é o que acontece de verdade no código, com a linha que entra no banco. Toque num passo ou
+          use os botões.
+        </p>
+        <div class="espinha">
+          <ol class="passos" id="passos"></ol>
+          <div class="detalhe" aria-live="polite">
+            <div class="tempo" id="d-tempo"></div>
+            <h3 id="d-titulo"></h3>
+            <p id="d-texto"></p>
+            <pre id="d-codigo"></pre>
+            <p class="substitui" id="d-subs"></p>
+            <div class="placar" id="placar"></div>
+            <div class="nav">
+              <button class="bt sec" id="ant" type="button">← Anterior</button>
+              <button class="bt" id="prox" type="button">Próximo passo →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <span class="rotulo">Pix sem gateway</span>
+        <h2>O checkout não cobra taxa porque não passa por ninguém.</h2>
+        <p>
+          O código Pix copia e cola é um texto no padrão do Banco Central, com um dígito verificador no fim. O
+          librefunnel monta esse texto direto para a sua chave. O teste confere o resultado contra o exemplo do próprio
+          manual do BR Code:
+        </p>
+        <div class="pix">
+          00020126580014<mark>br.gov.bcb.pix</mark>0136123e4567-e12b-12d1-a456-4266554400005204000053039865802BR5913Fulano
+          de Tal6008BRASILIA62070503***6304<mark>1D3D</mark>
+        </div>
+        <p>
+          Você confere o extrato e libera no painel, de graça. Se preferir confirmação automática, liga o Mercado Pago
+          (0,99% por venda) e o acesso sai sozinho quando o Pix cai.
+        </p>
+      </section>
+
+      <section>
+        <span class="rotulo">Por dentro</span>
+        <h2>Poucos arquivos, cada um com um domínio.</h2>
+        <div class="arquivos">
+          <div>
+            <span class="mono">src/lib/orders.ts</span>
+            <p>
+              Pedido, preço, Pix (BR Code com CRC16), pagamentos, reembolso e expiração. O dinheiro é conferido pelo
+              valor recebido.
+            </p>
+          </div>
+          <div>
+            <span class="mono">src/lib/messages.ts</span>
+            <p>
+              Fila de e-mail e WhatsApp com novas tentativas, recuperação de carrinho, robô por palavra-chave e opt-out.
+            </p>
+          </div>
+          <div>
+            <span class="mono">src/lib/tracking.ts</span>
+            <p>Origem do visitante (primeiro e último clique) e envio da venda para a Meta Conversions API.</p>
+          </div>
+          <div>
+            <span class="mono">src/app/</span>
+            <p>
+              As telas e o painel, onde você edita produtos, aulas, mensagens de recuperação e respostas do robô, sem
+              mexer em código.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <span class="rotulo">O que ainda não faz</span>
+        <h2>Limites, ditos antes.</h2>
+        <ul class="limites">
+          <li>
+            Sem Mercado Pago, o Pix estático não avisa sozinho que foi pago: você confere o extrato e libera no painel.
+          </li>
+          <li>
+            O WhatsApp usa o seu número pela Evolution API, que não é oficial: envio em massa pode bloquear o número,
+            por isso há limite diário.
+          </li>
+
+          <li>
+            Um processo por loja: o limite de tentativas fica na memória do processo, então cada réplica teria o seu
+            próprio limite.
+          </li>
+        </ul>
+      </section>
+
+      <footer>librefunnel 0.2.0 · Next.js 16 e PostgreSQL · licença MIT</footer>
+    </main>
+    <script src="app.js" defer></script>
+  </body>
+</html>

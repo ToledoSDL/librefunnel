@@ -1,0 +1,39 @@
+@layer components {
+  .input {
+    width: 100%;
+    min-width: 0;
+    min-height: max(var(--tap-min), 2.25rem);
+    padding: calc(var(--space-2) * var(--density)) var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--text);
+    font-size: var(--text-sm);
+    transition: border-color var(--dur-fast) var(--ease-out);
+
+    @media (pointer: coarse) {
+      font-size: var(--text-md);
+    }
+
+    &::placeholder {
+      color: var(--text-faint);
+    }
+
+    &:focus-visible {
+      border-color: var(--primary);
+    }
+
+    &[aria-invalid="true"] {
+      border-color: var(--danger);
+    }
+
+    &:disabled {
+      background: var(--surface-2);
+      color: var(--text-muted);
+    }
+  }
+
+  textarea.input {
+    resize: vertical;
+  }
+}

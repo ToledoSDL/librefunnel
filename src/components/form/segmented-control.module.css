@@ -1,0 +1,62 @@
+@layer components {
+  .segmented {
+    display: inline-flex;
+    max-width: 100%;
+    margin: 0;
+    padding: 2px;
+    gap: 2px;
+    overflow-x: auto;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+  }
+
+  .segment {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: calc(max(var(--tap-min), 2.25rem) - 4px);
+    padding: 0 calc(var(--space-3) * var(--density));
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+
+    & input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:has(:focus-visible) {
+      box-shadow: var(--focus-ring);
+    }
+
+    &[aria-current="page"],
+    &[aria-checked="true"],
+    &:has(:checked) {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow-1);
+    }
+
+    @media (any-hover: hover) {
+      &:hover {
+        color: var(--text);
+      }
+    }
+  }
+
+  .count {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+}

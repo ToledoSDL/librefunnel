@@ -1,0 +1,61 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { vi } from "vitest";
+import { saveCredentials } from "@/lib/catalog";
+import { migrate } from "@/lib/db";
+import { WEBHOOK_SECRET } from "./fakes";
+
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "librefunnel-test-"));
+process.env.BASE_URL = "https://shop.example";
+process.env.SECRET = "s".repeat(40);
+process.env.ADMIN_PASSWORD = "long-admin-password";
+process.env.TRUST_PROXY = "1";
+
+vi.useFakeTimers({ toFake: ["Date"] });
+vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+
+vi.mock("next/headers", async () => {
+  const fakes = await import("./fakes");
+  return { cookies: async () => fakes.jar, headers: async () => fakes.requestHeaders };
+});
+
+vi.mock("next/navigation", async () => {
+  const fakes = await import("./fakes");
+  return {
+    redirect: (to: string) => {
+      throw new fakes.RedirectSignal(to);
+    },
+  };
+});
+
+vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
+
+vi.mock("next/server", () => ({ after: () => undefined }));
+
+vi.mock("nodemailer", async () => {
+  const fakes = await import("./fakes");
+  return {
+    default: {
+      createTransport: (options: (typeof fakes.mailTransports)[number]) => {
+        fakes.mailTransports.push(options);
+        return {
+          verify: async () => {
+            const failure = fakes.mailFailures.shift();
+            if (failure) throw failure;
+            return true;
+          },
+          sendMail: async (message: { to: string; subject: string; text: string }) => {
+            const failure = fakes.mailFailures.shift();
+            if (failure) throw failure;
+            fakes.sentMail.push({ to: message.to, subject: message.subject, text: message.text });
+            return { messageId: `<${fakes.sentMail.length}@test>` };
+          },
+        };
+      },
+    },
+  };
+});
+
+await migrate();
+await saveCredentials("webhook", {}, { secret: WEBHOOK_SECRET });

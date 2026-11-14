@@ -1,0 +1,120 @@
+services:
+  app:
+    # Updates swap this image; everything the store saved lives in the volumes below and in .env.
+    image: ghcr.io/toledosdl/librefunnel:${LIBREFUNNEL_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TRUST_PROXY: "1"
+      TZ: America/Sao_Paulo
+      EVOLUTION_URL: ${EVOLUTION_URL:-http://evolution:8080}
+      EVOLUTION_KEY: ${EVOLUTION_KEY:-${POSTGRES_PASSWORD}}
+      UPDATER_URL: http://updater:8090
+      UPDATER_TOKEN: ${UPDATER_TOKEN:-${POSTGRES_PASSWORD}}
+      DATABASE_URL: postgresql://librefunnel:${POSTGRES_PASSWORD}@db:5432/librefunnel
+    volumes:
+      - data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:17.12-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: librefunnel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: librefunnel
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./deploy/evolution.sql:/docker-entrypoint-initdb.d/evolution.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "librefunnel", "-d", "librefunnel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    image: postgres:17.12-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: librefunnel
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: librefunnel
+    volumes:
+      - backups:/backups
+    # One dump a day named after the weekday (1 is Monday), so the last 7 days are kept.
+    entrypoint:
+      - sh
+      - -c
+      - while true; do pg_dump --clean --if-exists --no-owner -f /backups/partial.sql && mv /backups/partial.sql /backups/librefunnel-$$(date +%u).sql; sleep 86400; done
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.11.9-alpine
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    environment:
+      SERVER_URL: http://evolution:8080
+      # Reachable only inside this network, so the database password doubles as the key when none is set.
+      AUTHENTICATION_API_KEY: ${EVOLUTION_KEY:-${POSTGRES_PASSWORD}}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://librefunnel:${POSTGRES_PASSWORD}@db:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: librefunnel
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      CONFIG_SESSION_PHONE_CLIENT: LibreFunnel
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      db:
+        condition: service_healthy
+
+  updater:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.updater
+    restart: unless-stopped
+    environment:
+      UPDATER_TOKEN: ${UPDATER_TOKEN:-${POSTGRES_PASSWORD}}
+      TZ: America/Sao_Paulo
+      # Same project name as on the host, so compose inside drives the same containers and volumes.
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+    # It only recreates the app service and runs the backup, which use no host paths, so a fixed folder works on any OS.
+    working_dir: /srv/librefunnel
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/srv/librefunnel
+
+volumes:
+  data:
+  postgres:
+  backups:
+  caddy_data:
+  caddy_config:
+  evolution_instances:

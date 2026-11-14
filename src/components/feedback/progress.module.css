@@ -1,0 +1,16 @@
+@layer components {
+  .progress {
+    height: var(--space-1);
+    overflow: hidden;
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+
+    & span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--success);
+      transition: width var(--dur-med) var(--ease-out);
+    }
+  }
+}

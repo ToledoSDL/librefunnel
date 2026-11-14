@@ -1,0 +1,12 @@
+@layer screens {
+  .page {
+    display: grid;
+    min-height: 100dvh;
+    place-items: center;
+  }
+
+  .main {
+    width: min(100% - 2 * var(--gutter), var(--measure));
+    padding-block: var(--space-8);
+  }
+}

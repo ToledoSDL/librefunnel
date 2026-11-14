@@ -1,0 +1,2 @@
+ALTER TABLE "setting" DROP CONSTRAINT "setting_key";--> statement-breakpoint
+ALTER TABLE "setting" ADD CONSTRAINT "setting_key" CHECK ("setting"."key" IN ('brand', 'owner_email', 'owner_whatsapp', 'terms_url', 'terms_version', 'order_hours', 'logo', 'icon', 'accent', 'support_email', 'support_whatsapp', 'legal_name', 'document', 'privacy_url', 'powered_by', 'description', 'share_image', 'home', 'checkout_phone', 'confirm_email'));

@@ -1,0 +1,15 @@
+.git
+.github
+.next
+node_modules
+data
+media
+*.db
+*.db-*
+.env
+.env.*
+docs
+tests
+deploy
+*.md
+!public/**/*.md

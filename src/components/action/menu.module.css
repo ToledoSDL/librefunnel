@@ -1,0 +1,46 @@
+@layer components {
+  .menu {
+    z-index: 60;
+    min-width: 12rem;
+    padding: var(--space-1);
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-2);
+
+    & form {
+      display: contents;
+    }
+  }
+
+  .menuItem[data-active-item] {
+    background: var(--surface-2);
+  }
+
+  .menuItem {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: max(var(--tap-min), 2.25rem);
+    padding: 0 calc(var(--space-3) * var(--density));
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font-size: var(--text-sm);
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+
+    &[data-danger="true"] {
+      color: var(--danger);
+    }
+
+    @media (any-hover: hover) {
+      &:hover {
+        background: var(--surface-2);
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+@layer components {
+  /* Floats over the page instead of taking a row, so it never covers the field being edited for long. */
+  .saveBar {
+    position: fixed;
+    bottom: max(var(--space-5), env(safe-area-inset-bottom));
+    left: 50%;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    width: max-content;
+    max-width: calc(100vw - 2 * var(--gutter));
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+    translate: -50% 0;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-2);
+    font-size: var(--text-sm);
+    animation: rise var(--dur-med) var(--ease-out);
+
+    &[hidden] {
+      display: none;
+    }
+
+    @media (min-width: 1024px) {
+      /* Centered on the content column, not on the window behind the sidebar. */
+      left: calc(50% + 7.5rem);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: -50% var(--space-4);
+    }
+  }
+
+  .label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    white-space: nowrap;
+
+    &::before {
+      content: "";
+      width: var(--space-2);
+      height: var(--space-2);
+      border-radius: var(--radius-full);
+      background: var(--warning);
+    }
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+
+    & button {
+      border-radius: var(--radius-full);
+    }
+  }
+}

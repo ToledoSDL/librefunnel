@@ -1,0 +1,35 @@
+# LibreFunnel
+
+> Funil de vendas de código aberto (licença MIT) para quem vende infoproduto no Brasil. Roda no seu próprio servidor, inclusive no plano grátis da Oracle Cloud, e não cobra taxa por venda.
+
+O LibreFunnel junta num app só o que normalmente são várias assinaturas: página de VSL, checkout com Pix, order bump, área de membros, recuperação de carrinho, respostas automáticas no WhatsApp, atribuição de vendas e painel. Stack: Next.js 16, React 19, PostgreSQL com Drizzle ORM, Docker Compose e Caddy.
+
+## O que ele faz
+
+- Página de vendas (VSL): vídeo com o botão de compra aparecendo no segundo escolhido, prazo da oferta, garantia, depoimentos e perguntas frequentes.
+- Checkout com Pix: pago direto na chave Pix do vendedor, sem taxa, ou confirmado sozinho pelo Mercado Pago (0,99% por venda), Woovi ou AbacatePay.
+- Order bump: um produto extra oferecido no checkout.
+- Área de membros: módulos, aulas e progresso. O comprador entra por um link enviado por e-mail, sem senha.
+- Recuperação de carrinho: por e-mail (qualquer SMTP) e por WhatsApp (Evolution API, opcional). Para quando o comprador paga ou pede para sair, e não manda WhatsApp entre 21h e 9h.
+- Atribuição: UTMs com primeiro e último toque, e vendas enviadas para a Meta pela Conversions API.
+- Painel: faturamento, funil, origens, pedidos com liberação e reembolso, mensagens, conexões e exportação em CSV.
+
+## Perguntas frequentes
+
+### Quanto custa?
+
+Nada. O código é aberto (MIT) e roda num servidor seu. Com Pix direto na sua chave não há taxa por venda. Os provedores de Pix opcionais cobram a tarifa deles.
+
+### Do que eu preciso para instalar?
+
+Um servidor Linux com IP público e as portas 80 e 443 abertas, um nome de domínio (pode ser grátis, pelo DuckDNS) e o Docker. A instalação é `docker compose up -d --build`.
+
+### Funciona com cartão de crédito?
+
+Não. O pagamento é só por Pix.
+
+## Links
+
+- [Código e README](https://github.com/ToledoSDL/librefunnel)
+- [Guia de instalação passo a passo](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md)
+- [Design system](https://github.com/ToledoSDL/librefunnel/blob/main/docs/design-system.md)

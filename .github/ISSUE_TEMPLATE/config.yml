@@ -1,5 +1,0 @@
-blank_issues_enabled: true
-contact_links:
-  - name: Vulnerabilidade de segurança
-    url: https://github.com/thiagopatzdorf/funil-aberto/security/advisories/new
-    about: Não abra issue pública; use o aviso privado do GitHub.

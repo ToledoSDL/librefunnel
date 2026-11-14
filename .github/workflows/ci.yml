@@ -1,62 +1,21 @@
-# CI do repositório público: os mesmos comandos do AGENTS.md ("Comandos").
-# Runner do GitHub de propósito: runner próprio num repositório público rodaria código de PR de qualquer pessoa numa máquina nossa.
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [main]
-  workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  testes:
-    name: Testes (Python ${{ matrix.python }})
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        # 3.10 é o piso prometido no AGENTS.md; 3.12 é o da imagem Docker.
-        python: ["3.10", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          python-version: ${{ matrix.python }}
-      - run: python -m pip install pytest==8.4.2
-      - run: python -m pytest -q tests
-
-  lint:
-    name: Lint (ruff)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
-        with:
-          python-version: "3.12"
-      - run: python -m pip install ruff==0.14.2
-      - run: ruff check --output-format=github .
-
-  imagem:
-    name: Imagem Docker sobe e responde
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - run: docker build -t funil-aberto:ci .
-      # "Buildou" não prova nada: sobe o contêiner com a raiz só leitura (como em produção) e confere /saude e a VSL da demo.
-      - run: |
-          docker run -d --name funil --read-only --tmpfs /tmp -v funil-dados:/data -p 8080:8080 \
-            -e ADMIN_TOKEN=ci -e WEBHOOK_SECRET=ci funil-aberto:ci
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/saude && break; sleep 1; done
-          curl -fsS http://127.0.0.1:8080/v/metodo-demo | grep -q "<video"
-      - if: failure()
-        run: docker logs funil
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: docker build -f deploy/Dockerfile .

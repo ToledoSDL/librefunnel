@@ -1,0 +1,63 @@
+@layer components {
+  .dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    width: min(100% - 2 * var(--gutter), 28rem);
+    height: fit-content;
+    max-height: calc(100dvh - 2 * var(--gutter));
+    margin: auto;
+    padding: var(--space-5);
+    overflow: auto;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-2);
+    animation: rise var(--dur-med) var(--ease-out);
+
+    &[data-size="lg"] {
+      width: min(100% - 2 * var(--gutter), 36rem);
+    }
+  }
+
+  .backdrop {
+    background: var(--scrim);
+  }
+
+  .dialogHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .dialogTitle {
+    padding-top: var(--space-1);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    line-height: var(--leading-tight);
+  }
+
+  .dialogBody {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .dialogFooter {
+    display: flex;
+    flex-wrap: wrap-reverse;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(var(--space-2));
+    }
+  }
+}

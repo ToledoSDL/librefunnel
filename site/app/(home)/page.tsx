@@ -177,7 +177,7 @@ function Eyebrow({ children }: { children: ReactNode }) {
 
 function Heading({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
   return (
-    <div className="reveal grid max-w-2xl gap-3">
+    <div className="reveal grid max-w-2xl content-start gap-3 self-start md:sticky md:top-12">
       <Eyebrow>{eyebrow}</Eyebrow>
       <h2 className="text-3xl font-medium tracking-[-0.03em] text-balance md:text-5xl">{title}</h2>
       {lead ? <p className="text-lg text-fd-muted-foreground">{lead}</p> : null}
@@ -308,8 +308,8 @@ export default function HomePage() {
           </div>
         </nav>
 
-        <div className="relative mx-auto grid max-w-[1200px] items-center gap-12 px-4 pt-8 pb-0 md:px-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,7fr)] lg:gap-8 lg:pt-12">
-          <div className="grid justify-items-start gap-6 lg:pb-24">
+        <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-12 px-4 pt-8 pb-0 md:px-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,7fr)] lg:gap-8 lg:pt-12">
+          <div className="grid grid-cols-1 justify-items-start gap-6 lg:pb-24">
             <p className="rise [--delay:0s] rounded-full bg-white/15 px-3 py-1.5 font-mono text-[11px] tracking-[0.08em] uppercase">
               Código aberto · Sem taxa por venda
             </p>
@@ -533,7 +533,7 @@ export default function HomePage() {
             <h2 className="reveal max-w-3xl text-4xl font-medium tracking-[-0.04em] text-balance md:text-6xl">
               Um comando no seu servidor. Sua loja no ar.
             </h2>
-            <div className="reveal grid justify-items-start gap-4">
+            <div className="reveal grid grid-cols-1 justify-items-start gap-4">
               <InstallCommand />
               <div className="flex flex-wrap gap-x-6 gap-y-2 font-medium">
                 <Link href="/docs/instalar/" className="flex min-h-11 items-center underline-offset-4 hover:underline">

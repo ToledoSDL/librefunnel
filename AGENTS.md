@@ -65,7 +65,9 @@ A change is done only when `bun run check` passes. CI runs the same plus a Docke
 - `docs/`: `deploy.md` (layperson guide), `design-system.md`, `brand.ts` and the brand SVGs it writes
 - `site/`: librefunnel.com: a separate Fumadocs app (own `package.json` and `bun.lock`, outside the store's tooling and
   image), landing page in `app/(home)`, docs in `content/docs/*.mdx`, static export to `site/out` with
-  `deploy/install.sh` copied in as `/install`
+  `deploy/install.sh` copied in as `/install`; `llms.txt`, `llms-full.txt` and `/md/<page>.md` are built from the docs
+  by `lib/llms.ts`; `bun run shots` (in `site/`, needs Chrome and `cwebp`) rewrites the landing screenshots in
+  `public/shots/` and `og.png` from the public demo, admin first since the buyer flow adds an order
 
 ## Code rules
 

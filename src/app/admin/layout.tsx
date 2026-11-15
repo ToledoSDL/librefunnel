@@ -72,6 +72,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               { href: "/admin", label: "Resumo", icon: <Icon name="layout-dashboard" size={16} /> },
               { href: "/admin/orders", label: "Pedidos", icon: <Icon name="receipt" size={16} /> },
               { href: "/admin/products", label: "Produtos", icon: <Icon name="package" size={16} /> },
+              { href: "/admin/coupons", label: "Cupons", icon: <Icon name="tag" size={16} /> },
             ],
           },
           {

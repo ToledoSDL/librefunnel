@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import * as catalog from "./catalog";
 import type { CatalogCode } from "./catalog";
+import * as coupons from "./coupons";
+import type { CouponCode } from "./coupons";
 import { clientIp, demoMode, isAdmin, limited, signInAdmin, signOutAdmin } from "./guard";
 import type { GuardCode } from "./guard";
 import * as invoices from "./invoices";
@@ -16,8 +18,13 @@ import * as members from "./members";
 import type { MemberCode } from "./members";
 import * as messages from "./messages";
 import type { AutomationCode, MessageCode } from "./messages";
-import * as orders from "./orders";
-import type { OrderCode } from "./orders";
+import * as charges from "./orders/charges";
+import * as checkout from "./orders/checkout";
+import * as crypto from "./orders/crypto";
+import * as payments from "./orders/payments";
+import * as providers from "./orders/psp";
+import * as webhooks from "./orders/webhooks";
+import type { OrderCode } from "./orders/checkout";
 import { fbcFor, metaCookie, recordTouch, sendMetaTest, visitor } from "./tracking";
 import type { ConversionCode, TrackCode } from "./tracking";
 import * as updates from "./updates";
@@ -30,6 +37,7 @@ import {
   LINK,
   SLUG,
   parseCents,
+  parseCouponCode,
   parseCpfCnpj,
   parseCredential,
   parseEmail,
@@ -62,10 +70,12 @@ export type Code =
   | AutomationCode
   | MediaCode
   | StorageCode
-  | InvoiceCode;
+  | InvoiceCode
+  | CouponCode;
 // secret is set only by rotateWebhookSecret: the one time the generated value reaches the browser.
 export type ActionState = { code: Code | null; ok?: boolean; secret?: string };
 export type WhatsAppState = ActionState & { qr?: string; pairingCode?: string };
+export type CouponState = ActionState & { coupon?: string; discount?: number };
 type FormArgs = [state: ActionState, form: FormData];
 type Pix = catalog.Product["pix"];
 
@@ -235,16 +245,20 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
   const requestHeaders = await headers();
   const ip = clientIp(requestHeaders);
   if (limited("order", ip, 20, 600)) return { code: "RATE_LIMITED" };
+  const typed = field(form, "coupon").trim();
+  const coupon = typed ? await coupons.tryCoupon(typed, product, email, ip) : undefined;
+  if (coupon && "code" in coupon) return { code: coupon.code };
   const visitorId = await visitor();
   await recordTouch(visitorId, field(form, "touch"), "", `/c/${product.slug}`);
   const jar = await cookies();
 
-  const result = await orders.placeOrder({
+  const result = await checkout.placeOrder({
     product,
     name,
     email,
     phone,
     document,
+    coupon,
     bump: field(form, "bump") === "1",
     ownOrder: await members.orderFromCookie(),
     visitorId,
@@ -256,8 +270,17 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
 
   if ("code" in result) return { code: result.code };
   await members.rememberOrder(result.id);
-  after(orders.attachCharges);
+  after(charges.attachCharges);
   redirect(`/c/${product.slug}?order=${result.id}`);
+}
+
+// The checkout's "Aplicar" button: the discount it shows is computed here and again when the order is placed.
+export async function checkCoupon(...[, form]: FormArgs): Promise<CouponState> {
+  const product = await catalog.getProduct(field(form, "slug"));
+  if (!product || product.archived) return { code: "PRODUCT_NOT_FOUND" };
+  const email = parseEmail(field(form, "email")) ?? null;
+  const applied = await coupons.tryCoupon(field(form, "coupon"), product, email, clientIp(await headers()));
+  return "code" in applied ? { code: applied.code } : { code: null, ok: true, ...applied };
 }
 
 export async function requestLogin(...[, form]: FormArgs): Promise<ActionState> {
@@ -282,7 +305,7 @@ export async function enterFromOrder(): Promise<ActionState> {
 export async function simulatePayment(...[, form]: FormArgs): Promise<ActionState> {
   const orderId = field(form, "orderId");
   if (!ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
-  return done(await orders.simulatePayment(orderId));
+  return done(await payments.simulatePayment(orderId));
 }
 
 export async function completeLesson(...[, form]: FormArgs): Promise<ActionState> {
@@ -318,12 +341,12 @@ export async function releaseOrder(...[, form]: FormArgs): Promise<ActionState> 
   if (!ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
   const amount = parseCents(field(form, "amount"));
   if (!amount) return { code: "INVALID_AMOUNT" };
-  return done(await orders.releaseOrder(orderId, amount));
+  return done(await payments.releaseOrder(orderId, amount));
 }
 
 export async function refundOrder(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  return done(await orders.refundOrder(field(form, "orderId")));
+  return done(await payments.refundOrder(field(form, "orderId")));
 }
 
 export async function resendMessage(...[, form]: FormArgs): Promise<ActionState> {
@@ -365,7 +388,7 @@ export async function testConnection(...[, form]: FormArgs): Promise<ActionState
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
   const kind = field(form, "kind");
-  const psp = orders.pixProvider(kind);
+  const psp = providers.pixProvider(kind);
   const known = ["smtp", "meta", "evolution", "whatsapp", "storage", "nfse"].includes(kind);
   if (!known && (!psp || psp === "static")) return { code: "INVALID_PAYLOAD" };
   if (limited("test", kind, 10, 600)) return { code: "RATE_LIMITED" };
@@ -375,7 +398,7 @@ export async function testConnection(...[, form]: FormArgs): Promise<ActionState
   if (kind === "whatsapp") return done(await messages.testCloud());
   if (kind === "meta") return done(await sendMetaTest());
   if (kind === "nfse") return done(await invoices.testNfse());
-  return done(psp && psp !== "static" ? await orders.testPsp(psp) : "INVALID_PAYLOAD");
+  return done(psp && psp !== "static" ? await charges.testPsp(psp) : "INVALID_PAYLOAD");
 }
 
 export async function saveSmtp(...[, form]: FormArgs): Promise<ActionState> {
@@ -462,7 +485,7 @@ export async function saveMeta(...[, form]: FormArgs): Promise<ActionState> {
 export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
-  const provider = orders.pixProvider(field(form, "provider"));
+  const provider = providers.pixProvider(field(form, "provider"));
   if (!provider) return { code: "INVALID_PAYLOAD" };
   if (provider !== "static") {
     const apiKey = parseCredential(field(form, "apiKey"));
@@ -476,9 +499,9 @@ export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
     const fields =
       provider === "depix" ? { clientId } : provider === "noxpay" ? { currency: field(form, "currency") } : {};
 
-    const stored = orders.pspKeys((await catalog.credentials(provider))(provider));
+    const stored = providers.pspKeys((await catalog.credentials(provider))(provider));
 
-    const ready = orders.pspConfigured(provider, {
+    const ready = providers.pspConfigured(provider, {
       ...stored,
       ...fields,
       apiKey: apiKey || stored.apiKey,
@@ -515,12 +538,12 @@ export async function saveWooviCrypto(...[, form]: FormArgs): Promise<ActionStat
     await catalog.saveCredentials("woovi", { convertMode: "off", convertError: "" });
     return done(null);
   }
-  const asset = orders.wooviAsset(field(form, "asset"));
+  const asset = crypto.wooviAsset(field(form, "asset"));
   if (!asset) return { code: "INVALID_PAYLOAD" };
-  const wallet = orders.cryptoWallet(asset, field(form, "wallet"));
+  const wallet = crypto.cryptoWallet(asset, field(form, "wallet"));
   if (!wallet) return { code: "INVALID_WALLET" };
   if (limited("test", "woovi-crypto", 10, 600)) return { code: "RATE_LIMITED" };
-  const code = await orders.testConversion(asset);
+  const code = await crypto.testConversion(asset);
   if (code) return { code };
   const previous = (await catalog.credentials("woovi"))("woovi")("convertMode");
 
@@ -638,7 +661,7 @@ export async function retryInvoice(...[, form]: FormArgs): Promise<ActionState> 
 export async function rotateWebhookSecret(): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
-  const secret = await orders.rotateWebhookSecret();
+  const secret = await webhooks.rotateWebhookSecret();
   revalidatePath("/", "layout");
   return { code: null, ok: true, secret };
 }
@@ -681,6 +704,36 @@ export async function saveProduct(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   const fields = productFields(form);
   return "code" in fields ? fields : done(await catalog.updateProduct(field(form, "slug"), fields));
+}
+
+export async function saveCoupon(...[, form]: FormArgs): Promise<ActionState> {
+  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  const code = parseCouponCode(field(form, "code"));
+  if (!code) return { code: "INVALID_COUPON_CODE" };
+  const kind = field(form, "kind");
+  if (kind !== "percent" && kind !== "fixed") return { code: "INVALID_PAYLOAD" };
+  const value = kind === "percent" ? parseInteger(field(form, "value"), 1, 99) : parsePrice(field(form, "value"));
+  if (value === undefined) return { code: "INVALID_DISCOUNT" };
+  const expiry = field(form, "expiresAt").trim();
+  const expiresAt = expiry ? new Date(expiry) : null;
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) return { code: "INVALID_DATE" };
+  const uses = field(form, "maxUses").trim();
+  const maxUses = uses ? parseInteger(uses, 1, 1_000_000) : null;
+  if (maxUses === undefined) return { code: "INVALID_USES" };
+  const products = column(form, "products");
+  if (products.some((slug) => !SLUG.test(slug))) return { code: "INVALID_PAYLOAD" };
+
+  const saved = await coupons.saveCoupon(
+    { code, kind, value, products, expiresAt, maxUses, oncePerEmail: field(form, "oncePerEmail") === "1" },
+    field(form, "editing") !== "1",
+  );
+
+  return done(saved);
+}
+
+export async function deleteCoupon(...[, form]: FormArgs): Promise<ActionState> {
+  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  return done((await coupons.deleteCoupon(field(form, "code"))) ? null : "INVALID_TRANSITION");
 }
 
 export async function moveItem(...[, form]: FormArgs): Promise<ActionState> {

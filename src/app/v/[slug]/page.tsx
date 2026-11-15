@@ -7,7 +7,7 @@ import { DEFAULT_BAR, getProduct, settings } from "@/lib/catalog";
 import type { Product } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
 import { streamFor } from "@/lib/media";
-import { offerOpen } from "@/lib/orders";
+import { offerOpen } from "@/lib/orders/checkout";
 import { Footer, JsonLd, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
 import { TrackClick, Tracker } from "@/app/track";

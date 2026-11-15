@@ -23,8 +23,9 @@ import { addSeconds, db, one } from "./db";
 import { baseUrl } from "./guard";
 import { invoiceCode, publicLink, regime } from "./invoices";
 import { cloudOf, cloudStatus, evolutionOf, messageCode, replyOpen, SMTP_PRESETS, whatsappState } from "./messages";
-import { conversionError, cryptoMode, PIX_PROVIDERS, pixProvider, pspConfigured, pspKeys } from "./orders";
-import type { OrderStatus } from "./orders";
+import { conversionError, cryptoMode } from "./orders/crypto";
+import { PIX_PROVIDERS, pixProvider, pspConfigured, pspKeys } from "./orders/psp";
+import type { OrderStatus } from "./orders/checkout";
 import {
   contact,
   customer,
@@ -332,6 +333,8 @@ export async function orderDetail(id: string) {
       bump: order.bump,
       productAmount: order.productAmount,
       bumpAmount: order.bumpAmount,
+      coupon: order.coupon,
+      discount: order.discount,
       amount: order.amount,
       status: order.status,
       txid: order.txid,

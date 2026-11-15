@@ -1,10 +1,12 @@
 import { Field } from "@/components/form/field";
 import { Input } from "@/components/form/input";
 import { Icon } from "@/components/media/icon";
+import type { Code } from "@/lib/actions";
 import type { OrderBump } from "@/lib/catalog";
 import { Money } from "@/app/format";
 import { CheckoutForm, CheckoutTotal, FieldMessage, FormMessage, SubmitLabel } from "@/app/ui";
 import { ConfirmEmail } from "./confirm";
+import { CouponField } from "./coupon";
 import { EmailInput } from "./email-input";
 import styles from "./page.module.css";
 
@@ -23,6 +25,7 @@ export function Purchase({
   trust,
   seal,
   prefill,
+  coupon,
 }: {
   slug: string;
   touch: string;
@@ -38,9 +41,10 @@ export function Purchase({
   trust: boolean;
   seal: boolean;
   prefill: { name: string; email: string; phone: string; document: string };
+  coupon: { code: string; discount: number; refused: Code | null };
 }) {
   return (
-    <CheckoutForm slug={slug} touch={touch} bumpDefault={bumpDefault}>
+    <CheckoutForm slug={slug} touch={touch} bumpDefault={bumpDefault} discountDefault={coupon.discount}>
       <div className={styles.panel}>
         <Field label="Nome completo" hint={<FieldMessage code="INVALID_NAME" />}>
           {(control) => (
@@ -151,6 +155,7 @@ export function Purchase({
           </label>
         ) : null}
 
+        <CouponField slug={slug} initial={coupon.code} refusedDefault={coupon.refused} />
         <div className={styles.total}>
           <span>Total</span>
           <CheckoutTotal price={price} bump={bump?.bumpPrice} />

@@ -9,7 +9,7 @@ import type { Product } from "@/lib/catalog";
 import { BrandLogo } from "@/components/media/brand-logo";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";
-import type { PixProvider } from "@/lib/orders";
+import type { PixProvider } from "@/lib/orders/psp";
 import { GHOST, href, PRIMARY, TextField } from "../shared";
 import { ItemActions } from "./item-actions";
 import { MoneyField } from "./money-field";

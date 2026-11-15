@@ -31,7 +31,9 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
   if (!found) notFound();
 
-  const underpaid = found.status === "pending" && found.received > 0;
+  const received = found.status === "pending" && found.received > 0;
+  // A coupon that ran out between checkout and payment leaves the full amount received and the order waiting.
+  const exhausted = received && found.coupon !== null && found.received >= found.amount;
   const product = names.get(found.product) ?? found.product;
   const bump = found.bump ? (names.get(found.bump) ?? found.bump) : null;
 
@@ -48,7 +50,9 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <Text variant="metric" as="h1">
               <Money cents={found.amount} />
             </Text>
-            {underpaid ? (
+            {exhausted ? (
+              <Badge tone="warning">Cupom esgotado</Badge>
+            ) : received ? (
               <Badge tone="danger">Pago a menos</Badge>
             ) : (
               <Badge tone={STATUS_TONE[found.status]}>{STATUS_LABEL[found.status]}</Badge>
@@ -78,8 +82,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             </Text>
             <dl className={styles.facts}>
               <Fact label={product}>
-                <Money cents={found.productAmount} />
+                <Money cents={found.productAmount + (found.discount ?? 0)} />
               </Fact>
+              {found.coupon && found.discount ? (
+                <Fact label={`Cupom ${found.coupon}`}>
+                  − <Money cents={found.discount} />
+                </Fact>
+              ) : null}
               {bump && found.bumpAmount ? (
                 <Fact label={bump}>
                   <Money cents={found.bumpAmount} />

@@ -5,7 +5,7 @@ import { BrandLogo } from "@/components/media/brand-logo";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { savePix, savePixKey } from "@/lib/actions";
-import { NOXPAY_CURRENCIES } from "@/lib/orders";
+import { NOXPAY_CURRENCIES } from "@/lib/orders/noxpay";
 import type { ReactNode } from "react";
 import { OUTLINE, PRIMARY, TextField, type Links } from "../shared";
 import { ActionButton, SaveForm } from "../ui";

@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { products, settings } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
-import { offerOpen } from "@/lib/orders";
+import { offerOpen } from "@/lib/orders/checkout";
 import { formatMoney } from "@/format";
 
 // The store as plain Markdown, the format AI assistants read best when they answer about it (https://llmstxt.org).

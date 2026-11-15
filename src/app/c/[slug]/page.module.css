@@ -397,6 +397,29 @@
     cursor: pointer;
   }
 
+  .coupon {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .apply {
+    flex: none;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: progress;
+      opacity: 0.75;
+    }
+  }
+
   .legal {
     color: var(--text-muted);
     font-size: var(--text-xs);

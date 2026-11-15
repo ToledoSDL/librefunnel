@@ -150,6 +150,12 @@ export function parseCredential(raw: string): string | undefined {
   return !value || CREDENTIAL.test(value) ? value : undefined;
 }
 
+// Coupon codes are compared in upper case, so "promo10" typed by a buyer matches PROMO10.
+export function parseCouponCode(raw: string): string | undefined {
+  const code = raw.trim().toUpperCase();
+  return /^[A-Z0-9_-]{3,30}$/.test(code) ? code : undefined;
+}
+
 export function parseRowId(raw: string): number | undefined {
   return ROW_ID.test(raw) ? Number(raw) : undefined;
 }

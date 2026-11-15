@@ -5,7 +5,7 @@ import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { saveWooviCrypto } from "@/lib/actions";
-import { WOOVI_ASSETS } from "@/lib/orders";
+import { WOOVI_ASSETS } from "@/lib/orders/crypto";
 import { ErrorText } from "@/app/ui";
 import { PRIMARY, TextField, type Links, type Tone } from "../shared";
 import { SaveForm } from "../ui";

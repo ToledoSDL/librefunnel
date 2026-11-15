@@ -9,7 +9,7 @@ import { restartStore, saveMeta, savePix, saveSmtp, simulatePayment, testConnect
 import { credentials, saveCredentials } from "@/lib/catalog";
 import { db, nightlyDemoReset, one, resetDemo } from "@/lib/db";
 import { sendMessages } from "@/lib/messages";
-import { brCode } from "@/lib/orders";
+import { brCode } from "@/lib/orders/pix";
 import { conversion, event, lesson, message, order, payment, product, progress, setting, touch } from "@/lib/schema";
 import { sendConversions } from "@/lib/tracking";
 import { fakeServer, form, freshBrowser, sentMail, WEBHOOK_SECRET } from "./fakes";

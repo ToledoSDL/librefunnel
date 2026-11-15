@@ -6,11 +6,7 @@ import styles from "../admin.module.css";
 import { TextField } from "../shared";
 import { MoneyField } from "./money-field";
 import { ProductForm } from "./product-form";
-
-function localInput(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+import { formatLocalInput } from "@/format";
 
 export function CheckoutSection({ product, others }: { product: Product; others: Product[] }) {
   const bump = product.orderBump;
@@ -24,7 +20,7 @@ export function CheckoutSection({ product, others }: { product: Product; others:
             hint="Horário de Brasília."
             name="offerEndsAt"
             type="datetime-local"
-            defaultValue={product.offerEndsAt ? localInput(product.offerEndsAt) : ""}
+            defaultValue={product.offerEndsAt ? formatLocalInput(product.offerEndsAt) : ""}
           />
           <TextField
             label="Garantia (dias)"

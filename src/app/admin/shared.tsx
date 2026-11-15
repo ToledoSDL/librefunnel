@@ -12,7 +12,7 @@ import { Text } from "@/components/text/text";
 import { refundOrder, resendAccess } from "@/lib/actions";
 import { integrations, orders } from "@/lib/dashboard";
 import { isAdmin } from "@/lib/guard";
-import type { OrderStatus } from "@/lib/orders";
+import type { OrderStatus } from "@/lib/orders/checkout";
 import { redirect } from "next/navigation";
 import type { ComponentProps } from "react";
 import { ActionButton, ReleaseForm } from "./ui";

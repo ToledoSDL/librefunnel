@@ -159,6 +159,12 @@ export function limited(bucket: string, id: string, max: number, windowSeconds: 
   return false;
 }
 
+// Reads a window without counting: for limits where only failures count, checked before trying and counted after.
+export function throttled(bucket: string, id: string, max: number): boolean {
+  const entry = windows.get(`${bucket}:${network(id)}`);
+  return entry !== undefined && entry.resetAt > now() && entry.count >= max;
+}
+
 export async function setCookie(name: string, value: string, maxAge: number, sameSite: "lax" | "strict") {
   (await cookies()).set(name, value, {
     httpOnly: true,

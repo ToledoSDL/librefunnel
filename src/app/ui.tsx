@@ -12,7 +12,8 @@ import { track } from "./track";
 import { formatPhoneInput } from "@/format";
 
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
-type FormView = { code: Code | null; ok: boolean; withBump: boolean };
+type FormView = { code: Code | null; ok: boolean };
+type Basket = { withBump: boolean; discount: number; setDiscount: (cents: number) => void };
 
 const CHECKOUT_STORAGE = "lf_checkout";
 
@@ -21,9 +22,16 @@ const FIELD_CODES: Partial<Record<Code, string>> = {
   INVALID_EMAIL: "email",
   INVALID_PHONE: "phone",
   INVALID_DOCUMENT: "document",
+  COUPON_NOT_FOUND: "coupon",
+  COUPON_EXPIRED: "coupon",
+  COUPON_EXHAUSTED: "coupon",
+  COUPON_USED: "coupon",
+  COUPON_OTHER_PRODUCT: "coupon",
 };
 
-const FormContext = createContext<FormView>({ code: null, ok: false, withBump: false });
+const FormContext = createContext<FormView>({ code: null, ok: false });
+
+const BasketContext = createContext<Basket>({ withBump: false, discount: 0, setDiscount: () => undefined });
 
 const ERROR_TEXT: Record<Code, string> = {
   PRODUCT_NOT_FOUND: "Este produto não está mais à venda neste endereço. Confira o link com o vendedor.",
@@ -78,8 +86,7 @@ const ERROR_TEXT: Record<Code, string> = {
     "Chave Pix inválida. Use o e-mail, CPF, CNPJ, chave aleatória ou o celular com +55 e DDD, como +5548999990000, exatamente como está no app do banco.",
   INVALID_PIX_HOLDER:
     "Não deu para descobrir o nome e a cidade do recebedor. Abra Ajustar nome e cidade e preencha como aparecem no app do banco.",
-  INVALID_DATE:
-    "Data de fim da oferta inválida. Escolha dia e hora no calendário ou deixe em branco para vender sem prazo.",
+  INVALID_DATE: "Data inválida. Escolha dia e hora no calendário ou deixe em branco para não ter prazo.",
   INVALID_CTA_SECONDS:
     "O botão precisa aparecer entre 0 e 7200 segundos do vídeo (2 horas). Use um número inteiro, como 90 para 1min30.",
   STORAGE_UNREACHABLE:
@@ -214,6 +221,18 @@ const ERROR_TEXT: Record<Code, string> = {
     "Não deu para abrir o certificado. Envie o arquivo .pfx ou .p12 do certificado A1 e confira a senha.",
   CERTIFICATE_NOT_CNPJ: "Este certificado não é de CNPJ (e-CNPJ). Use o certificado A1 da empresa.",
   CERTIFICATE_EXPIRED: "O certificado A1 venceu. Renove com a certificadora e envie o novo em Conexões > Nota fiscal.",
+  COUPON_NOT_FOUND:
+    "Cupom não encontrado. Confira as letras e os números com quem passou o cupom, ou finalize sem ele.",
+  COUPON_EXPIRED: "Este cupom venceu. Finalize sem ele ou peça um cupom novo ao vendedor.",
+  COUPON_EXHAUSTED: "Os usos deste cupom acabaram. Apague o cupom para finalizar pelo preço normal.",
+  COUPON_USED: "Este cupom vale uma vez por e-mail e já foi usado com este e-mail. Apague o cupom para finalizar.",
+  COUPON_OTHER_PRODUCT: "Este cupom não vale para este produto. Apague o cupom ou confira o link com o vendedor.",
+  COUPON_TAKEN: "Já existe um cupom com este código. Escolha outro, como PROMO10B.",
+  INVALID_COUPON_CODE:
+    "O código do cupom precisa ter de 3 a 30 letras sem acento, números, hífen ou sublinhado, como PROMO10.",
+  INVALID_DISCOUNT:
+    "Desconto inválido. Em porcentagem, um número inteiro de 1 a 99; em reais, de R$ 1,00 a R$ 100.000,00, como 20,00.",
+  INVALID_USES: "O limite de usos precisa ser um número inteiro a partir de 1. Deixe em branco para não ter limite.",
   CERTIFICATE_REFUSED:
     "O gov.br recusou o certificado (revogado, de outra empresa ou fora da ICP-Brasil). Envie o A1 atual da empresa.",
 };
@@ -304,7 +323,7 @@ export function ActionForm({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <FormContext value={{ code: state.code, ok: Boolean(state.ok), withBump: false }}>{children}</FormContext>
+      <FormContext value={{ code: state.code, ok: Boolean(state.ok) }}>{children}</FormContext>
     </form>
   );
 }
@@ -317,15 +336,18 @@ export function CheckoutForm({
   slug,
   touch,
   bumpDefault,
+  discountDefault,
   children,
 }: {
   slug: string;
   touch: string;
   bumpDefault: boolean;
+  discountDefault: number;
   children: ReactNode;
 }) {
   const { form, state, dispatch } = useFormAction(createOrder);
   const [withBump, setWithBump] = useState(bumpDefault);
+  const [discount, setDiscount] = useState(discountDefault);
   const started = useRef(false);
 
   useEffect(() => {
@@ -372,19 +394,28 @@ export function CheckoutForm({
     >
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="touch" value={touch} />
-      <FormContext value={{ code: state.code, ok: Boolean(state.ok), withBump }}>{children}</FormContext>
+      <FormContext value={{ code: state.code, ok: Boolean(state.ok) }}>
+        <BasketContext value={{ withBump, discount, setDiscount }}>{children}</BasketContext>
+      </FormContext>
     </form>
   );
 }
 
 export function CheckoutTotal({ price, bump }: { price: number; bump?: number }) {
-  const { withBump } = useContext(FormContext);
+  const { withBump, discount } = useContext(BasketContext);
 
   return (
     <strong aria-live="polite">
-      <Money cents={price + (withBump ? (bump ?? 0) : 0)} />
+      <Money cents={price - discount + (withBump ? (bump ?? 0) : 0)} />
     </strong>
   );
+}
+
+// The coupon field's view of the checkout: a coupon refusal from the last order attempt, and the discount on screen.
+export function useCoupon() {
+  const { code } = useContext(FormContext);
+  const { discount, setDiscount } = useContext(BasketContext);
+  return { refused: code && FIELD_CODES[code] === "coupon" ? code : null, discount, setDiscount };
 }
 
 export function RefreshWhilePending() {

@@ -3,7 +3,10 @@ import * as guard from "./lib/guard";
 import * as invoices from "./lib/invoices";
 import * as media from "./lib/media";
 import * as messages from "./lib/messages";
-import * as orders from "./lib/orders";
+import { attachCharges, checkCharges } from "./lib/orders/charges";
+import { expireOrders } from "./lib/orders/checkout";
+import { convertToCrypto } from "./lib/orders/crypto";
+import { refreshWebhookKeys } from "./lib/orders/woovi";
 import * as tracking from "./lib/tracking";
 import { checkRelease } from "./lib/updates";
 
@@ -41,11 +44,11 @@ export async function start() {
       .catch(() => console.warn("[librefunnel] r2: STORAGE_UNREACHABLE"));
 
   const jobs = [
-    orders.expireOrders,
-    orders.attachCharges,
-    orders.refreshWebhookKeys,
-    orders.checkCharges,
-    orders.convertToCrypto,
+    expireOrders,
+    attachCharges,
+    refreshWebhookKeys,
+    checkCharges,
+    convertToCrypto,
     messages.queueRecovery,
     messages.sendMessages,
     messages.refreshPhotos,

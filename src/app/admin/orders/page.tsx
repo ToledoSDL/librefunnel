@@ -15,7 +15,7 @@ import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { productNames } from "@/lib/catalog";
 import { orders } from "@/lib/dashboard";
-import type { OrderStatus } from "@/lib/orders";
+import type { OrderStatus } from "@/lib/orders/checkout";
 import { type Days, href, INTEGER, pick, type Query, requireAdmin, STATUS_LABEL, STATUS_TONE } from "../shared";
 import styles from "./orders.module.css";
 

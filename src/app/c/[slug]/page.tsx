@@ -1,9 +1,12 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { tryCoupon } from "@/lib/coupons";
+import { clientIp } from "@/lib/guard";
 import { Icon } from "@/components/media/icon";
 import { getProduct, orderBump, settings } from "@/lib/catalog";
 import type { Product, Settings } from "@/lib/catalog";
 import { invoicesOn } from "@/lib/invoices";
-import { getPixOrder, offerOpen } from "@/lib/orders";
+import { getPixOrder, offerOpen } from "@/lib/orders/checkout";
 import { Footer, StoreHeader, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
 import { Tracker } from "@/app/track";
@@ -24,7 +27,7 @@ const SURFACE: Record<Settings["checkoutTheme"], string> = {
 };
 
 // Contact data prefilled from the link never goes into the attribution query.
-const UNTRACKED = ["bump", "name", "email", "phone", "document"];
+const UNTRACKED = ["bump", "name", "email", "phone", "document", "coupon"];
 
 export async function generateMetadata({ params, searchParams }: Props) {
   const product = await getProduct((await params).slug);
@@ -109,7 +112,14 @@ export default async function Checkout({ params, searchParams }: Props) {
       ),
   ).toString();
 
-  const [bump, invoices] = await Promise.all([orderBump(product), invoicesOn()]);
+  const typed = prefill(query.coupon, 30);
+
+  const [bump, invoices, applied] = await Promise.all([
+    orderBump(product),
+    invoicesOn(),
+    typed ? tryCoupon(typed, product, null, clientIp(await headers())) : undefined,
+  ]);
+
   const open = offerOpen(product);
   const lessons = lessonCount(product);
   const deadline = product.offerEndsAt;
@@ -176,6 +186,11 @@ export default async function Checkout({ params, searchParams }: Props) {
                     email: prefill(query.email, 200),
                     phone: prefill(query.phone, 20),
                     document: prefill(query.document, 18),
+                  }}
+                  coupon={{
+                    code: typed,
+                    discount: applied && "discount" in applied ? applied.discount : 0,
+                    refused: applied && "code" in applied ? applied.code : null,
                   }}
                 />
               </>

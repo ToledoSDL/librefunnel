@@ -4,15 +4,11 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { createOrder, releaseOrder, rotateWebhookSecret, saveWooviCrypto } from "@/lib/actions";
 import { credentials, removeCredentials, saveCredentials } from "@/lib/catalog";
 import { db, one } from "@/lib/db";
-import {
-  attachCharges,
-  brCode,
-  checkCharges,
-  convertToCrypto,
-  expireOrders,
-  getPixOrder,
-  refreshWebhookKeys,
-} from "@/lib/orders";
+import { attachCharges, checkCharges } from "@/lib/orders/charges";
+import { brCode } from "@/lib/orders/pix";
+import { convertToCrypto } from "@/lib/orders/crypto";
+import { expireOrders, getPixOrder } from "@/lib/orders/checkout";
+import { refreshWebhookKeys } from "@/lib/orders/woovi";
 import { conversion, customer, message, order, payment, product } from "@/lib/schema";
 import { POST as paymentWebhook } from "@/app/api/webhooks/payment/route";
 import { fakeServer, form, freshBrowser, redirectFetch, WEBHOOK_SECRET } from "./fakes";

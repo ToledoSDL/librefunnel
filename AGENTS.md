@@ -43,10 +43,13 @@ no release; a release is for the store.
   in `layout.tsx`
 - `src/components/`: the component library, one component per file in folders by responsibility (see
   `docs/design-system.md`)
-- `src/lib/`: business rules, one file per domain: `actions` (the only server action edge), `orders`, `invoices` (NFS-e
-  Nacional), `members`, `messages`, `tracking`, `dashboard`, `guard`, `db`, catalog; `input` parses and validates every
-  value that comes from outside (`parse*` returns the normalized value or `undefined`), and `registry` is the only
-  caller of public registries (CNPJ through BrasilAPI)
+- `src/lib/`: business rules, one file or folder per domain: `actions` (the only server action edge), `orders/`
+  (`checkout` places orders, `payments` releases and refunds them, `webhooks` is the payment entry, `charges` creates
+  and re-checks provider charges, `psp` holds what every provider shares, one file per provider, `pix` the static BR
+  Code, `crypto` the Woovi conversion), `coupons`, `invoices` (NFS-e Nacional), `members`, `messages`, `tracking`,
+  `dashboard`, `guard`, `db`, `catalog`; `input` parses and validates every value that comes from outside (`parse*`
+  returns the normalized value or `undefined`), and `registry` is the only caller of public registries (CNPJ through
+  BrasilAPI)
 - `src/format.ts`: every text the store formats for people, server and browser alike (`format*`: money, CPF and CNPJ,
   phones, names); a new formatter or validator goes there or in `input`, never inline in a screen or action
 - `src/lib/schema.ts`, `src/lib/migrations/`: Drizzle schema and the SQL migrations generated from it
@@ -76,9 +79,17 @@ no release; a release is for the store.
 
 - Simplest thing that solves the current problem. No abstraction, layer or option "for later". No duplicated logic: find
   and reuse first.
-- In `src/lib`, new code goes into the existing file of its domain; file names are the domain in one lowercase word. In
-  `src/components` and screens, one component per file and no large files. Move or split existing code with a script,
-  never by retyping it.
+- Split by responsibility, which means by reason to change: code that changes together lives together, code that changes
+  for different reasons (one payment provider's API, the payment rules, the webhook entry, a screen) lives apart. In
+  `src/lib` a small domain is one file named after it in one lowercase word (`coupons.ts`); a domain that holds more
+  than one responsibility is a folder of one-word files (`orders/checkout.ts`, `orders/payments.ts`, `orders/woovi.ts`).
+  Importers point at the file that owns the name: no `index.ts` barrels that only re-export.
+- Size is the signal, not the rule: a source file past about 400 lines (a test file past about 600) is checked for a
+  second responsibility, and a feature is never added to such a file before that split. Do not split for its own sake:
+  no file per function, no folder with one file, no layers (repositories, services, controllers, DTOs) and no shared
+  module that only forwards calls. A long file with one responsibility stays whole.
+- In `src/components` and screens, one component per file. Move or split existing code with a script, never by retyping
+  it.
 - Identifiers and comments in English. Visible text (UI, e-mails, WhatsApp) in pt-BR.
 - Comments: default is none. One line, only for a "why" the code cannot express. Never narrate the code, never leave
   TODOs or commented-out code.

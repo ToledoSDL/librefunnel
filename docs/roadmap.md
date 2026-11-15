@@ -4,14 +4,11 @@ What to build next, in order. Every item follows the rules in `AGENTS.md` and fi
 
 ## Next
 
-### 1. Coupons
+### 1. Coupons (done)
 
-Percent or fixed discount (cents), expiry, total use limit, one use per e-mail, optional product list, `?cupom=` in the
-link. The discount is computed on the server and snapshotted on the order. A use counts only in the transaction that
-marks the order paid, with a conditional update (`uses < max_uses`) so concurrent payments cannot exceed the limit.
-Wrong codes are rate limited per client (5 rejections per 60 s; valid checks do not count) so codes cannot be guessed.
-
-Coupons are the base for items 2 and 11.
+Built in `src/lib/coupons.ts` and `/admin/coupons`. A payment that arrives after the coupon ran out (use limit, or the
+same e-mail already paid with it) is recorded and leaves the order pending, marked "Cupom esgotado", for the seller to
+release or refund. Coupons are the base for items 2 and 11.
 
 ### 2. Upsell and downsell after payment
 

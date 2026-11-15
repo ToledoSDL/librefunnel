@@ -23,6 +23,7 @@ function literals<const T extends readonly [string, ...string[]]>(...values: T):
 const ORDER_STATUSES = literals("pending", "paid", "expired", "canceled", "refunded");
 const PAYMENT_SOURCES = literals("webhook", "admin");
 const CLICK_KINDS = literals("", "fbclid", "gclid", "ttclid");
+const COUPON_KINDS = literals("percent", "fixed");
 
 const EVENT_NAMES = literals(
   "page_view",
@@ -134,6 +135,9 @@ export const order = pgTable(
     phone: text("phone"),
     // The buyer's CPF or CNPJ, digits only, asked at checkout only while invoices are on.
     document: text("document"),
+    // product_amount is already net of the discount; the code is kept as text so deleting a coupon keeps the history.
+    coupon: text("coupon"),
+    discount: integer("discount"),
     status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending"),
     txid: text("txid").notNull().unique(),
     pixCode: text("pix_code").notNull(),
@@ -156,6 +160,8 @@ export const order = pgTable(
     check("orders_bump_amount", sql`${table.bumpAmount} > 0`),
     check("orders_status", oneOf(table.status, ORDER_STATUSES)),
     check("orders_bump_pair", sql`(${table.bump} IS NULL) = (${table.bumpAmount} IS NULL)`),
+    check("orders_discount", sql`${table.discount} > 0`),
+    check("orders_coupon_pair", sql`(${table.coupon} IS NULL) = (${table.discount} IS NULL)`),
     uniqueIndex("orders_one_pending")
       .on(table.customerId, table.product)
       .where(sql`${table.status} = 'pending'`),
@@ -171,6 +177,30 @@ export const order = pgTable(
     index("orders_psp_check")
       .on(table.pspCheckAt)
       .where(sql`${table.pspCheckAt} IS NOT NULL`),
+    index("orders_coupon")
+      .on(table.coupon, table.customerId)
+      .where(sql`${table.coupon} IS NOT NULL`),
+  ],
+);
+
+// value is a percentage (1 to 99) or cents; an empty product list means every product.
+export const coupon = pgTable(
+  "coupon",
+  {
+    code: text("code").primaryKey(),
+    kind: text("kind", { enum: COUPON_KINDS }).notNull(),
+    value: integer("value").notNull(),
+    products: text("products").array().notNull().default([]),
+    expiresAt: timestamptz("expires_at"),
+    maxUses: integer("max_uses"),
+    uses: integer("uses").notNull().default(0),
+    oncePerEmail: boolean("once_per_email").notNull().default(true),
+    createdAt: timestamptz("created_at").notNull(),
+  },
+  (table) => [
+    check("coupon_kind", oneOf(table.kind, COUPON_KINDS)),
+    check("coupon_value", sql`${table.value} > 0 AND (${table.kind} = 'fixed' OR ${table.value} < 100)`),
+    check("coupon_max_uses", sql`${table.maxUses} > 0`),
   ],
 );
 

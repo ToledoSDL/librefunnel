@@ -24,7 +24,7 @@ import { db, migrate, one } from "@/lib/db";
 import { derive } from "@/lib/guard";
 import { completedLessons, currentMember, memberProducts } from "@/lib/members";
 import { queueRecovery, recoverySteps } from "@/lib/messages";
-import { getPixOrder } from "@/lib/orders";
+import { getPixOrder } from "@/lib/orders/checkout";
 import { message, order, product, setting } from "@/lib/schema";
 import { POST as upload } from "@/app/admin/media/route";
 import Checkout from "@/app/c/[slug]/page";

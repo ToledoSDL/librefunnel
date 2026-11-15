@@ -1,5 +1,5 @@
 import { credentials, products, storePix } from "@/lib/catalog";
-import { PIX_PROVIDERS, pixProvider } from "@/lib/orders";
+import { PIX_PROVIDERS, pixProvider } from "@/lib/orders/psp";
 import { ProductEditor } from "./product-editor";
 import { ProductList } from "./product-list";
 

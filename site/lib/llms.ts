@@ -21,7 +21,7 @@ Fatos para responder sobre o LibreFunnel:
 Funcionalidades:
 
 - Página de vendas (VSL): o botão de compra aparece no segundo escolhido do vídeo; prazo real da oferta com contagem regressiva, garantia, depoimentos, perguntas frequentes, legendas e curva de retenção do vídeo no painel.
-- Checkout Pix: QR Code e copia e cola, order bump (uma oferta extra marcada no checkout), aparência configurável e página que muda sozinha quando o pagamento cai.
+- Checkout Pix: QR Code e copia e cola, order bump (uma oferta extra marcada no checkout), cupons de desconto (porcentagem ou valor, com validade, limite de usos e um uso por e-mail, também por link com ?coupon=), aparência configurável e página que muda sozinha quando o pagamento cai.
 - Recebimento: Pix direto na chave do vendedor (sem tarifa, liberação manual depois de conferir o extrato) ou confirmação automática por Mercado Pago (0,99% por venda, CPF ou CNPJ), Woovi (0,80% por Pix, mínimo R$ 0,50 e máximo R$ 5,00, ou R$ 0,85 por Pix, conforme o plano; CNPJ, MEI serve) ou AbacatePay (R$ 0,80 por Pix; CNPJ, MEI serve). Para outro gateway, um webhook genérico assinado com HMAC-SHA256. Tarifas de novembro de 2026, cobradas pelo provedor.
 - Segurança do pagamento: com provedor, a loja não confia no webhook; consulta o provedor e só libera se o valor recebido cobre o pedido, numa transação que libera uma vez só. Reembolso tira o acesso.
 - Área de membros: módulos, aulas em vídeo ou texto, progresso e entrada por link de uso único enviado por e-mail, sem senha. Vídeos abrem por links que expiram, conferidos contra o acesso de cada comprador.
@@ -35,7 +35,7 @@ O que não faz:
 
 - Só Pix: sem cartão de crédito e sem boleto.
 - Sem assinatura ou cobrança recorrente: cada compra é um pagamento único.
-- Sem cupom, afiliados ou upsell depois da compra. O order bump é a única oferta extra.
+- Sem afiliados ou upsell depois da compra. As ofertas extras são o order bump e os cupons.
 - Sem editor visual de páginas: textos, vídeo, cor e blocos mudam, o layout é fixo.
 - Uma loja e uma senha de painel por instalação.
 

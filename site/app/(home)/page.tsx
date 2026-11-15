@@ -97,7 +97,7 @@ const INCLUDED = [
     "Página de vendas",
     "Vídeo com a oferta no segundo escolhido, prazo real, garantia, depoimentos, perguntas e legendas.",
   ],
-  ["Checkout Pix", "QR Code, copia e cola, order bump e aparência configurável."],
+  ["Checkout Pix", "QR Code, copia e cola, order bump, cupons de desconto e aparência configurável."],
   ["Área de membros", "Módulos, aulas, progresso e entrada por link enviado por e-mail."],
   ["Recuperação", "E-mail por qualquer SMTP e WhatsApp pelo QR Code ou pela API oficial da Meta."],
   ["Atribuição", "UTMs com primeiro e último toque, e vendas enviadas à Meta pela API de Conversões."],
@@ -109,7 +109,7 @@ const INCLUDED = [
 const LIMITS = [
   "Só Pix. Sem cartão de crédito e sem boleto.",
   "Sem assinatura ou cobrança recorrente: cada compra é um pagamento único.",
-  "Sem cupom, afiliados ou upsell depois da compra. O order bump é a única oferta extra.",
+  "Sem afiliados ou upsell depois da compra. As ofertas extras são o order bump e os cupons.",
   "Sem editor visual. Você muda textos, vídeo, cor e blocos, mas o layout é fixo.",
   "Uma loja e uma senha de painel por instalação.",
   "O servidor é seu: a hospedagem e uma cópia dos backups fora dele ficam com você.",

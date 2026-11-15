@@ -1,16 +1,8 @@
 @layer screens {
   .page {
+    display: flex;
+    flex-direction: column;
     min-height: 100dvh;
-  }
-
-  .bar {
-    padding: var(--space-3) max(var(--gutter), calc((100% - var(--content-max)) / 2));
-    border-bottom: 1px solid var(--border);
-  }
-
-  .brand {
-    color: inherit;
-    text-decoration: none;
   }
 
   .email {
@@ -27,9 +19,21 @@
   }
 
   .gate {
-    width: min(100% - 2 * var(--gutter), 28rem);
-    margin-inline: auto;
-    padding-block: var(--space-8);
+    display: grid;
+    flex: 1;
+    place-items: start center;
+    padding: var(--space-8) var(--gutter);
+
+    @media (min-width: 768px) {
+      place-items: center;
+    }
+  }
+
+  .gateBody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    width: min(100%, 26rem);
   }
 
   .main {

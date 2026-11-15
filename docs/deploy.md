@@ -452,7 +452,7 @@ To confirm payments from another gateway or your own automation, open **Conexõe
 
 ## Meta Conversions API
 
-The app sends `InitiateCheckout` (when a Pix is generated) and `Purchase` (when it is paid) to Meta from the server, so your ads optimize for sales instead of clicks.
+The app sends the whole funnel to Meta from the server, so your ads optimize for sales instead of clicks: `ViewContent` (sales page), `InitiateCheckout` (checkout opened), `AddPaymentInfo` (Pix generated) and `Purchase` (paid). No pixel script runs in the browser; the store sets the `_fbp` cookie itself and builds `fbc` from the ad's `fbclid`. Before an order exists, the visitor's IP and browser are stored only while Meta is connected.
 
 1. In Meta **Events Manager**, open **Data sources**, select your pixel and copy its ID.
 2. In the pixel's **Settings**, under Conversions API, click **Generate access token** and copy it.
@@ -461,7 +461,7 @@ The app sends `InitiateCheckout` (when a Pix is generated) and `Purchase` (when 
 5. Click **Testar** and confirm the event appears in **Test events**.
 6. Clear **Código de teste (opcional)** and click **Salvar Meta** again. While it is set, sales do not count toward your campaigns.
 
-Add UTMs to every ad link (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`) so the dashboard knows which ad sold. `fbclid`, `gclid` and `ttclid` are recognized too. The **Overview** tab shows sales by source with first-touch and last-touch attribution.
+Add UTMs to every ad link (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`) so the dashboard knows which ad sold. `fbclid`, `gclid` and `ttclid` are recognized too. The **Overview** tab shows sales by source with first-touch and last-touch attribution, and the order export (CSV) has the last ad click id of each order, ready for a Google Ads offline conversion upload.
 
 ## Video storage (Cloudflare R2 or S3)
 

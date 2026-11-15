@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
+import type { ClientEvent } from "@/lib/tracking";
 
-export type TrackEvent =
-  "page_view" | "video_play" | "video_25" | "video_50" | "video_75" | "video_100" | "cta_view" | "cta_click";
+export type TrackEvent = ClientEvent;
 
 export const QUARTILES: [number, TrackEvent][] = [
   [0.25, "video_25"],
@@ -21,13 +21,23 @@ export function track(event: TrackEvent, product: string) {
   );
 }
 
-export function Tracker({ product }: { product: string }) {
+export function Tracker({ product, event = "page_view" }: { product: string; event?: TrackEvent }) {
   useEffect(() => {
-    track("page_view", product);
-  }, [product]);
+    track(event, product);
+  }, [event, product]);
   return null;
 }
 
-export function TrackCta({ product, children }: { product: string; children: ReactNode }) {
-  return <div onClick={() => track("cta_click", product)}>{children}</div>;
+// Counts a click on any link or button inside, and a copy of any text inside.
+export function TrackClick({ event, product, children }: { event: TrackEvent; product: string; children: ReactNode }) {
+  return (
+    <div
+      onClick={(click) => {
+        if (click.target instanceof Element && click.target.closest("a, button")) track(event, product);
+      }}
+      onCopy={() => track(event, product)}
+    >
+      {children}
+    </div>
+  );
 }

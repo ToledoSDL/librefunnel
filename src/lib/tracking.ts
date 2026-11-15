@@ -1,9 +1,10 @@
 import "server-only";
 import { isIP } from "node:net";
-import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { credentials, productNames } from "./catalog";
 import { addSeconds, db, newId } from "./db";
+import type { Database } from "./db";
 import {
   baseUrl,
   clientIp,
@@ -18,25 +19,75 @@ import {
   sha256,
 } from "./guard";
 import type { JsonObject } from "./guard";
-import { conversion, customer, event, order, payment, product, retention, touch } from "./schema";
+import { conversion, customer, event, order, payment, product, retention, signal, touch } from "./schema";
 
 export type TrackCode = "INVALID_EVENT" | "RATE_LIMITED";
 export type ConversionCode = "META_NOT_CONFIGURED" | "META_REJECTED" | "META_UNREACHABLE";
-type TrackEvent = (typeof event.$inferSelect)["name"];
+type EventName = (typeof event.$inferSelect)["name"];
 type ClickKind = (typeof touch.$inferSelect)["clickKind"];
 type ConversionKey = { orderId: string; name: (typeof conversion.$inferSelect)["name"] };
+type SignalKey = { visitorId: string; product: string; name: SignalName };
+type SignalName = (typeof signal.$inferSelect)["name"];
 type Meta = { pixelId: string; token: string; testEventCode: string };
 
-const EVENTS: TrackEvent[] = [
-  "page_view",
-  "video_play",
-  "video_25",
-  "video_50",
-  "video_75",
-  "video_100",
-  "cta_view",
-  "cta_click",
-];
+// The whole funnel in one place. Each step a buyer can reach in the browser is a first-party event (counted in the
+// panel) and, when it means something to an ad platform, that platform's event name. Order steps happen on the server.
+// Integrating a platform is one more column here and one more sender in sendConversions.
+const STEPS = {
+  page_view: { meta: "ViewContent" },
+  store_click: {},
+  video_play: {},
+  video_unmute: {},
+  video_25: {},
+  video_50: {},
+  video_75: {},
+  video_100: {},
+  cta_view: {},
+  cta_click: {},
+  checkout_view: { meta: "InitiateCheckout" },
+  checkout_start: {},
+  bump_add: {},
+  pix_view: {},
+  pix_copy: {},
+} as const satisfies Partial<Record<EventName, { meta?: SignalName }>>;
+
+const ORDER_STEPS = {
+  created: { meta: "AddPaymentInfo" },
+  paid: { meta: "Purchase" },
+} as const satisfies Record<string, { meta: ConversionKey["name"] }>;
+
+export type ClientEvent = keyof typeof STEPS;
+
+function isClientEvent(value: unknown): value is ClientEvent {
+  return typeof value === "string" && Object.hasOwn(STEPS, value);
+}
+
+// Orders call this inside their transaction, so the step and the order commit together.
+export async function orderStep(tx: Database, orderId: string, step: keyof typeof ORDER_STEPS) {
+  await tx
+    .insert(conversion)
+    .values({ orderId, name: ORDER_STEPS[step].meta, nextAt: new Date() })
+    .onConflictDoNothing();
+}
+
+// The last time, so a period counts everyone who reached the step in it, returning visitors included.
+async function recordEvent(visitorId: string, products: string[], name: EventName) {
+  if (products.length === 0) return;
+  const t = new Date();
+  await db()
+    .insert(event)
+    .values(products.map((slug) => ({ visitorId, product: slug, name, createdAt: t })))
+    .onConflictDoUpdate({
+      target: [event.visitorId, event.product, event.name],
+      set: { createdAt: sql`excluded.created_at` },
+    });
+}
+
+// The members area reads the cookie the proxy set and never sets one: server components cannot.
+export async function recordAccess(products: string[]) {
+  const id = (await cookies()).get(VISITOR_COOKIE)?.value ?? "";
+  if (VISITOR.test(id)) await recordEvent(id, products, "member_access");
+}
 
 const CLICK_KINDS: Exclude<ClickKind, "">[] = ["fbclid", "gclid", "ttclid"];
 const VISITOR = /^[a-z0-9]{20}$/;
@@ -70,7 +121,9 @@ function referrerHost(referrer: string): string {
 export async function recordTouch(visitorId: string, search: string, referrer: string, landing: string) {
   const params = new URLSearchParams(search.slice(0, 2000));
   const value = (name: string) => printable(params.get(name) ?? "", 200);
-  const clickKind: ClickKind = CLICK_KINDS.find((kind) => value(kind) !== "") ?? "";
+  // Click ids run longer than UTM values; one over the limit would lose the click and its fbc.
+  const click = (kind: string) => printable(params.get(kind) ?? "", 500);
+  const clickKind: ClickKind = CLICK_KINDS.find((kind) => click(kind) !== "") ?? "";
 
   const fields = {
     source: value("utm_source"),
@@ -79,7 +132,7 @@ export async function recordTouch(visitorId: string, search: string, referrer: s
     content: value("utm_content"),
     term: value("utm_term"),
     clickKind,
-    clickId: clickKind ? value(clickKind) : "",
+    clickId: clickKind ? click(clickKind) : "",
     referrerHost: referrerHost(referrer),
   };
 
@@ -112,11 +165,13 @@ export async function recordTouch(visitorId: string, search: string, referrer: s
 
 // Meta's documented fallback when the _fbc cookie is missing: fb.<subdomainIndex>.<first seen ms>.<fbclid>.
 export async function fbcFor(visitorId: string): Promise<string | null> {
+  // The latest click, stamped with when it was first seen: later visits store the same click id again.
   const [click] = await db()
-    .select({ clickId: touch.clickId, firstSeenAt: touch.firstSeenAt })
+    .select({ clickId: touch.clickId, firstSeenAt: sql<Date>`MIN(${touch.firstSeenAt})`.mapWith(touch.firstSeenAt) })
     .from(touch)
     .where(and(eq(touch.visitorId, visitorId), eq(touch.clickKind, "fbclid")))
-    .orderBy(desc(touch.lastSeenAt))
+    .groupBy(touch.clickId)
+    .orderBy(desc(sql`MAX(${touch.lastSeenAt})`))
     .limit(1);
 
   return click ? `fb.1.${click.firstSeenAt.getTime()}.${click.clickId}` : null;
@@ -127,10 +182,10 @@ export function metaCookie(value: string | undefined, name: "_fbp" | "_fbc"): st
   return value && pattern.test(value) ? value : null;
 }
 
-async function track(body: JsonObject, visitorId: string): Promise<TrackCode | null> {
-  const name = EVENTS.find((candidate) => candidate === body.e);
-  const product = body.p;
-  if (!name || typeof product !== "string" || (product !== "" && !(await productNames()).has(product)))
+async function track(body: JsonObject, visitorId: string, request: Request): Promise<TrackCode | null> {
+  const name = body.e;
+  const slug = body.p;
+  if (!isClientEvent(name) || typeof slug !== "string" || (slug !== "" && !(await productNames()).has(slug)))
     return "INVALID_EVENT";
   if (name === "page_view") {
     await recordTouch(
@@ -140,22 +195,51 @@ async function track(body: JsonObject, visitorId: string): Promise<TrackCode | n
       typeof body.l === "string" ? body.l : "/",
     );
   }
-  await db().insert(event).values({ visitorId, product, name, createdAt: new Date() }).onConflictDoNothing();
+  await recordEvent(visitorId, [slug], name);
+  const step: { meta?: SignalName } = STEPS[name];
+  if (slug && step.meta) await queueSignal(step.meta, visitorId, slug, request);
   return null;
+}
+
+// Stores the visitor's address only when Meta is connected, so a store without it keeps no IP.
+async function queueSignal(name: SignalName, visitorId: string, slug: string, request: Request) {
+  if (demoMode() || !(await metaConfig())) return;
+  const jar = await cookies();
+  const t = new Date();
+  await db()
+    .insert(signal)
+    .values({
+      visitorId,
+      product: slug,
+      name,
+      ip: clientIp(request.headers),
+      userAgent: (request.headers.get("user-agent") ?? "").slice(0, 500),
+      fbp: metaCookie(jar.get("_fbp")?.value, "_fbp"),
+      fbc: metaCookie(jar.get("_fbc")?.value, "_fbc") ?? (await fbcFor(visitorId)),
+      nextAt: t,
+      createdAt: t,
+    })
+    .onConflictDoNothing();
 }
 
 export async function trackRequest(request: Request): Promise<Response> {
   const ip = clientIp(request.headers);
-  if (limited("track", ip, 240, 60)) return Response.json({ code: "RATE_LIMITED" }, { status: 429 });
+  const cookie = (await cookies()).get(VISITOR_COOKIE)?.value ?? "";
+  const known = VISITOR.test(cookie);
+  // Per visitor, because one mobile carrier address carries many buyers each sending a retention beacon every 10 s.
+  if (limited("track", known ? cookie : ip, 120, 60) || limited("track-ip", ip, 3000, 60))
+    return Response.json({ code: "RATE_LIMITED" }, { status: 429 });
   const raw = await readBody(request, 2048);
   if (raw === undefined) return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413 });
   // Every request without the cookie is a new visitor and new rows: a script dropping it must not fill the disk.
-  const known = VISITOR.test((await cookies()).get(VISITOR_COOKIE)?.value ?? "");
   if (!known && limited("visitor", ip, NEW_VISITORS_PER_HOUR, 3600)) return new Response(null, { status: 204 });
   const body = jsonObject(raw);
   let code: TrackCode | null = "INVALID_EVENT";
   if (body)
-    code = body.e === "retention" ? await recordRetention(body, await visitor()) : await track(body, await visitor());
+    code =
+      body.e === "retention"
+        ? await recordRetention(body, await visitor())
+        : await track(body, await visitor(), request);
   return code ? Response.json({ code }, { status: 400 }) : new Response(null, { status: 204 });
 }
 
@@ -288,14 +372,69 @@ function keyed(keys: ConversionKey[]) {
   )})`;
 }
 
-export async function sendConversions() {
-  const t = new Date();
-  const queued = and(eq(conversion.status, "queued"), lte(conversion.nextAt, t));
-  const config = demoMode() ? undefined : await metaConfig();
-  if (!config) {
-    await db().update(conversion).set({ status: "skipped", error: "META_NOT_CONFIGURED" }).where(queued);
+function signalKeyed(keys: SignalKey[]) {
+  return sql`(${signal.visitorId}, ${signal.product}, ${signal.name}) IN (${sql.join(
+    keys.map((key) => sql`(${key.visitorId}, ${key.product}, ${key.name})`),
+    sql`, `,
+  )})`;
+}
+
+// What a sent batch writes back to its queue, the same for order steps and signals.
+function outcome(code: ConversionCode | null, t: Date, attempts: typeof conversion.attempts | typeof signal.attempts) {
+  if (code === null) return { status: "sent" as const, error: null, sentAt: new Date(), nextAt: t };
+  if (code === "META_REJECTED") return { status: "failed" as const, error: code, nextAt: t };
+  return {
+    status: sql`CASE WHEN ${attempts} >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'queued' END`,
+    error: code,
+    nextAt: sql`${t.toISOString()}::timestamptz + interval '1 minute' * (1 << ${attempts})`,
+  };
+}
+
+async function deliver<K>(
+  config: Meta,
+  pending: { key: K; event: object }[],
+  settle: (keys: K[], code: ConversionCode | null) => Promise<unknown>,
+) {
+  if (pending.length === 0) return;
+
+  const code = await meta(
+    config,
+    pending.map((entry) => entry.event),
+  );
+
+  if (code !== "META_REJECTED" || pending.length === 1) {
+    await settle(
+      pending.map((entry) => entry.key),
+      code,
+    );
     return;
   }
+  // Meta rejects the whole batch for one malformed event: sent alone, each event gets its own answer.
+  for (const entry of pending) await settle([entry.key], await meta(config, [entry.event]));
+}
+
+// The one sender for every ad platform event, run by the background loop.
+export async function sendConversions() {
+  const t = new Date();
+  const config = demoMode() ? undefined : await metaConfig();
+  if (!config) {
+    const skipped = { status: "skipped" as const, error: "META_NOT_CONFIGURED" };
+    await db()
+      .update(conversion)
+      .set(skipped)
+      .where(and(eq(conversion.status, "queued"), lte(conversion.nextAt, t)));
+    await db()
+      .update(signal)
+      .set(skipped)
+      .where(and(eq(signal.status, "queued"), lte(signal.nextAt, t)));
+    return;
+  }
+  await sendOrderSteps(config, t);
+  await sendSignals(config, t);
+}
+
+async function sendOrderSteps(config: Meta, t: Date) {
+  const queued = and(eq(conversion.status, "queued"), lte(conversion.nextAt, t));
 
   // SKIP LOCKED plus the queued check in the update lets two senders run at once without claiming the same event.
   const due = db()
@@ -319,6 +458,7 @@ export async function sendConversions() {
       orderId: conversion.orderId,
       name: conversion.name,
       customerId: order.customerId,
+      visitorId: order.visitorId,
       product: order.product,
       bump: order.bump,
       productAmount: order.productAmount,
@@ -369,7 +509,8 @@ export async function sendConversions() {
           ...(parts[0] ? { fn: [sha256(parts[0])] } : {}),
           ...(parts.length > 1 ? { ln: [sha256(parts[parts.length - 1] ?? "")] } : {}),
           country: [sha256("br")],
-          external_id: [sha256(row.customerId)],
+          // The visitor id ties this buyer to the ViewContent and InitiateCheckout they sent before buying.
+          external_id: [sha256(row.customerId), ...(row.visitorId ? [sha256(row.visitorId)] : [])],
           ...(isIP(row.ip) ? { client_ip_address: row.ip } : {}),
           client_user_agent: row.userAgent,
           ...(row.fbp ? { fbp: row.fbp } : {}),
@@ -390,36 +531,91 @@ export async function sendConversions() {
 
   if (stale.length)
     await db().update(conversion).set({ status: "failed", error: "META_REJECTED", nextAt: t }).where(keyed(stale));
-  if (pending.length === 0) return;
-
-  const settle = async (keys: ConversionKey[], code: ConversionCode | null) => {
-    const update = db().update(conversion);
-    if (code === null)
-      await update.set({ status: "sent", error: null, sentAt: new Date(), nextAt: t }).where(keyed(keys));
-    else if (code === "META_REJECTED")
-      await update.set({ status: "failed", error: code, nextAt: t }).where(keyed(keys));
-    else
-      await update
-        .set({
-          status: sql`CASE WHEN ${conversion.attempts} >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'queued' END`,
-          error: code,
-          nextAt: sql`${t.toISOString()}::timestamptz + interval '1 minute' * (1 << ${conversion.attempts})`,
-        })
-        .where(keyed(keys));
-  };
-
-  const code = await meta(
-    config,
-    pending.map((entry) => entry.event),
+  await deliver(config, pending, (keys, code) =>
+    db()
+      .update(conversion)
+      .set(outcome(code, t, conversion.attempts))
+      .where(keyed(keys)),
   );
+}
 
-  if (code !== "META_REJECTED" || pending.length === 1)
-    return settle(
-      pending.map((entry) => entry.key),
-      code,
-    );
-  // Meta rejects the whole batch for one malformed event: sent alone, each event gets its own answer.
-  for (const entry of pending) await settle([entry.key], await meta(config, [entry.event]));
+async function sendSignals(config: Meta, t: Date) {
+  const queued = and(eq(signal.status, "queued"), lte(signal.nextAt, t));
+
+  const due = db()
+    .select({ visitorId: signal.visitorId, product: signal.product, name: signal.name })
+    .from(signal)
+    .where(queued)
+    .orderBy(asc(signal.nextAt))
+    .limit(100)
+    .for("update", { skipLocked: true });
+
+  const claimed = await db()
+    .update(signal)
+    .set({ attempts: sql`${signal.attempts} + 1`, nextAt: addSeconds(t, 600) })
+    .where(and(queued, sql`(${signal.visitorId}, ${signal.product}, ${signal.name}) IN ${due}`))
+    .returning({
+      visitorId: signal.visitorId,
+      product: signal.product,
+      name: signal.name,
+      ip: signal.ip,
+      userAgent: signal.userAgent,
+      fbp: signal.fbp,
+      fbc: signal.fbc,
+      createdAt: signal.createdAt,
+    });
+
+  if (claimed.length === 0) return;
+
+  const offers = await db()
+    .select({ slug: product.slug, price: product.priceCents, vsl: sql<boolean>`${product.vslVideo} IS NOT NULL` })
+    .from(product)
+    .where(inArray(product.slug, [...new Set(claimed.map((row) => row.product))]));
+
+  const bySlug = new Map(offers.map((offer) => [offer.slug, offer]));
+  const pending: { key: SignalKey; event: object }[] = [];
+  const stale: SignalKey[] = [];
+  const oldest = addSeconds(t, -MAX_EVENT_AGE);
+  for (const row of claimed) {
+    const key = { visitorId: row.visitorId, product: row.product, name: row.name };
+    const offer = bySlug.get(row.product);
+    if (!offer || row.createdAt < oldest) {
+      stale.push(key);
+      continue;
+    }
+    pending.push({
+      key,
+      event: {
+        event_name: row.name,
+        event_time: Math.floor(row.createdAt.getTime() / 1000),
+        event_id: `${row.visitorId}:${row.product}:${row.name}`,
+        action_source: "website",
+        event_source_url: `${baseUrl()}/${row.name === "ViewContent" && offer.vsl ? "v" : "c"}/${row.product}`,
+        user_data: {
+          external_id: [sha256(row.visitorId)],
+          ...(isIP(row.ip) ? { client_ip_address: row.ip } : {}),
+          client_user_agent: row.userAgent,
+          ...(row.fbp ? { fbp: row.fbp } : {}),
+          ...(row.fbc ? { fbc: row.fbc } : {}),
+        },
+        custom_data: {
+          currency: "BRL",
+          value: offer.price / 100,
+          content_ids: [row.product],
+          content_type: "product",
+        },
+      },
+    });
+  }
+
+  if (stale.length)
+    await db().update(signal).set({ status: "failed", error: "META_REJECTED", nextAt: t }).where(signalKeyed(stale));
+  await deliver(config, pending, (keys, code) =>
+    db()
+      .update(signal)
+      .set(outcome(code, t, signal.attempts))
+      .where(signalKeyed(keys)),
+  );
 }
 
 export async function sendMetaTest(): Promise<ConversionCode | null> {

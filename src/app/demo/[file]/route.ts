@@ -12,6 +12,7 @@ const FILES = new Map([
   ["cover.svg", "image/svg+xml"],
   ["module-1.svg", "image/svg+xml"],
   ["module-2.svg", "image/svg+xml"],
+  ["mentoria.svg", "image/svg+xml"],
   ["spreadsheet.svg", "image/svg+xml"],
 ]);
 

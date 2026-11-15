@@ -37,6 +37,14 @@
       --tone-text: var(--primary);
     }
 
+    &[data-tone="store"] {
+      --tone: var(--store-accent, var(--primary));
+      --tone-hover: color-mix(in oklab, var(--tone), black 12%);
+      --tone-fg: var(--store-accent-ink, var(--primary-fg));
+      --tone-soft: color-mix(in oklab, var(--tone), transparent 85%);
+      --tone-text: var(--tone);
+    }
+
     &[data-tone="danger"] {
       --tone: var(--danger);
       --tone-hover: var(--danger-hover);

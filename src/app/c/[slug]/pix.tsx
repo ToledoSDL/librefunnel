@@ -15,6 +15,7 @@ import type { PixOrder } from "@/lib/orders";
 import { enterFromOrder, simulatePayment } from "@/lib/actions";
 import { demoMode } from "@/lib/guard";
 import { DateTime, Money } from "@/app/format";
+import { TrackClick } from "@/app/track";
 import { ActionForm, FormMessage, RefreshWhilePending, SubmitLabel } from "@/app/ui";
 import styles from "./page.module.css";
 function StatusCard({ badge, title, children }: { badge: ReactNode; title: string; children: ReactNode }) {
@@ -82,7 +83,9 @@ export async function PixPage({
               <div className={styles.pix}>
                 <div className={styles.pixCode}>
                   <Stack gap={4}>
-                    <CopyField label="Pix Copia e Cola" value={order.pixCode} multiline />
+                    <TrackClick event="pix_copy" product={product.slug}>
+                      <CopyField label="Pix Copia e Cola" value={order.pixCode} multiline />
+                    </TrackClick>
                     <ol className={styles.steps}>
                       <li>
                         <Text variant="body-sm">

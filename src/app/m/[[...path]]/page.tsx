@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import type { ReactNode } from "react";
 import { Button } from "@/components/action/button";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -19,7 +20,9 @@ import type { Module, Product } from "@/lib/catalog";
 import { completedLessons, currentMember, memberProducts } from "@/lib/members";
 import type { Member } from "@/lib/members";
 import { streamFor } from "@/lib/media";
+import { recordAccess } from "@/lib/tracking";
 import { completeLesson, confirmLogin, optOut, requestLogin, signOut } from "@/lib/actions";
+import { Footer, StoreHeader } from "@/app/buyer";
 import { ActionForm, FieldMessage, FormMessage, SubmitLabel } from "@/app/ui";
 import styles from "./page.module.css";
 
@@ -36,75 +39,59 @@ function lessonsOf(product: Product) {
   return product.modules.flatMap((module) => module.lessons.map((lesson) => ({ product, module, lesson })));
 }
 
-function Shell({ brand, member, children }: { brand: string; member?: Member; children: ReactNode }) {
+function Shell({ member, children }: { member?: Member; children: ReactNode }) {
   return (
     <div className={`surface-experience ${styles.page}`}>
-      <header className={styles.bar}>
-        <Row justify="between" gap={3} wrap={false}>
-          <a href="/m" className={styles.brand}>
-            <Text as="span" weight="bold">
-              {brand}
-            </Text>
-          </a>
-          {member ? (
-            <Row gap={2} wrap={false}>
-              <span className={styles.email} title={member.email}>
-                <Text as="span" variant="body-sm" tone="muted">
-                  {member.email}
-                </Text>
-              </span>
-              <ActionForm action={signOut}>
-                <Button type="submit" size="sm">
-                  <SubmitLabel idle="Sair" pending="Saindo" />
-                </Button>
-              </ActionForm>
-            </Row>
-          ) : null}
-        </Row>
-      </header>
+      <StoreHeader href={member ? "/m" : "/"}>
+        {member ? (
+          <Row gap={2} wrap={false}>
+            <span className={styles.email} title={member.email}>
+              <Text as="span" variant="body-sm" tone="muted">
+                {member.email}
+              </Text>
+            </span>
+            <ActionForm action={signOut}>
+              <Button type="submit" size="sm">
+                <SubmitLabel idle="Sair" pending="Saindo" />
+              </Button>
+            </ActionForm>
+          </Row>
+        ) : (
+          <Button href="/" size="sm" variant="ghost">
+            Ir para a loja
+          </Button>
+        )}
+      </StoreHeader>
       {children}
     </div>
   );
 }
 
-function Gate({
-  brand,
-  title,
-  description,
-  children,
-}: {
-  brand: string;
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
+function Gate({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <Shell brand={brand}>
+    <Shell>
       <main className={styles.gate}>
-        <Card>
+        <div className={styles.gateBody}>
           <Stack gap={2}>
-            <Text variant="heading" as="h1">
+            <Text variant="display" as="h1">
               {title}
             </Text>
-            <Text tone="muted">{description}</Text>
+            {description ? <Text tone="muted">{description}</Text> : null}
           </Stack>
           {children}
-        </Card>
+        </div>
       </main>
+      <Footer />
     </Shell>
   );
 }
 
-function Login({ brand }: { brand: string }) {
+function Login() {
   return (
-    <Gate
-      brand={brand}
-      title="Entrar na área de membros"
-      description="Digite o e-mail que você usou na compra. Mandamos um link de acesso, sem senha."
-    >
+    <Gate title="Área de membros">
       <ActionForm action={requestLogin}>
         <Stack gap={4}>
-          <Field label="E-mail usado na compra" hint={<FieldMessage code="INVALID_EMAIL" />}>
+          <Field label="E-mail da compra" hint={<FieldMessage code="INVALID_EMAIL" />}>
             {(control) => (
               <Input
                 {...control}
@@ -120,56 +107,43 @@ function Login({ brand }: { brand: string }) {
               />
             )}
           </Field>
-          <FormMessage done="Se este e-mail tiver uma compra aprovada, o link de acesso chega em até 2 minutos e vale por 1 hora. Confira também o spam e a aba Promoções." />
-          <Button type="submit" variant="solid" tone="primary" size="lg" icon="mail" block>
-            <SubmitLabel idle="Receber link de acesso" pending="Enviando link" again="Enviar outro link" />
+          <Button type="submit" variant="solid" tone="store" size="lg" block>
+            <SubmitLabel idle="Receber link de acesso" pending="Enviando" again="Enviar de novo" />
           </Button>
+          <FormMessage done="Se houver compra com este e-mail, o link de acesso chega em instantes." />
         </Stack>
       </ActionForm>
-      <Text variant="body-sm" tone="muted">
-        Acabou de pagar? Volte à página do Pix neste aparelho e toque em Entrar na área de membros.
-      </Text>
     </Gate>
   );
 }
 
-function ConfirmOptOut({ brand, token }: { brand: string; token: string }) {
+function ConfirmOptOut({ token }: { token: string }) {
   return (
-    <Gate
-      brand={brand}
-      title="Parar de receber mensagens"
-      description="Você não vai mais receber lembretes de pedido neste endereço. O acesso aos cursos que você comprou continua igual."
-    >
+    <Gate title="Parar de receber lembretes" description="Seu acesso aos cursos continua igual.">
       <ActionForm action={optOut} fields={{ token }}>
         <Stack gap={2}>
-          <Button type="submit" variant="solid" tone="primary" size="lg" block>
+          <Button type="submit" variant="solid" tone="store" size="lg" block>
             <SubmitLabel idle="Confirmar" pending="Confirmando" />
           </Button>
-          <FormMessage done="Pronto. Você não vai mais receber esses lembretes." />
+          <FormMessage done="Pronto, lembretes desligados." />
         </Stack>
       </ActionForm>
     </Gate>
   );
 }
 
-function ConfirmLogin({ brand, token }: { brand: string; token: string }) {
+function ConfirmLogin({ token }: { token: string }) {
   return (
-    <Gate
-      brand={brand}
-      title="Confirme sua entrada"
-      description="Toque no botão para entrar na área de membros neste aparelho."
-    >
+    <Gate title="Área de membros">
       <ActionForm action={confirmLogin} fields={{ token }}>
         <Stack gap={2}>
-          <Button type="submit" variant="solid" tone="primary" size="lg" block>
-            <SubmitLabel idle="Entrar na área de membros" pending="Entrando" />
+          <Button type="submit" variant="solid" tone="store" size="lg" block>
+            <SubmitLabel idle="Entrar" pending="Entrando" />
           </Button>
           <FormMessage />
         </Stack>
       </ActionForm>
-      <Text variant="body-sm" tone="muted">
-        O link não funcionou? <TextLink href="/m">Pedir um novo</TextLink>
-      </Text>
+      <TextLink href="/m">Pedir outro link</TextLink>
     </Gate>
   );
 }
@@ -189,17 +163,7 @@ function ModuleCover({ product, module, done }: { product: Product; module: Modu
   );
 }
 
-function Home({
-  brand,
-  member,
-  products,
-  done,
-}: {
-  brand: string;
-  member: Member;
-  products: Product[];
-  done: Set<string>;
-}) {
+function Home({ member, products, done }: { member: Member; products: Product[]; done: Set<string> }) {
   const all = products.flatMap(lessonsOf);
   const finished = all.filter((item) => done.has(`${item.product.slug}:${item.lesson.id}`)).length;
   const next = all.find((item) => !done.has(`${item.product.slug}:${item.lesson.id}`)) ?? all[0];
@@ -207,7 +171,7 @@ function Home({
   const firstName = member.name.split(" ")[0];
 
   return (
-    <Shell brand={brand} member={member}>
+    <Shell member={member}>
       <main className={styles.main}>
         <Stack gap={7}>
           {member.scope === "order" ? (
@@ -291,13 +255,11 @@ function Home({
 }
 
 async function Lesson({
-  brand,
   member,
   product,
   lessonId,
   done,
 }: {
-  brand: string;
   member: Member;
   product: Product;
   lessonId: string;
@@ -313,7 +275,7 @@ async function Lesson({
   const stream = lesson.video ? await streamFor(lesson.video) : undefined;
 
   return (
-    <Shell brand={brand} member={member}>
+    <Shell member={member}>
       <main className={styles.lesson}>
         <div className={styles.lessonMain}>
           <Stack gap={5}>
@@ -408,20 +370,20 @@ async function Lesson({
 export default async function Members({ params, searchParams }: Props) {
   const { path = [] } = await params;
   if (path.length !== 0 && path.length !== 2) notFound();
-  const { brand } = await settings();
   const { t, unsubscribe } = await searchParams;
-  if (typeof unsubscribe === "string") return <ConfirmOptOut brand={brand} token={unsubscribe} />;
-  if (typeof t === "string") return <ConfirmLogin brand={brand} token={t} />;
+  if (typeof unsubscribe === "string") return <ConfirmOptOut token={unsubscribe} />;
+  if (typeof t === "string") return <ConfirmLogin token={t} />;
 
   const member = await currentMember();
-  if (!member) return <Login brand={brand} />;
+  if (!member) return <Login />;
   const [products, done] = await Promise.all([memberProducts(member), completedLessons(member)]);
+  after(() => recordAccess(products.map((product) => product.slug)));
   const [productSlug, lessonId] = path;
 
   if (productSlug && lessonId) {
     const product = products.find((item) => item.slug === productSlug);
     if (!product) notFound();
-    return <Lesson brand={brand} member={member} product={product} lessonId={lessonId} done={done} />;
+    return <Lesson member={member} product={product} lessonId={lessonId} done={done} />;
   }
-  return <Home brand={brand} member={member} products={products} done={done} />;
+  return <Home member={member} products={products} done={done} />;
 }

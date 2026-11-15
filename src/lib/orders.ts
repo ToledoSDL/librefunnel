@@ -10,7 +10,8 @@ import type { Database } from "./db";
 import { baseUrl, demoMode, firstName, hmacHex, isObject, jsonObject, maskEmail, readBody, safeEqual } from "./guard";
 import type { GuardCode, Json, JsonObject } from "./guard";
 import { enqueueSale, recoverySteps } from "./messages";
-import { conversion, customer, order, payment } from "./schema";
+import { customer, order, payment } from "./schema";
+import { orderStep } from "./tracking";
 
 export type OrderStatus = (typeof order.$inferSelect)["status"];
 export type OrderCode =
@@ -333,7 +334,8 @@ export async function placeOrder(input: OrderInput): Promise<{ id: string } | { 
       termsVersion: store.termsVersion,
       createdAt: t,
     });
-    await tx.insert(conversion).values({ orderId: id, name: "InitiateCheckout", nextAt: t }).onConflictDoNothing();
+    // A buyer correcting their details replaces a live order: Meta already has this checkout.
+    if (!open || open.expiresAt <= t) await orderStep(tx, id, "created");
     return { id };
   });
 }
@@ -403,7 +405,7 @@ async function markPaid(tx: Database, found: StoredOrder): Promise<OrderCode | n
     .returning({ id: order.id });
 
   if (changed.length !== 1) return "INVALID_TRANSITION";
-  await tx.insert(conversion).values({ orderId: found.id, name: "Purchase", nextAt: new Date() }).onConflictDoNothing();
+  await orderStep(tx, found.id, "paid");
   await enqueueSale(tx, found);
   return null;
 }

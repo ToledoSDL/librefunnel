@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Avatar } from "@/components/feedback/avatar";
 import { Card } from "@/components/layout/card";
 import { Row } from "@/components/layout/row";
@@ -31,47 +32,70 @@ export async function StoreMark() {
   );
 }
 
+// Buyer pages show the seller's own mark, never LibreFunnel's.
+export async function StoreHeader({ href = "/", children }: { href?: string; children?: ReactNode }) {
+  const { brand, logo } = await settings();
+
+  return (
+    <header className={styles.header}>
+      <a href={href} className={styles.home}>
+        {logo ? (
+          <img className={styles.logo} src={logo} alt={brand} height={32} />
+        ) : (
+          <span className={styles.name}>{brand}</span>
+        )}
+      </a>
+      {children}
+    </header>
+  );
+}
+
 export async function Footer() {
   const store = await settings();
   const whatsapp = store.supportWhatsapp?.replace(/\D/g, "");
-  const seller = [store.legalName, store.document ? documentLabel(store.document) : undefined].filter(Boolean);
+  const seller = [store.legalName ?? store.brand, store.document ? documentLabel(store.document) : undefined];
+
+  const links = [
+    store.supportEmail ? { label: "Suporte", href: `mailto:${store.supportEmail}` } : undefined,
+    whatsapp ? { label: "WhatsApp", href: `https://wa.me/${whatsapp}` } : undefined,
+    store.privacyUrl ? { label: "Privacidade", href: store.privacyUrl } : undefined,
+    store.termsUrl ? { label: "Termos", href: store.termsUrl } : undefined,
+  ].filter((link) => link !== undefined);
 
   return (
     <footer className={styles.footer}>
-      <Stack gap={2}>
-        {store.supportEmail || whatsapp ? (
-          <Row gap={3}>
-            {store.supportEmail ? <a href={`mailto:${store.supportEmail}`}>{store.supportEmail}</a> : null}
-            {whatsapp ? (
-              <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer">
-                Suporte no WhatsApp
+      <div className={styles.footerRow}>
+        <Text variant="body-sm" weight="semibold">
+          {seller.filter(Boolean).join(" · ")}
+        </Text>
+        {links.length ? (
+          <nav className={styles.links} aria-label="Contato e políticas">
+            {links.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target={link.href.startsWith("mailto:") ? undefined : "_blank"}
+                rel="noopener noreferrer"
+              >
+                {link.label}
               </a>
-            ) : null}
-          </Row>
+            ))}
+          </nav>
         ) : null}
-        <Text variant="caption" tone="muted">
-          {seller.length ? seller.join(" · ") : store.brand} · pagamento por Pix
-        </Text>
-        <Text variant="caption" tone="muted">
-          Seus dados servem só para entregar o seu acesso. Direito de arrependimento: art. 49 do CDC.
-          {store.privacyUrl ? (
-            <>
-              {" "}
-              <a href={store.privacyUrl} target="_blank" rel="noopener noreferrer">
-                Política de privacidade
-              </a>
-            </>
-          ) : null}
-        </Text>
+      </div>
+      <Text variant="caption" tone="muted">
+        Direito de arrependimento em até 7 dias (CDC, art. 49).
         {store.poweredBy ? (
-          <Text variant="caption" tone="muted">
+          <>
+            {" "}
             Feito com{" "}
-            <a href="https://github.com/ToledoSDL/librefunnel" target="_blank" rel="noopener noreferrer">
+            <a href="https://librefunnel.com" target="_blank" rel="noopener noreferrer">
               LibreFunnel
             </a>
-          </Text>
+            .
+          </>
         ) : null}
-      </Stack>
+      </Text>
     </footer>
   );
 }

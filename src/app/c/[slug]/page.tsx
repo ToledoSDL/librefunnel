@@ -3,7 +3,7 @@ import { Icon } from "@/components/media/icon";
 import { getProduct, orderBump, settings } from "@/lib/catalog";
 import type { Product, Settings } from "@/lib/catalog";
 import { getPixOrder, offerOpen } from "@/lib/orders";
-import { Footer, StoreMark, Testimonials } from "@/app/buyer";
+import { Footer, StoreHeader, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
 import { Tracker } from "@/app/track";
 import { Countdown } from "./countdown";
@@ -41,13 +41,12 @@ export async function generateMetadata({ params, searchParams }: Props) {
 
 function Topbar() {
   return (
-    <header className={styles.topbar}>
-      <StoreMark />
+    <StoreHeader>
       <span className={styles.secure}>
         <Icon name="lock" size={16} />
-        Pagamento 100% seguro
+        Pagamento seguro
       </span>
-    </header>
+    </StoreHeader>
   );
 }
 
@@ -57,9 +56,7 @@ function Guarantee({ days }: { days: number }) {
       <Icon name="shield-check" />
       <div>
         <strong>Garantia de {days} dias</strong>
-        <p>
-          Se não gostar, peça o reembolso em até {days} dias pelo e-mail do acesso e receba o valor inteiro de volta.
-        </p>
+        <p>Não gostou? Devolvemos 100% do valor.</p>
       </div>
     </section>
   );
@@ -89,6 +86,7 @@ export default async function Checkout({ params, searchParams }: Props) {
 
     return (
       <div className={SURFACE[store.checkoutTheme]}>
+        <Tracker product={slug} event="pix_view" />
         <Topbar />
         <PixPage
           product={product}
@@ -119,6 +117,7 @@ export default async function Checkout({ params, searchParams }: Props) {
   return (
     <div className={SURFACE[store.checkoutTheme]}>
       <Tracker product={slug} />
+      <Tracker product={slug} event="checkout_view" />
       {open && deadline && store.checkoutCountdown ? (
         <div className={styles.countdown} role="timer">
           <Icon name="clock" size={16} />
@@ -142,11 +141,7 @@ export default async function Checkout({ params, searchParams }: Props) {
             {product.cover ? <img className={styles.cover} src={product.cover} alt="" width={72} height={72} /> : null}
             <div className={styles.productText}>
               <h1>{product.name}</h1>
-              <span>
-                {lessons
-                  ? `${lessons} ${lessons === 1 ? "aula" : "aulas"} · acesso imediato no e-mail`
-                  : "Acesso imediato no e-mail"}
-              </span>
+              {lessons ? <span>{`${lessons} ${lessons === 1 ? "aula" : "aulas"}`}</span> : null}
               <strong className={styles.productPrice}>
                 <Money cents={product.price} />
               </strong>

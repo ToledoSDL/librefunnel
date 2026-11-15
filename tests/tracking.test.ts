@@ -5,7 +5,7 @@ import { saveMeta, testConnection } from "@/lib/actions";
 import { removeCredentials, saveCredentials } from "@/lib/catalog";
 import { db, one } from "@/lib/db";
 import { sources } from "@/lib/dashboard";
-import { conversion, customer, event, order, touch } from "@/lib/schema";
+import { conversion, customer, event, order, signal, touch } from "@/lib/schema";
 import { sendConversions } from "@/lib/tracking";
 import { POST as trackRoute } from "@/app/t/route";
 import { cookieOptions, cookieStore, fakeServer, form, freshBrowser } from "./fakes";
@@ -97,10 +97,12 @@ describe("/t", () => {
     expect(await db().$count(event)).toBe(before);
   });
 
-  test("is rate limited per IP", async () => {
-    let last = 0;
-    for (let index = 0; index < 241; index += 1) last = (await hit({ e: "page_view", p: "" })).status;
-    expect(last).toBe(429);
+  test("is rate limited per visitor", async () => {
+    await view("");
+    const statuses = [];
+    for (let index = 0; index < 121; index += 1) statuses.push((await hit({ e: "page_view", p: "" })).status);
+    expect(statuses.at(-2)).toBe(204);
+    expect(statuses.at(-1)).toBe(429);
   });
 });
 
@@ -173,6 +175,7 @@ describe("Meta Conversions API", () => {
       realFetch(input.replace("https://graph.facebook.com", server.url), init),
     );
     await db().update(conversion).set({ status: "skipped" }).where(eq(conversion.status, "queued"));
+    await db().update(signal).set({ status: "skipped" }).where(eq(signal.status, "queued"));
   });
 
   afterEach(async () => {
@@ -189,9 +192,11 @@ describe("Meta Conversions API", () => {
     const order = await buy({ email: "capi@example.com", name: "Maria José da Silva", bump: "1" });
     await pay(order, 9700 + 1990);
     await Promise.all([sendConversions(), sendConversions()]);
-    expect(server.to("POST", "/v27.0/123/events").length).toBe(1);
-    const request = server.to("POST", "/v27.0/123/events")[0];
+    // One batch for the order steps, one for the sales page view.
+    expect(server.to("POST", "/v27.0/123/events").length).toBe(2);
+    const request = server.to("POST", "/v27.0/123/events").find((sent) => sent.body.includes("Purchase"));
     const body = JSON.parse(request?.body ?? "{}");
+    expect(body.data.map((sent: { event_name: string }) => sent.event_name)).toEqual(["AddPaymentInfo", "Purchase"]);
     expect(request?.body).not.toContain("capi@example.com");
     expect(body.access_token).toBe("token-meta");
     const purchase = body.data.find((event: { event_name: string }) => event.event_name === "Purchase");
@@ -217,7 +222,55 @@ describe("Meta Conversions API", () => {
       ).status,
     ).toBe("sent");
     await sendConversions();
-    expect(server.to("POST", "/v27.0/123/events").length).toBe(1);
+    expect(server.to("POST", "/v27.0/123/events").length).toBe(2);
+  });
+
+  test("the sales page and the checkout send ViewContent and InitiateCheckout once per visitor", async () => {
+    vi.setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
+    await view("?fbclid=SignalClick");
+    const visitor = cookieStore.get("lf_vid") ?? "";
+    vi.setSystemTime(new Date("2026-11-14T11:05:00-03:00"));
+    await view("");
+    await hit({ e: "checkout_view", p: "metodo-demo" });
+    await hit({ e: "checkout_view", p: "metodo-demo" });
+    await sendConversions();
+    const sent = JSON.parse(server.to("POST", "/v27.0/123/events").at(-1)?.body ?? "{}").data;
+    expect(sent.map((item: { event_name: string }) => item.event_name).sort()).toEqual([
+      "InitiateCheckout",
+      "ViewContent",
+    ]);
+    const viewed = sent.find((item: { event_name: string }) => item.event_name === "ViewContent");
+    expect(viewed).toMatchObject({
+      event_id: `${visitor}:metodo-demo:ViewContent`,
+      event_time: Date.parse("2026-11-14T11:00:00-03:00") / 1000,
+      event_source_url: "https://shop.example/v/metodo-demo",
+      user_data: {
+        external_id: [createHash("sha256").update(visitor).digest("hex")],
+        client_ip_address: `203.0.113.${ip}`,
+        fbc: `fb.1.${Date.parse("2026-11-14T11:00:00-03:00")}.SignalClick`,
+      },
+      custom_data: { currency: "BRL", value: 97, content_ids: ["metodo-demo"] },
+    });
+  });
+
+  test("without Meta connected, a page view stores no visitor address", async () => {
+    await removeCredentials("meta");
+    await view("");
+    expect(await db().$count(signal, eq(signal.visitorId, cookieStore.get("lf_vid") ?? ""))).toBe(0);
+  });
+
+  test("a buyer correcting their details does not send AddPaymentInfo twice", async () => {
+    await buy({ email: "fixing@example.com", name: "Ana Souza" });
+    await buy({ email: "fixing@example.com", name: "Ana Souza Lima" });
+
+    const steps = await db()
+      .select({ name: conversion.name })
+      .from(conversion)
+      .innerJoin(order, eq(order.id, conversion.orderId))
+      .innerJoin(customer, eq(customer.id, order.customerId))
+      .where(eq(customer.email, "fixing@example.com"));
+
+    expect(steps).toEqual([{ name: "AddPaymentInfo" }]);
   });
 
   test("a rejected batch fails without retry and an unconfigured pixel is skipped", async () => {

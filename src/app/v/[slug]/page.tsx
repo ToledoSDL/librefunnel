@@ -11,7 +11,7 @@ import { brl } from "@/lib/messages";
 import { offerOpen } from "@/lib/orders";
 import { Footer, JsonLd, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
-import { TrackCta, Tracker } from "@/app/track";
+import { TrackClick, Tracker } from "@/app/track";
 import { inkFor } from "@/app/color";
 import { Countdown } from "./countdown";
 import styles from "./page.module.css";
@@ -118,7 +118,7 @@ function Buy({ product, href }: { product: Product; href: string }) {
         <span className={styles.priceLabel}>à vista no Pix, sem mensalidade</span>
       </p>
 
-      <TrackCta product={product.slug}>
+      <TrackClick event="cta_click" product={product.slug}>
         <a className={styles.cta} href={href}>
           <span>
             {ctaText(product)}
@@ -126,7 +126,7 @@ function Buy({ product, href }: { product: Product; href: string }) {
           </span>
           <Icon name="arrow-right" />
         </a>
-      </TrackCta>
+      </TrackClick>
 
       <p className={styles.reassure}>
         <Icon name="lock" size={16} />
@@ -318,11 +318,11 @@ export default async function SalesPage({ params, searchParams }: Props) {
                 <Money cents={product.price} />
                 <small>no Pix</small>
               </span>
-              <TrackCta product={slug}>
+              <TrackClick event="cta_click" product={slug}>
                 <a className={styles.stickyCta} href={href}>
                   Quero agora
                 </a>
-              </TrackCta>
+              </TrackClick>
             </StickyOffer>
           </div>
         ) : null}

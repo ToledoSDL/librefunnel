@@ -5,53 +5,172 @@
     min-height: 100dvh;
   }
 
-  .bar {
-    padding: var(--space-3) max(var(--gutter), calc((100% - var(--content-max)) / 2));
-    border-bottom: 1px solid var(--border);
-  }
-
   .main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
     width: min(100% - 2 * var(--gutter), var(--content-max));
     margin-inline: auto;
-    padding-block: var(--space-7) var(--space-8);
+    padding-block: 0 var(--space-8);
+
+    @media (min-width: 768px) {
+      padding-top: var(--space-7);
+    }
+  }
+
+  .hero {
+    display: grid;
+    gap: var(--space-5);
+
+    @media (min-width: 768px) {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      align-items: center;
+      gap: var(--space-8);
+    }
+  }
+
+  .media {
+    display: block;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    background: var(--surface-2);
+
+    @media (max-width: 767px) {
+      margin-inline: calc(var(--gutter) * -1);
+      border-radius: 0;
+    }
+
+    & img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+    }
+  }
+
+  .offer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .title {
+    font-size: clamp(var(--text-2xl), 3.4vw, var(--text-4xl));
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .price {
+    font-size: clamp(var(--text-3xl), 4vw, calc(var(--text-4xl) * 1.2));
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .trust {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+
+    @media (min-width: 768px) {
+      justify-content: flex-start;
+    }
+  }
+
+  .more {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .moreTitle {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   .products {
     display: grid;
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-3);
     list-style: none;
 
     @media (min-width: 768px) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-6) var(--space-5);
     }
   }
 
   .product {
     display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
+    flex-direction: column;
+    gap: var(--space-3);
     height: 100%;
-    padding: var(--space-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--surface);
     color: var(--text);
     text-decoration: none;
-    transition: border-color var(--dur-fast) var(--ease-out);
 
     @media (any-hover: hover) {
-      &:hover {
+      &:hover .thumb {
         border-color: var(--border-strong);
+      }
+    }
+
+    &:focus-visible {
+      outline: none;
+
+      & .thumb {
+        box-shadow: var(--focus-ring);
       }
     }
   }
 
   .thumb {
-    flex: none;
-    width: calc(var(--space-8) * 1.5);
-    height: calc(var(--space-8) * 1.5);
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--surface-2);
     object-fit: cover;
+    transition: border-color var(--dur-fast) var(--ease-out);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .name {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+
+    @media (min-width: 768px) {
+      font-size: var(--text-md);
+    }
+  }
+
+  .cost {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 }

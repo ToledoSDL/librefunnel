@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img" aria-label="Mentoria Demo: revisão da sua oferta">
+  <title>Mentoria Demo: revisão da sua oferta</title>
+  <defs>
+    <pattern id="mt-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="1.2" fill="#fff" fill-opacity=".07"/>
+    </pattern>
+    <radialGradient id="mt-glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#34d399" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#34d399" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="450" fill="#0d1a17"/>
+  <rect width="800" height="450" fill="url(#mt-dots)"/>
+  <circle cx="400" cy="160" r="190" fill="url(#mt-glow)"/>
+  <rect x="300" y="48" width="200" height="220" rx="14" fill="#13261f" stroke="#2dd4bf" stroke-opacity=".35" stroke-width="2"/>
+  <rect x="326" y="76" width="120" height="14" rx="7" fill="#f0fdf4"/>
+  <g fill="#99f6e4" fill-opacity=".35">
+    <rect x="326" y="106" width="148" height="8" rx="4"/>
+    <rect x="326" y="124" width="132" height="8" rx="4"/>
+    <rect x="326" y="160" width="148" height="8" rx="4"/>
+    <rect x="326" y="178" width="96" height="8" rx="4"/>
+  </g>
+  <rect x="326" y="214" width="92" height="26" rx="8" fill="#34d399"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <path d="M522 104l10 10 18-20" stroke="#34d399"/>
+    <path d="M522 158l10 10 18-20" stroke="#34d399"/>
+  </g>
+  <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" text-anchor="middle">
+    <text x="400" y="340" font-size="26" font-weight="600" letter-spacing=".5" fill="#6ee7b7">Mentoria Demo:</text>
+    <text x="400" y="398" font-size="50" font-weight="700" letter-spacing="-1.2" fill="#fff">revisão da sua oferta</text>
+  </g>
+</svg>

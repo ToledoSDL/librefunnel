@@ -159,6 +159,10 @@ export async function funnel(days: Days) {
       played: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'video_play')`.as("played"),
       offer: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'cta_view')`.as("offer"),
       clicked: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'cta_click')`.as("clicked"),
+      checkout: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'checkout_view')`.as("checkout"),
+      filling: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'checkout_start')`.as("filling"),
+      copied: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'pix_copy')`.as("copied"),
+      accessed: sql<number>`COUNT(*) FILTER (WHERE ${event.name} = 'member_access')`.as("accessed"),
     })
     .from(event)
     .where(and(gte(event.createdAt, start), ne(event.product, "")))
@@ -190,8 +194,12 @@ export async function funnel(days: Days) {
       played: total(sql`COALESCE(${milestones.played}, 0)`),
       offer: total(sql`COALESCE(${milestones.offer}, 0)`),
       clicked: total(sql`COALESCE(${milestones.clicked}, 0)`),
+      checkout: total(sql`COALESCE(${milestones.checkout}, 0)`),
+      filling: total(sql`COALESCE(${milestones.filling}, 0)`),
       started,
+      copied: total(sql`COALESCE(${milestones.copied}, 0)`),
       paid: total(sql`COALESCE(${buyers.paid}, 0)`),
+      accessed: total(sql`COALESCE(${milestones.accessed}, 0)`),
     })
     .from(milestones)
     .fullJoin(buyers, eq(milestones.product, buyers.product))
@@ -223,7 +231,7 @@ export async function sources(days: Days, model: "last" | "first") {
           source: sql<string>`${SOURCE}`.as("source"),
           campaign: sql<string>`COALESCE(${touch.campaign}, '')`.as("campaign"),
           position:
-            sql<number>`ROW_NUMBER() OVER (PARTITION BY ${sold.id} ORDER BY ${model === "first" ? touch.firstSeenAt : desc(touch.lastSeenAt)})`.as(
+            sql<number>`ROW_NUMBER() OVER (PARTITION BY ${sold.id} ORDER BY ${model === "first" ? touch.firstSeenAt : desc(touch.firstSeenAt)})`.as(
               "position",
             ),
         })
@@ -644,7 +652,7 @@ export async function ordersCsv(params: URLSearchParams): Promise<string> {
       orderId: sql<string>`${order.id}`.as("order_id"),
       source: sql<string>`${SOURCE}`.as("source"),
       campaign: sql<string>`${touch.campaign}`.as("campaign"),
-      position: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${order.id} ORDER BY ${touch.lastSeenAt} DESC)`.as(
+      position: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${order.id} ORDER BY ${touch.firstSeenAt} DESC)`.as(
         "position",
       ),
     })
@@ -652,6 +660,24 @@ export async function ordersCsv(params: URLSearchParams): Promise<string> {
     .innerJoin(touch, and(eq(touch.visitorId, order.visitorId), lte(touch.firstSeenAt, order.createdAt)))
     .where(gte(order.createdAt, start))
     .as("picked");
+
+  // The latest ad click before the order, so a gclid can go to Google Ads as an offline conversion.
+  const clicked = db()
+    .select({
+      orderId: sql<string>`${order.id}`.as("click_order_id"),
+      kind: sql<string>`${touch.clickKind}`.as("click_kind"),
+      id: sql<string>`${touch.clickId}`.as("click_id"),
+      position: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${order.id} ORDER BY ${touch.firstSeenAt} DESC)`.as(
+        "click_position",
+      ),
+    })
+    .from(order)
+    .innerJoin(
+      touch,
+      and(eq(touch.visitorId, order.visitorId), lte(touch.firstSeenAt, order.createdAt), ne(touch.clickKind, "")),
+    )
+    .where(gte(order.createdAt, start))
+    .as("clicked");
 
   const rows = await db()
     .select({
@@ -668,10 +694,13 @@ export async function ordersCsv(params: URLSearchParams): Promise<string> {
       received: RECEIVED,
       source: picked.source,
       campaign: picked.campaign,
+      clickKind: clicked.kind,
+      clickId: clicked.id,
     })
     .from(order)
     .innerJoin(customer, eq(customer.id, order.customerId))
     .leftJoin(picked, and(eq(picked.orderId, order.id), eq(picked.position, 1)))
+    .leftJoin(clicked, and(eq(clicked.orderId, order.id), eq(clicked.position, 1)))
     .where(and(gte(order.createdAt, start), status ? eq(order.status, status) : undefined))
     .orderBy(desc(order.createdAt));
 
@@ -690,6 +719,8 @@ export async function ordersCsv(params: URLSearchParams): Promise<string> {
       "txid",
       "origem",
       "campanha",
+      "tipo_clique",
+      "id_clique",
     ].join(";"),
   ];
 
@@ -709,6 +740,8 @@ export async function ordersCsv(params: URLSearchParams): Promise<string> {
         row.txid,
         row.source ?? "(direto)",
         row.campaign ?? "",
+        row.clickKind ?? "",
+        row.clickId ?? "",
       ]
         .map(csvCell)
         .join(";"),

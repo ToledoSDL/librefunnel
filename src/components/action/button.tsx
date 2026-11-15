@@ -20,7 +20,7 @@ export type ButtonAttributes = ReturnType<typeof buttonAttributes>;
 
 export type ButtonLook = {
   variant?: "solid" | "soft" | "outline" | "ghost";
-  tone?: "primary" | "neutral" | "danger";
+  tone?: "primary" | "neutral" | "danger" | "store";
   size?: "sm" | "md" | "lg";
   icon?: IconName;
   iconOnly?: boolean;

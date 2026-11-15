@@ -58,14 +58,15 @@ The test: if this color disappeared, would someone miss a state? If not, it is n
 
 ### 2.4 Buttons by role
 
-`Button` has `variant` (`solid`, `soft`, `outline`, `ghost`) and `tone` (`primary`, `neutral`, `danger`).
+`Button` has `variant` (`solid`, `soft`, `outline`, `ghost`) and `tone` (`primary`, `neutral`, `danger`, `store`).
 
-| Role                                             | Variant and tone                         |
-| ------------------------------------------------ | ---------------------------------------- |
-| the action this block exists for (one per block) | `solid primary`                          |
-| secondary action with text                       | `outline neutral`                        |
-| destructive (archive, refund)                    | `soft danger`, confirmed in a `Dialog`   |
-| icon-only action in a dense row                  | `ghost` with `iconOnly` and `aria-label` |
+| Role                                             | Variant and tone                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| the action this block exists for (one per block) | `solid primary`                                                      |
+| the main action of a buyer page (buy, enter)     | `solid store`: the store color from `/admin`, `--primary` when unset |
+| secondary action with text                       | `outline neutral`                                                    |
+| destructive (archive, refund)                    | `soft danger`, confirmed in a `Dialog`                               |
+| icon-only action in a dense row                  | `ghost` with `iconOnly` and `aria-label`                             |
 
 `soft neutral` and `ghost` with text disappear on `--surface`; inside a `Card`, a secondary text button is `outline`. A label says what happens right away: a button that only opens a picker is "Escolher produto", not "Adicionar". Async buttons show progress and stay disabled until the server answers.
 

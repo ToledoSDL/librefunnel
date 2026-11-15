@@ -1,3 +1,5 @@
+// First, so its @layer order statement precedes every component stylesheet.
+import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
@@ -6,7 +8,6 @@ import { settings } from "@/lib/catalog";
 import { DemoBanner } from "@/components/feedback/demo-banner";
 import { baseUrl, demoMode } from "@/lib/guard";
 import { inkFor } from "./color";
-import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 // Only the Pix code and admin fields use it, so it never competes with the first paint.

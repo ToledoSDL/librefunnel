@@ -1,6 +1,7 @@
 @layer screens {
   /* Checkout palette, after the Hotmart and Kiwify checkouts buyers already trust. */
   .page {
+    --page-max: 64rem;
     --checkout-buy: var(--store-accent, #1fa855);
     --checkout-buy-hover: color-mix(in oklab, var(--checkout-buy), black 14%);
     --checkout-buy-ink: var(--store-accent-ink, #ffffff);
@@ -38,16 +39,6 @@
     & time {
       font-variant-numeric: tabular-nums;
     }
-  }
-
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    padding: var(--space-3) max(var(--gutter), calc((100% - 64rem) / 2));
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
   }
 
   .secure {
@@ -275,14 +266,7 @@
   }
 
   .methodText {
-    display: flex;
     flex: 1;
-    flex-direction: column;
-
-    & span {
-      color: var(--text-muted);
-      font-size: var(--text-sm);
-    }
   }
 
   .bump {

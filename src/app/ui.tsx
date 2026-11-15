@@ -8,6 +8,7 @@ import { Text } from "@/components/text/text";
 import type { ActionState, Code } from "@/lib/actions";
 import { createOrder } from "@/lib/actions";
 import { Money } from "./format";
+import { track } from "./track";
 
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 type FormView = { code: Code | null; ok: boolean; withBump: boolean };
@@ -296,6 +297,7 @@ export function CheckoutForm({
 }) {
   const { form, state, dispatch } = useFormAction(createOrder);
   const [withBump, setWithBump] = useState(bumpDefault);
+  const started = useRef(false);
 
   useEffect(() => {
     const node = form.current;
@@ -314,12 +316,20 @@ export function CheckoutForm({
       ref={form}
       action={dispatch}
       id="buy"
+      onFocus={() => {
+        if (started.current) return;
+        started.current = true;
+        track("checkout_start", slug);
+      }}
       onChange={(event) => {
         const node = event.currentTarget;
         const target = event.target;
         if (!(target instanceof HTMLInputElement)) return;
         if (target.name === "phone") target.value = formatPhone(target.value);
-        if (target.name === "bump") setWithBump(target.checked);
+        if (target.name === "bump") {
+          setWithBump(target.checked);
+          if (target.checked) track("bump_add", slug);
+        }
         try {
           const saved = {
             name: inputValue(node, "name"),

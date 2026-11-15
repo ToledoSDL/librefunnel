@@ -63,7 +63,7 @@ export function Purchase({
             />
           )}
         </Field>
-        <Field label="E-mail" hint={<FieldMessage code="INVALID_EMAIL" hint="O acesso chega neste e-mail." />}>
+        <Field label="E-mail" hint={<FieldMessage code="INVALID_EMAIL" />}>
           {(control) => (
             <Input
               {...control}
@@ -101,7 +101,7 @@ export function Purchase({
         {phone === "hidden" ? null : (
           <Field
             label={phone === "required" ? "WhatsApp" : "WhatsApp (opcional)"}
-            hint={<FieldMessage code="INVALID_PHONE" hint="Para avisos deste pedido." />}
+            hint={<FieldMessage code="INVALID_PHONE" />}
           >
             {(control) => (
               <Input
@@ -124,10 +124,7 @@ export function Purchase({
         <Step number={2} title="Pagamento" />
         <div className={styles.method} aria-current="true">
           <Icon name="qr-code" />
-          <span className={styles.methodText}>
-            <strong>Pix</strong>
-            <span>Aprovação na hora, acesso liberado em seguida</span>
-          </span>
+          <strong className={styles.methodText}>Pix</strong>
           <Icon name="circle-check" />
         </div>
 
@@ -196,7 +193,7 @@ export function Purchase({
           ) : (
             "termos de compra"
           )}
-          . Não gostou? Peça o reembolso em até {guaranteeDays} dias pelo e-mail do acesso.
+          .
         </p>
       </div>
     </CheckoutForm>

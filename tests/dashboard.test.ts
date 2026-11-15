@@ -82,8 +82,12 @@ describe("dashboard", () => {
       played: 0,
       offer: 0,
       clicked: 1,
+      checkout: 0,
+      filling: 0,
       started: 1,
+      copied: 0,
       paid: 1,
+      accessed: 0,
     });
   });
 

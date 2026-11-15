@@ -228,7 +228,14 @@ export function VslPlayer({
         </video>
 
         {mode === "preview" && options.autoplay ? (
-          <button type="button" className={styles.overlay} onClick={() => listen(0)}>
+          <button
+            type="button"
+            className={styles.overlay}
+            onClick={() => {
+              once("video_unmute");
+              listen(0);
+            }}
+          >
             <span className={styles.unmute}>
               {icons.sound}
               <strong>Seu vídeo já começou</strong>

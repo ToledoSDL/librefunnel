@@ -72,7 +72,7 @@ INSERT INTO product (slug, name, price_cents, tagline, pix_key, pix_name, pix_ci
   'Três encontros gravados em que uma oferta de exemplo é revisada, do título da página ao checkout.',
   'demo@librefunnel.com', 'LibreFunnel Demo', 'Florianopolis', now() + interval '36 hours', 30,
   'planilha-metas', 2490, 'Adicionar a Planilha de Metas por R$ 24,90',
-  '/demo/module-2.svg',
+  '/demo/mentoria.svg',
   jsonb_build_array(
     jsonb_build_object('q', 'Os encontros são ao vivo?', 'a', 'Não. Os encontros ficam gravados na área de membros e você assiste quando quiser.'),
     jsonb_build_object('q', 'Qual é a garantia?', 'a', '30 dias. Peça o reembolso pelo e-mail de suporte, sem precisar explicar o motivo.')

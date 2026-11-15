@@ -34,15 +34,20 @@ import {
 
 type Model = "last" | "first";
 
-type FunnelStep = "visitors" | "played" | "offer" | "clicked" | "started" | "paid";
+type FunnelStep =
+  "visitors" | "played" | "offer" | "clicked" | "checkout" | "filling" | "started" | "copied" | "paid" | "accessed";
 
 const FUNNEL_STEPS: { key: FunnelStep; label: string }[] = [
   { key: "visitors", label: "Visitaram" },
   { key: "played", label: "Deram play" },
   { key: "offer", label: "Viram a oferta" },
   { key: "clicked", label: "Clicaram" },
+  { key: "checkout", label: "Abriram o checkout" },
+  { key: "filling", label: "Começaram a preencher" },
   { key: "started", label: "Geraram o Pix" },
+  { key: "copied", label: "Copiaram o Pix" },
   { key: "paid", label: "Pagaram" },
+  { key: "accessed", label: "Entraram na área" },
 ];
 
 const PERCENT = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 });

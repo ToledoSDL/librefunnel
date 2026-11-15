@@ -34,12 +34,21 @@ const EVENT_NAMES = literals(
   "cta_view",
   "cta_click",
   "video_watch",
+  "checkout_view",
+  "store_click",
+  "video_unmute",
+  "checkout_start",
+  "bump_add",
+  "pix_view",
+  "pix_copy",
+  "member_access",
 );
 
 const CHANNELS = literals("email", "whatsapp");
 const MESSAGE_KINDS = literals("access", "paid", "recovery", "login", "reply", "owner", "inbound", "manual");
 const MESSAGE_STATUSES = literals("queued", "sending", "sent", "delivered", "read", "failed", "skipped", "received");
-const CONVERSION_NAMES = literals("InitiateCheckout", "Purchase");
+const CONVERSION_NAMES = literals("InitiateCheckout", "AddPaymentInfo", "Purchase");
+const SIGNAL_NAMES = literals("ViewContent", "InitiateCheckout");
 const CONVERSION_STATUSES = literals("queued", "sent", "failed", "skipped");
 
 const SETTING_KEYS = literals(
@@ -293,6 +302,34 @@ export const conversion = pgTable(
     check("conversion_name", oneOf(table.name, CONVERSION_NAMES)),
     check("conversion_status", oneOf(table.status, CONVERSION_STATUSES)),
     index("conversion_due")
+      .on(table.nextAt)
+      .where(sql`${table.status} = 'queued'`),
+  ],
+);
+
+// Meta events from before an order exists, one per visitor, product and name, sent by the background loop.
+export const signal = pgTable(
+  "signal",
+  {
+    visitorId: text("visitor_id").notNull(),
+    product: text("product").notNull(),
+    name: text("name", { enum: SIGNAL_NAMES }).notNull(),
+    ip: text("ip").notNull(),
+    userAgent: text("user_agent").notNull(),
+    fbp: text("fbp"),
+    fbc: text("fbc"),
+    status: text("status", { enum: CONVERSION_STATUSES }).notNull().default("queued"),
+    error: text("error"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAt: timestamptz("next_at").notNull(),
+    sentAt: timestamptz("sent_at"),
+    createdAt: timestamptz("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.visitorId, table.product, table.name] }),
+    check("signal_name", oneOf(table.name, SIGNAL_NAMES)),
+    check("signal_status", oneOf(table.status, CONVERSION_STATUSES)),
+    index("signal_due")
       .on(table.nextAt)
       .where(sql`${table.status} = 'queued'`),
   ],

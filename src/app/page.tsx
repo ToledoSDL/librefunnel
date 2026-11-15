@@ -3,16 +3,14 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Button } from "@/components/action/button";
 import { EmptyState } from "@/components/feedback/empty-state";
-import { PageHeader } from "@/components/layout/page-header";
-import { Row } from "@/components/layout/row";
-import { Stack } from "@/components/layout/stack";
-import { Text } from "@/components/text/text";
+import { Icon } from "@/components/media/icon";
 import { products, settings } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
-import { Footer, JsonLd } from "./buyer";
+import { Footer, JsonLd, StoreHeader } from "./buyer";
 import styles from "./page.module.css";
 import { Money } from "./format";
-import { Tracker } from "./track";
+import { TrackClick, Tracker } from "./track";
 
 export async function generateMetadata(): Promise<Metadata> {
   await connection();
@@ -47,63 +45,98 @@ export default async function Home() {
       itemListElement: items.map((product, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        url: `${base}/v/${product.slug}`,
+        url: `${base}${pageOf(product)}`,
         name: product.name,
       })),
     },
   ];
 
+  const [featured, ...others] = items;
+
   return (
     <div className={`surface-experience ${styles.page}`}>
       <Tracker product="" />
       <JsonLd schema={schema} />
-      <header className={styles.bar}>
-        <Row justify="between" gap={3}>
-          <Text as="span" weight="bold">
-            {brand}
-          </Text>
-          <Button href="/m" size="sm">
-            Área de membros
-          </Button>
-        </Row>
-      </header>
+      <StoreHeader>
+        <Button href="/m" size="sm" variant="ghost">
+          Área de membros
+        </Button>
+      </StoreHeader>
       <main className={styles.main}>
-        <Stack gap={6}>
-          <PageHeader title="Nossos produtos" description="Pagamento por Pix, acesso imediato e garantia em todos." />
-          {items.length ? (
-            <ul className={styles.products}>
-              {items.map((product) => {
-                const image = product.cover ?? product.banner;
-                return (
-                  <li key={product.slug}>
-                    <a href={product.vsl ? `/v/${product.slug}` : `/c/${product.slug}`} className={styles.product}>
-                      {image ? (
-                        <img className={styles.thumb} src={image} alt="" width={72} height={72} loading="lazy" />
-                      ) : (
-                        <span className={styles.thumb} aria-hidden="true" />
-                      )}
-                      <Stack gap={1}>
-                        <Text weight="semibold">{product.name}</Text>
-                        {product.tagline ? (
-                          <Text variant="body-sm" tone="muted">
-                            {product.tagline}
-                          </Text>
-                        ) : null}
-                        <Text weight="semibold">
-                          <Money cents={product.price} />
-                        </Text>
-                      </Stack>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <EmptyState title="Nenhum produto à venda agora" description="Volte mais tarde ou fale com o vendedor." />
-          )}
-        </Stack>
+        <h1 className="sr-only">{brand}</h1>
+        {featured ? (
+          <>
+            <TrackClick event="store_click" product={featured.slug}>
+              <section className={styles.hero}>
+                {imageOf(featured) ? (
+                  <a href={pageOf(featured)} className={styles.media} tabIndex={-1} aria-hidden="true">
+                    <img src={imageOf(featured)} alt="" width={800} height={450} fetchPriority="high" />
+                  </a>
+                ) : null}
+                <div className={styles.offer}>
+                  <h2 className={styles.title}>{featured.name}</h2>
+                  <p className={styles.price}>
+                    <Money cents={featured.price} />
+                  </p>
+                  <Button href={pageOf(featured)} variant="solid" tone="store" size="lg" block>
+                    {featured.vsl ? "Quero conhecer" : "Comprar agora"}
+                  </Button>
+                  {featured.guaranteeDays ? (
+                    <p className={styles.trust}>
+                      <Icon name="shield-check" size={16} />
+                      Garantia de {featured.guaranteeDays} dias
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            </TrackClick>
+            {others.length ? (
+              <section className={styles.more}>
+                <h2 className={styles.moreTitle}>Veja também</h2>
+                <ul className={styles.products}>
+                  {others.map((product) => (
+                    <li key={product.slug}>
+                      <TrackClick event="store_click" product={product.slug}>
+                        <a href={pageOf(product)} className={styles.product}>
+                          {imageOf(product) ? (
+                            <img
+                              className={styles.thumb}
+                              src={imageOf(product)}
+                              alt=""
+                              width={800}
+                              height={450}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className={styles.thumb} aria-hidden="true" />
+                          )}
+                          <span className={styles.info}>
+                            <span className={styles.name}>{product.name}</span>
+                            <strong className={styles.cost}>
+                              <Money cents={product.price} />
+                            </strong>
+                          </span>
+                        </a>
+                      </TrackClick>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </>
+        ) : (
+          <EmptyState title="Nenhum produto à venda agora" description="Volte mais tarde ou fale com o vendedor." />
+        )}
       </main>
       <Footer />
     </div>
   );
+}
+
+function pageOf(product: Product) {
+  return product.vsl ? `/v/${product.slug}` : `/c/${product.slug}`;
+}
+
+function imageOf(product: Product) {
+  return product.cover ?? product.banner;
 }

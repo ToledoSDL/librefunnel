@@ -118,7 +118,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         menuIcon={<Icon name="menu" />}
         closeIcon={<Icon name="x" />}
       />
-      <main className={styles.main}>{children}</main>
+      <div className={styles.content}>
+        <main className={styles.main}>{children}</main>
+      </div>
     </div>
   );
 }

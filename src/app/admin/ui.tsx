@@ -6,7 +6,6 @@ import type { buttonAttributes } from "@/components/action/button";
 import { SaveBar } from "@/components/form/save-bar";
 import { CopyButton } from "@/components/action/copy-button";
 import { SubmitButton } from "@/components/action/submit-button";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { Row } from "@/components/layout/row";
 import { Stack } from "@/components/layout/stack";
 import { Text } from "@/components/text/text";
@@ -345,14 +344,14 @@ export function Rows({
   rows,
   blank,
   addLabel,
-  empty,
   button,
+  icons,
 }: {
   rows: ReactNode[];
   blank: ReactNode;
   addLabel: string;
-  empty: { title: string; description: string };
   button: Look;
+  icons: { add: ReactNode; remove: ReactNode };
 }) {
   const [items, setItems] = useState(() => rows.map((node, id) => ({ id, node })));
   const next = useRef(rows.length);
@@ -364,25 +363,10 @@ export function Rows({
     queueMicrotask(() => box.current?.dispatchEvent(new Event("input", { bubbles: true })));
   }
 
-  const add = (
-    <div>
-      <button
-        type="button"
-        {...button}
-        onClick={() => {
-          next.current += 1;
-          change((current) => [...current, { id: next.current, node: blank }]);
-        }}
-      >
-        {addLabel}
-      </button>
-    </div>
-  );
-
   return (
     <div ref={box}>
-      {items.length ? (
-        <Stack gap={3}>
+      <Stack gap={2}>
+        {items.length ? (
           <ul className={styles.repeat}>
             {items.map((item) => (
               <li className={styles.repeatRow} key={item.id}>
@@ -390,18 +374,31 @@ export function Rows({
                 <button
                   type="button"
                   {...button}
+                  data-icon-only
+                  aria-label="Remover"
+                  title="Remover"
                   onClick={() => change((current) => current.filter((entry) => entry.id !== item.id))}
                 >
-                  Remover
+                  {icons.remove}
                 </button>
               </li>
             ))}
           </ul>
-          {add}
-        </Stack>
-      ) : (
-        <EmptyState title={empty.title} description={empty.description} action={add} />
-      )}
+        ) : null}
+        <div>
+          <button
+            type="button"
+            {...button}
+            onClick={() => {
+              next.current += 1;
+              change((current) => [...current, { id: next.current, node: blank }]);
+            }}
+          >
+            {icons.add}
+            {addLabel}
+          </button>
+        </div>
+      </Stack>
     </div>
   );
 }

@@ -96,7 +96,7 @@ async function Overview({ days, model }: { days: Days; model: Model }) {
     integrations(),
     productStates(),
     settings(),
-    orders({ q: "", status: "pending", page: 1 }),
+    orders({ q: "", status: "pending", product: "", days: null, page: 1 }),
   ]);
 
   const names = new Map(items.map((item) => [item.slug, item.name]));

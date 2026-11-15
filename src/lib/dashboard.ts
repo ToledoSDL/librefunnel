@@ -255,47 +255,92 @@ export async function sources(days: Days, model: "last" | "first") {
     .orderBy(desc(revenue));
 }
 
-export async function orders(filter: { q: string; status: OrderStatus | ""; page: number }) {
+export type OrderFilter = { q: string; status: OrderStatus | ""; product: string; days: Days | null; page: number };
+
+export async function orders(filter: OrderFilter) {
   const q = filter.q.trim().toLowerCase().slice(0, 200);
   const pattern = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
 
-  const rows = await db()
+  // Everything but the status, so each status tab can show how many orders it holds under the other filters.
+  const matching = and(
+    filter.product ? or(eq(order.product, filter.product), eq(order.bump, filter.product)) : undefined,
+    filter.days ? gte(order.createdAt, since(filter.days)) : undefined,
+    q
+      ? or(
+          eq(order.id, q),
+          eq(order.phone, q),
+          eq(sql`lower(${order.txid})`, q),
+          like(customer.email, pattern),
+          like(sql`lower(${order.name})`, pattern),
+        )
+      : undefined,
+  );
+
+  const [rows, counts] = await Promise.all([
+    db()
+      .select({
+        total: total(sql`COUNT(*) OVER ()`),
+        row: {
+          id: order.id,
+          createdAt: order.createdAt,
+          name: order.name,
+          email: customer.email,
+          product: order.product,
+          bump: order.bump,
+          amount: order.amount,
+          status: order.status,
+          txid: order.txid,
+          received: RECEIVED,
+        },
+      })
+      .from(order)
+      .innerJoin(customer, eq(customer.id, order.customerId))
+      .where(and(matching, filter.status ? eq(order.status, filter.status) : undefined))
+      .orderBy(desc(order.createdAt))
+      .limit(PAGE_SIZE)
+      .offset(Math.max(0, filter.page - 1) * PAGE_SIZE),
+    db()
+      .select({ status: order.status, orders: count() })
+      .from(order)
+      .innerJoin(customer, eq(customer.id, order.customerId))
+      .where(matching)
+      .groupBy(order.status),
+  ]);
+
+  return {
+    total: rows[0]?.total ?? 0,
+    rows: rows.map((entry) => entry.row),
+    counts: new Map(counts.map((row) => [row.status, row.orders])),
+  };
+}
+
+// One order with everything the seller needs to act on it, and the profile of the person who placed it.
+export async function orderDetail(id: string) {
+  const [found] = await db()
     .select({
-      total: total(sql`COUNT(*) OVER ()`),
-      row: {
-        id: order.id,
-        createdAt: order.createdAt,
-        name: order.name,
-        email: customer.email,
-        product: order.product,
-        bump: order.bump,
-        amount: order.amount,
-        status: order.status,
-        txid: order.txid,
-        received: RECEIVED,
-      },
+      id: order.id,
+      createdAt: order.createdAt,
+      expiresAt: order.expiresAt,
+      name: order.name,
+      email: customer.email,
+      phone: order.phone,
+      product: order.product,
+      bump: order.bump,
+      productAmount: order.productAmount,
+      bumpAmount: order.bumpAmount,
+      amount: order.amount,
+      status: order.status,
+      txid: order.txid,
+      received: RECEIVED,
+      paidAt: sql<Date | null>`(SELECT MIN(${payment.createdAt}) FROM ${payment}
+        WHERE ${payment.orderId} = ${order.id} AND ${payment.amount} > 0)`.mapWith(order.createdAt),
     })
     .from(order)
     .innerJoin(customer, eq(customer.id, order.customerId))
-    .where(
-      and(
-        filter.status ? eq(order.status, filter.status) : undefined,
-        q
-          ? or(
-              eq(order.id, q),
-              eq(order.phone, q),
-              eq(sql`lower(${order.txid})`, q),
-              like(customer.email, pattern),
-              like(sql`lower(${order.name})`, pattern),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(order.createdAt))
-    .limit(PAGE_SIZE)
-    .offset(Math.max(0, filter.page - 1) * PAGE_SIZE);
+    .where(eq(order.id, id));
 
-  return { total: rows[0]?.total ?? 0, rows: rows.map((entry) => entry.row) };
+  if (!found) return null;
+  return { ...found, profile: await buyer({ channel: "email", address: found.email }) };
 }
 
 // One conversation per channel and address: everything sent to a buyer and everything they answered.

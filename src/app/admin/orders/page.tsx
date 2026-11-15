@@ -1,177 +1,214 @@
-import { DateTime } from "@/app/format";
+import { DateTime, Money } from "@/app/format";
 import { Button } from "@/components/action/button";
+import { MenuPopover } from "@/components/action/menu-popover";
+import { buttonAttributes } from "@/components/action/button";
+import { ButtonContent } from "@/components/action/button-content";
 import { Pagination } from "@/components/data/pagination";
 import { Table } from "@/components/data/table";
+import { Tabs } from "@/components/data/tabs";
 import { EmptyState } from "@/components/feedback/empty-state";
-import { Field } from "@/components/form/field";
 import { Input } from "@/components/form/input";
-import { Select } from "@/components/form/select";
+import { SegmentedControl } from "@/components/form/segmented-control";
 import { PageHeader } from "@/components/layout/page-header";
-import { Row } from "@/components/layout/row";
 import { Stack } from "@/components/layout/stack";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { productNames } from "@/lib/catalog";
 import { orders } from "@/lib/dashboard";
 import type { OrderStatus } from "@/lib/orders";
-import {
-  Amount,
-  type Days,
-  href,
-  INTEGER,
-  OrderActions,
-  periodOf,
-  Periods,
-  pick,
-  type Query,
-  requireAdmin,
-  STATUS_LABEL,
-  STATUS_TONE,
-} from "../shared";
+import { type Days, href, INTEGER, pick, type Query, requireAdmin, STATUS_LABEL, STATUS_TONE } from "../shared";
+import styles from "./orders.module.css";
 
 const PAGE_SIZE = 50;
 
-const STATUSES: OrderStatus[] = ["pending", "paid", "expired", "canceled", "refunded"];
+const STATUSES: OrderStatus[] = ["paid", "pending", "refunded", "expired", "canceled"];
 
-async function OrdersTab({ q, status, page, days }: { q: string; status: OrderStatus | ""; page: number; days: Days }) {
-  const [result, names] = await Promise.all([orders({ q, status, page }), productNames()]);
-  const pages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
-  const keep = { q, status, days: String(days) };
-  const csv = `/admin/orders.csv?${new URLSearchParams(status ? { days: String(days), status } : { days: String(days) })}`;
+const PERIODS = [
+  { value: "", label: "Tudo" },
+  { value: "7", label: "7 dias" },
+  { value: "30", label: "30 dias" },
+  { value: "90", label: "90 dias" },
+];
 
-  return (
-    <>
-      <PageHeader
-        title="Pedidos"
-        description={`${INTEGER.format(result.total)} ${result.total === 1 ? "pedido" : "pedidos"}`}
-        actions={
-          <>
-            <Periods tab="orders" days={days} extra={{ q, status }} />
-            <Button href={csv} icon="download">
-              CSV de {days} dias
-            </Button>
-          </>
-        }
-      />
-      <form method="get" action="/admin" role="search">
-        <input type="hidden" name="tab" value="orders" />
-        <input type="hidden" name="days" value={days} />
-        <Row gap={3} align="end">
-          <Field label="Buscar">
-            {(control) => (
-              <Input
-                {...control}
-                type="search"
-                name="q"
-                defaultValue={q}
-                placeholder="Nome, e-mail ou identificador do Pix"
-              />
-            )}
-          </Field>
-          <Field label="Situação">
-            {(control) => (
-              <Select
-                {...control}
-                name="status"
-                defaultValue={status}
-                options={[
-                  { value: "", label: "Todas" },
-                  ...STATUSES.map((item) => ({ value: item, label: STATUS_LABEL[item] })),
-                ]}
-              />
-            )}
-          </Field>
-          <Button type="submit">Filtrar</Button>
-        </Row>
-      </form>
-      {result.rows.length ? (
-        <Table
-          caption="Pedidos"
-          columns={[
-            { key: "date", label: "Data" },
-            { key: "buyer", label: "Comprador" },
-            { key: "product", label: "Produto" },
-            { key: "amount", label: "Valor", align: "end" },
-            { key: "status", label: "Situação" },
-            { key: "actions", label: "Ações" },
-          ]}
-          rows={result.rows.map((row) => ({
-            id: row.id,
-            cells: {
-              date: (
-                <Text variant="caption" tone="muted">
-                  <DateTime at={row.createdAt} />
-                </Text>
-              ),
-              buyer: (
-                <Stack gap={1}>
-                  <Text as="span" variant="body-sm" weight="semibold">
-                    {row.name}
-                  </Text>
-                  <Text as="span" variant="caption" tone="muted">
-                    {row.email}
-                  </Text>
-                </Stack>
-              ),
-              product: (
-                <Stack gap={1}>
-                  <Text as="span" variant="body-sm">
-                    {names.get(row.product) ?? row.product}
-                  </Text>
-                  {row.bump ? (
-                    <Text as="span" variant="caption" tone="muted">
-                      + {names.get(row.bump) ?? row.bump}
-                    </Text>
-                  ) : null}
-                </Stack>
-              ),
-              amount: <Amount row={row} />,
-              status: (
-                <Stack gap={1}>
-                  {row.status === "pending" && row.received > 0 ? (
-                    <span>
-                      <Badge tone="danger">Pago a menos</Badge>
-                    </span>
-                  ) : row.status === "paid" ? null : (
-                    <span>
-                      <Badge tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</Badge>
-                    </span>
-                  )}
-                  <Text as="span" variant="caption" tone="muted" mono>
-                    {row.txid}
-                  </Text>
-                </Stack>
-              ),
-              actions: <OrderActions row={row} />,
-            },
-          }))}
-        />
-      ) : (
-        <EmptyState
-          title={q || status ? "Nenhum pedido com esses filtros" : "Nenhum pedido ainda"}
-          description={
-            q || status
-              ? "Confira a grafia ou limpe a busca."
-              : "Eles aparecem aqui assim que alguém gerar um Pix na página de um produto."
-          }
-          action={q || status ? <Button href={href("orders", { days: String(days) })}>Limpar busca</Button> : undefined}
-        />
-      )}
-      <Pagination page={page} pages={pages} href={(target) => href("orders", { ...keep, page: String(target) })} />
-    </>
-  );
+type Filters = { q: string; status: OrderStatus | ""; product: string; days: Days | null; page: number };
+
+function daysOf(raw: string): Days | null {
+  return raw === "7" ? 7 : raw === "30" ? 30 : raw === "90" ? 90 : null;
+}
+
+// Every link keeps the other filters and goes back to the first page.
+function link(filters: Filters, change: Partial<Filters>) {
+  const next = { ...filters, page: 1, ...change };
+  const query: Record<string, string> = {};
+
+  if (next.q) query.q = next.q;
+  if (next.status) query.status = next.status;
+  if (next.product) query.product = next.product;
+  if (next.days) query.days = String(next.days);
+  if (next.page > 1) query.page = String(next.page);
+  return href("orders", query);
 }
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<Query> }) {
   await requireAdmin();
 
   const query = await searchParams;
-  const status = STATUSES.find((item) => item === pick(query.status)) ?? "";
-  const page = Math.max(1, Number.parseInt(pick(query.page), 10) || 1);
+  const names = await productNames();
+  const product = pick(query.product);
+
+  const filters: Filters = {
+    q: pick(query.q).trim(),
+    status: STATUSES.find((item) => item === pick(query.status)) ?? "",
+    product: names.has(product) ? product : "",
+    days: daysOf(pick(query.days)),
+    page: Math.max(1, Number.parseInt(pick(query.page), 10) || 1),
+  };
+
+  const result = await orders(filters);
+  const all = [...result.counts.values()].reduce((sum, value) => sum + value, 0);
+  const pages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+  const first = (filters.page - 1) * PAGE_SIZE + 1;
+  const filtered = Boolean(filters.q || filters.status || filters.product || filters.days);
+
+  const csv = `/admin/orders.csv?${new URLSearchParams({
+    ...(filters.days ? { days: String(filters.days) } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+  })}`;
 
   return (
-    <>
-      <OrdersTab q={pick(query.q).trim()} status={status} page={page} days={periodOf(query)} />
-    </>
+    <Stack gap={5}>
+      <PageHeader
+        title="Pedidos"
+        actions={
+          <Button href={csv} icon="download" size="sm">
+            Exportar
+          </Button>
+        }
+      />
+
+      <Tabs
+        label="Situação"
+        items={[
+          { label: "Todos", href: link(filters, { status: "" }), current: !filters.status, count: all },
+          ...STATUSES.filter((status) => result.counts.get(status) || filters.status === status).map((status) => ({
+            label: STATUS_LABEL[status],
+            href: link(filters, { status }),
+            current: filters.status === status,
+            count: result.counts.get(status) ?? 0,
+          })),
+        ]}
+      />
+
+      <div className={styles.toolbar}>
+        <form method="get" action="/admin/orders" role="search" className={styles.search}>
+          {filters.status ? <input type="hidden" name="status" value={filters.status} /> : null}
+          {filters.product ? <input type="hidden" name="product" value={filters.product} /> : null}
+          {filters.days ? <input type="hidden" name="days" value={filters.days} /> : null}
+          <Input
+            type="search"
+            name="q"
+            defaultValue={filters.q}
+            placeholder="Buscar nome, e-mail, WhatsApp ou Pix"
+            aria-label="Buscar pedidos"
+          />
+        </form>
+        <div className={styles.filters}>
+          <MenuPopover
+            trigger={
+              <ButtonContent icon="package">
+                {filters.product ? (names.get(filters.product) ?? filters.product) : "Todos os produtos"}
+              </ButtonContent>
+            }
+            triggerLook={buttonAttributes({ variant: "outline", size: "sm" })}
+            items={[
+              { label: "Todos os produtos", href: link(filters, { product: "" }) },
+              ...[...names].map(([slug, name]) => ({ label: name, href: link(filters, { product: slug }) })),
+            ]}
+          />
+          <SegmentedControl
+            label="Período"
+            value={filters.days ? String(filters.days) : ""}
+            options={PERIODS}
+            href={(value) => link(filters, { days: daysOf(value) })}
+          />
+        </div>
+      </div>
+
+      {result.rows.length ? (
+        <>
+          <Table
+            caption="Pedidos"
+            columns={[
+              { key: "amount", label: "Valor" },
+              { key: "product", label: "Produto", wide: true },
+              { key: "buyer", label: "Comprador" },
+              { key: "date", label: "Data", align: "end", wide: true },
+            ]}
+            rows={result.rows.map((row) => {
+              const underpaid = row.status === "pending" && row.received > 0;
+
+              return {
+                id: row.id,
+                href: `/admin/orders/${row.id}`,
+                label: `Pedido de ${row.name}`,
+                cells: {
+                  amount: (
+                    <span className={styles.amount}>
+                      <Text as="span" variant="body-sm" weight="semibold">
+                        <Money cents={row.amount} />
+                      </Text>
+                      {underpaid ? (
+                        <Badge tone="danger">Pago a menos</Badge>
+                      ) : row.status === "paid" ? null : (
+                        <Badge tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</Badge>
+                      )}
+                    </span>
+                  ),
+                  product: (
+                    <Text as="span" variant="body-sm">
+                      {names.get(row.product) ?? row.product}
+                      {row.bump ? (
+                        <Text as="span" variant="body-sm" tone="muted">
+                          {" "}
+                          + {names.get(row.bump) ?? row.bump}
+                        </Text>
+                      ) : null}
+                    </Text>
+                  ),
+                  buyer: (
+                    <span className={styles.buyer}>
+                      <Text as="span" variant="body-sm">
+                        {row.name}
+                      </Text>
+                      <Text as="span" variant="body-sm" tone="muted">
+                        {row.email}
+                      </Text>
+                    </span>
+                  ),
+                  date: (
+                    <Text as="span" variant="body-sm" tone="muted">
+                      <DateTime at={row.createdAt} />
+                    </Text>
+                  ),
+                },
+              };
+            })}
+          />
+          <div className={styles.footer}>
+            <Text variant="body-sm" tone="muted">
+              {INTEGER.format(first)} a {INTEGER.format(first + result.rows.length - 1)} de{" "}
+              {INTEGER.format(result.total)} {result.total === 1 ? "pedido" : "pedidos"}
+            </Text>
+            <Pagination page={filters.page} pages={pages} href={(target) => link(filters, { page: target })} />
+          </div>
+        </>
+      ) : (
+        <EmptyState
+          title={filtered ? "Nenhum pedido com esses filtros" : "Nenhum pedido ainda"}
+          description={filtered ? "Mude a busca ou os filtros." : "Os pedidos aparecem aqui quando alguém gera um Pix."}
+          action={filtered ? <Button href={href("orders")}>Limpar filtros</Button> : undefined}
+        />
+      )}
+    </Stack>
   );
 }

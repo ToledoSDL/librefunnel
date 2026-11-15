@@ -1,7 +1,6 @@
 import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
-import { Card } from "@/components/layout/card";
-import { Text } from "@/components/text/text";
+import { Section } from "@/components/layout/section";
 import type { Product } from "@/lib/catalog";
 import styles from "../admin.module.css";
 import { TextField } from "../shared";
@@ -18,11 +17,11 @@ export function CheckoutSection({ product, others }: { product: Product; others:
 
   return (
     <ProductForm product={product} section="checkout">
-      <Card title="Oferta e garantia">
+      <Section title="Oferta" description="Sem data de fim, vende sem prazo.">
         <div className={styles.grid}>
           <TextField
             label="Fim da oferta"
-            hint="Horário de Brasília. Em branco, vende sem prazo."
+            hint="Horário de Brasília."
             name="offerEndsAt"
             type="datetime-local"
             defaultValue={product.offerEndsAt ? localInput(product.offerEndsAt) : ""}
@@ -38,11 +37,8 @@ export function CheckoutSection({ product, others }: { product: Product; others:
             defaultValue={product.guaranteeDays}
           />
         </div>
-      </Card>
-      <Card title="Order bump">
-        <Text variant="body-sm" tone="muted">
-          Outro produto oferecido com um clique no checkout, por um preço especial.
-        </Text>
+      </Section>
+      <Section title="Order bump" description="Outro produto oferecido com um clique no checkout.">
         <div className={styles.grid}>
           <Field label="Produto oferecido">
             {(control) => (
@@ -59,19 +55,19 @@ export function CheckoutSection({ product, others }: { product: Product; others:
           </Field>
           <MoneyField
             label="Preço no bump"
-            hint="Em branco usa o preço normal do produto."
+            hint="Em branco, o preço normal."
             name="bumpPrice"
             defaultCents={bump?.price || undefined}
           />
         </div>
         <TextField
-          label="Chamada do bump"
+          label="Chamada"
           name="bumpHeadline"
           maxLength={300}
           placeholder="Sim, quero adicionar por apenas R$ 19,90"
           defaultValue={bump?.headline}
         />
-      </Card>
+      </Section>
     </ProductForm>
   );
 }

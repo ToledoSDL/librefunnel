@@ -6,6 +6,8 @@ type Column = {
   key: string;
   label: string;
   align?: "end";
+  // Shown from 768 px: a phone keeps the columns that identify the row, the detail page has the rest.
+  wide?: boolean;
   sort?: { href: string; direction?: "ascending" | "descending" };
 };
 
@@ -16,7 +18,7 @@ export function Table({
 }: {
   caption: string;
   columns: Column[];
-  rows: { id: string; cells: Record<string, ReactNode> }[];
+  rows: { id: string; href?: string; label?: string; cells: Record<string, ReactNode> }[];
 }) {
   return (
     <div className={styles.tableWrap}>
@@ -25,7 +27,13 @@ export function Table({
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key} scope="col" data-align={column.align} aria-sort={column.sort?.direction}>
+              <th
+                key={column.key}
+                scope="col"
+                data-align={column.align}
+                data-wide={column.wide}
+                aria-sort={column.sort?.direction}
+              >
                 {column.sort ? (
                   <a href={column.sort.href} className={styles.sortLink}>
                     {column.label}
@@ -49,10 +57,16 @@ export function Table({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
-              {columns.map((column) => (
-                <td key={column.key} data-align={column.align}>
-                  {row.cells[column.key]}
+            <tr key={row.id} data-link={row.href ? true : undefined}>
+              {columns.map((column, index) => (
+                <td key={column.key} data-align={column.align} data-wide={column.wide}>
+                  {row.href && index === 0 ? (
+                    <a href={row.href} className={styles.rowLink} aria-label={row.label}>
+                      {row.cells[column.key]}
+                    </a>
+                  ) : (
+                    row.cells[column.key]
+                  )}
                 </td>
               ))}
             </tr>

@@ -1,7 +1,6 @@
 import { EmptyState } from "@/components/feedback/empty-state";
-import { Card } from "@/components/layout/card";
+import { Section } from "@/components/layout/section";
 import { Dialog } from "@/components/overlay/dialog";
-import { Text } from "@/components/text/text";
 import type { Product } from "@/lib/catalog";
 import { ModuleForm } from "./module-form";
 import { ModuleItem } from "./module-item";
@@ -26,18 +25,13 @@ export function ModulesEditor({ product }: { product: Product }) {
   );
 
   return (
-    <Card title="Módulos e aulas" actions={count ? add(false) : null}>
+    <Section title="Módulos e aulas" description="Na ordem da área de membros." actions={count ? add(false) : null}>
       {count ? (
-        <>
-          <Text variant="body-sm" tone="muted">
-            A área de membros mostra nesta ordem. Aulas arquivadas somem para os alunos.
-          </Text>
-          <ol className={styles.modules}>
-            {product.modules.map((module, index) => (
-              <ModuleItem key={module.id} module={module} first={index === 0} last={index === count - 1} />
-            ))}
-          </ol>
-        </>
+        <ol className={styles.modules}>
+          {product.modules.map((module, index) => (
+            <ModuleItem key={module.id} module={module} first={index === 0} last={index === count - 1} />
+          ))}
+        </ol>
       ) : (
         <EmptyState
           title="Nenhum módulo ainda"
@@ -45,6 +39,6 @@ export function ModulesEditor({ product }: { product: Product }) {
           action={add(true)}
         />
       )}
-    </Card>
+    </Section>
   );
 }

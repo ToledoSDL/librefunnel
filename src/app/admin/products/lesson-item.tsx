@@ -25,7 +25,11 @@ export function LessonItem({
         {lesson.archived ? <Badge>Arquivada</Badge> : null}
       </span>
       <div className={styles.itemActions}>
-        <Dialog trigger={{ label: "Editar", size: "sm" }} title="Editar aula" body={<LessonForm lesson={lesson} />} />
+        <Dialog
+          trigger={{ label: "Editar aula", icon: "pencil", iconOnly: true, variant: "ghost" }}
+          title="Editar aula"
+          body={<LessonForm lesson={lesson} />}
+        />
         <ItemActions kind="lesson" id={lesson.id} first={first} last={last} archived={lesson.archived} />
       </div>
     </li>

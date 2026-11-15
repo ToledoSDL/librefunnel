@@ -1,15 +1,16 @@
-import { SettingRow } from "@/components/form/setting-row";
 import { Switch } from "@/components/form/switch";
-import { Card } from "@/components/layout/card";
 import { Disclosure } from "@/components/layout/disclosure";
+import { Section } from "@/components/layout/section";
+import { Stack } from "@/components/layout/stack";
+import { Icon } from "@/components/media/icon";
 import { DEFAULT_BAR } from "@/lib/catalog";
 import type { Product } from "@/lib/catalog";
 import styles from "../admin.module.css";
-import { OUTLINE, TextField } from "../shared";
+import { GHOST, TextField } from "../shared";
 import { Rows } from "../ui";
 import { MediaField } from "./media-field";
 import { PLAYER_FIELDS, ProductForm } from "./product-form";
-import { RetentionCard } from "./retention-card";
+import { RetentionChart } from "./retention-chart";
 import { RowSummary } from "./row-summary";
 import { TriggerFields } from "./trigger-fields";
 
@@ -17,46 +18,28 @@ const PLAYER_ROWS: { name: keyof typeof PLAYER_FIELDS; title: string; descriptio
   {
     name: "playerAutoplay",
     title: "Autoplay inteligente",
-    description:
-      "O vídeo começa sozinho e sem som, com o aviso “Seu vídeo já começou”. Ao tocar, ele volta do início com som. Desligado, a pessoa vê a capa e um botão de play.",
+    description: "Começa sem som, com o aviso “Seu vídeo já começou”.",
   },
-  {
-    name: "playerResume",
-    title: "Continuar de onde parou",
-    description: "Quem volta à página escolhe entre continuar do ponto em que parou ou assistir do início.",
-  },
+  { name: "playerResume", title: "Continuar de onde parou", description: "Quem volta escolhe continuar ou recomeçar." },
   {
     name: "playerButton",
-    title: "Botão de compra dentro do vídeo",
-    description: "Junto com a oferta da página, o botão também aparece sobre o vídeo, no segundo definido acima.",
+    title: "Botão de compra no vídeo",
+    description: "Aparece sobre o vídeo junto com a oferta.",
   },
-  {
-    name: "playerFloating",
-    title: "Vídeo flutuante",
-    description: "Quem rola a página com o vídeo tocando continua assistindo numa janela pequena no canto.",
-  },
-  {
-    name: "playerFastBar",
-    title: "Barra de progresso acelerada",
-    description:
-      "A barra anda mais rápido no começo e mais devagar no fim, e termina junto com o vídeo. Desligada, mostra o tempo real.",
-  },
-  {
-    name: "playerSpeed",
-    title: "Controle de velocidade",
-    description: "Mostra um botão para assistir em 1,25x, 1,5x ou 2x.",
-  },
+  { name: "playerFloating", title: "Vídeo flutuante", description: "Segue tocando num canto ao rolar a página." },
+  { name: "playerFastBar", title: "Barra de progresso acelerada", description: "Anda mais rápido no começo." },
+  { name: "playerSpeed", title: "Controle de velocidade", description: "1,25x, 1,5x ou 2x." },
 ];
 
 export function SalesSection({ product }: { product: Product }) {
   return (
     <ProductForm product={product} section="sales">
-      <Card title="Vídeo de vendas">
-        <MediaField name="vslVideo" kind="video" label="Vídeo de vendas" value={product.vsl?.video} />
+      <Section title="Vídeo de vendas" description="A oferta abaixo do vídeo aparece no segundo escolhido.">
+        <MediaField name="vslVideo" kind="video" label="Vídeo" value={product.vsl?.video} />
         <div className={styles.grid}>
           <TextField
             label="Oferta aparece aos (segundos)"
-            hint="A página abaixo do vídeo fica escondida até esse segundo, contado com o som ligado. 0 mostra tudo desde o início."
+            hint="0 mostra desde o início."
             name="ctaSeconds"
             type="number"
             min={0}
@@ -71,35 +54,32 @@ export function SalesSection({ product }: { product: Product }) {
             defaultValue={product.vsl?.ctaText}
           />
         </div>
-        <MediaField name="captions" kind="captions" label="Legendas (.vtt)" value={product.vsl?.captions} />
-      </Card>
-      {product.vsl ? <RetentionCard product={product.slug} /> : null}
-      <Card title="Barra no topo">
-        <div className={styles.grid}>
-          <TextField
-            label="Texto da barra"
-            hint="Em branco, a barra não aparece. Com prazo da oferta definido em Checkout, ela mostra a contagem regressiva até ele."
-            name="barText"
-            maxLength={120}
-            placeholder="Condição de lançamento: só até domingo"
-            defaultValue={product.bar?.text}
-          />
-          <TextField
-            label="Cor da barra"
-            name="barColor"
-            type="color"
-            defaultValue={product.bar?.color ?? DEFAULT_BAR}
-          />
-        </div>
-      </Card>
-      <Card title="Textos e botões no vídeo">
+        <MediaField name="captions" kind="captions" label="Legendas" value={product.vsl?.captions} />
+      </Section>
+      {product.vsl ? (
+        <Section title="Retenção" description="Quanto do vídeo as pessoas assistem com som.">
+          <RetentionChart product={product.slug} />
+        </Section>
+      ) : null}
+      <Section title="Player">
+        <Stack gap={4}>
+          {PLAYER_ROWS.map((row) => (
+            <Switch
+              key={row.name}
+              name={row.name}
+              value="1"
+              defaultChecked={product.player[PLAYER_FIELDS[row.name]]}
+              label={row.title}
+              description={row.description}
+            />
+          ))}
+        </Stack>
+      </Section>
+      <Section title="Textos no vídeo" description="Uma frase ou o botão de compra num trecho do vídeo.">
         <Rows
           addLabel="Adicionar texto"
-          button={OUTLINE}
-          empty={{
-            title: "Nenhum texto no vídeo",
-            description: "Destaque um momento do pitch ou mostre o botão de compra num trecho específico.",
-          }}
+          button={GHOST}
+          icons={{ add: <Icon name="plus" size={16} />, remove: <Icon name="trash-2" size={16} /> }}
           rows={product.triggers.map((trigger) => (
             <Disclosure
               key={`${trigger.at}-${trigger.text}`}
@@ -119,27 +99,26 @@ export function SalesSection({ product }: { product: Product }) {
             </Disclosure>
           }
         />
-      </Card>
-      <Card title="Player">
-        <div>
-          {PLAYER_ROWS.map((row) => (
-            <SettingRow key={row.name} title={row.title} description={row.description}>
-              <Switch
-                name={row.name}
-                value="1"
-                defaultChecked={product.player[PLAYER_FIELDS[row.name]]}
-                label="Ligado"
-              />
-            </SettingRow>
-          ))}
-        </div>
-      </Card>
-      <Card title="Imagens">
+      </Section>
+      <Section title="Barra no topo" description="Com fim da oferta definido, mostra a contagem regressiva.">
         <div className={styles.grid}>
-          <MediaField name="banner" kind="image" label="Banner (1040 x 325)" value={product.banner} />
-          <MediaField name="cover" kind="image" label="Capa (quadrada)" value={product.cover} />
+          <TextField
+            label="Texto"
+            hint="Em branco, a barra não aparece."
+            name="barText"
+            maxLength={120}
+            placeholder="Condição de lançamento: só até domingo"
+            defaultValue={product.bar?.text}
+          />
+          <TextField label="Cor" name="barColor" type="color" defaultValue={product.bar?.color ?? DEFAULT_BAR} />
         </div>
-      </Card>
+      </Section>
+      <Section title="Imagens">
+        <div className={styles.grid}>
+          <MediaField name="cover" kind="image" label="Capa (16:9)" value={product.cover} />
+          <MediaField name="banner" kind="image" label="Banner (1040 × 325)" value={product.banner} />
+        </div>
+      </Section>
     </ProductForm>
   );
 }

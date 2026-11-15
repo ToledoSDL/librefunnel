@@ -5,7 +5,7 @@ import { Icon } from "@/components/media/icon";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import type { inbox } from "@/lib/dashboard";
-import { href, STATUS_LABEL, STATUS_TONE } from "../shared";
+import { STATUS_LABEL, STATUS_TONE } from "../shared";
 import { contactLabel, device, duration, photoHref } from "./labels";
 import styles from "./messages.module.css";
 
@@ -75,7 +75,7 @@ function JourneySteps({ journey }: { journey: Journey }) {
   );
 }
 
-export function Profile({ thread }: { thread: Thread }) {
+export function Profile({ thread }: { thread: Pick<Thread, "name" | "photo" | "address" | "profile"> }) {
   const { profile } = thread;
   const title = thread.name ?? contactLabel(thread.address);
   const paid = profile.orders.filter((row) => row.status === "paid");
@@ -126,7 +126,7 @@ export function Profile({ thread }: { thread: Thread }) {
           <ul className={styles.orders}>
             {profile.orders.map((row) => (
               <li key={row.id}>
-                <a className={styles.order} href={href("orders", { q: row.id })}>
+                <a className={styles.order} href={`/admin/orders/${row.id}`}>
                   <Text as="span" variant="body-sm">
                     {row.title}
                   </Text>

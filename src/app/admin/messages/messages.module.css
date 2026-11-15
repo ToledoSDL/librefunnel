@@ -1,5 +1,5 @@
 @layer screens {
-  /* Fills the screen under the phone menu bar (3.5rem) and next to the sidebar from 1024 px. */
+  /* Fills the screen under the phone menu bar (3.5rem), and the whole content area next to the sidebar from 1024 px. */
   .inbox {
     display: grid;
     height: calc(100dvh - 3.5rem);
@@ -15,7 +15,7 @@
     }
 
     @media (min-width: 1024px) {
-      height: 100dvh;
+      height: 100%;
     }
 
     /* Phones show one pane at a time: the list, or the conversation picked from it. */

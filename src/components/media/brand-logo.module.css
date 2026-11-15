@@ -19,7 +19,8 @@
       width: 3rem;
       height: 3rem;
 
-      & svg {
+      & svg,
+      & img {
         width: 1.75rem;
         height: 1.75rem;
       }

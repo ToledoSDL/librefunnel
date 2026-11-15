@@ -1,7 +1,8 @@
-import { Card } from "@/components/layout/card";
 import { Disclosure } from "@/components/layout/disclosure";
+import { Section } from "@/components/layout/section";
+import { Icon } from "@/components/media/icon";
 import type { Product } from "@/lib/catalog";
-import { OUTLINE } from "../shared";
+import { GHOST } from "../shared";
 import { Rows } from "../ui";
 import { FaqFields } from "./faq-fields";
 import { ProductForm } from "./product-form";
@@ -9,16 +10,15 @@ import { RowSummary } from "./row-summary";
 import { TestimonialFields } from "./testimonial-fields";
 
 export function ReviewsSection({ product }: { product: Product }) {
+  const icons = { add: <Icon name="plus" size={16} />, remove: <Icon name="trash-2" size={16} /> };
+
   return (
     <ProductForm product={product} section="reviews">
-      <Card title="Perguntas frequentes">
+      <Section title="Perguntas frequentes" description="As dúvidas que travam a compra: acesso, prazo, garantia.">
         <Rows
           addLabel="Adicionar pergunta"
-          button={OUTLINE}
-          empty={{
-            title: "Nenhuma pergunta ainda",
-            description: "Responda as dúvidas que travam a compra: acesso, prazo, garantia.",
-          }}
+          button={GHOST}
+          icons={icons}
           rows={product.faq.map((item) => (
             <Disclosure key={item.q} label={<RowSummary title={item.q} text={item.a} />}>
               <FaqFields question={item.q} answer={item.a} />
@@ -30,15 +30,12 @@ export function ReviewsSection({ product }: { product: Product }) {
             </Disclosure>
           }
         />
-      </Card>
-      <Card title="Depoimentos">
+      </Section>
+      <Section title="Depoimentos" description="Só depoimentos reais, com o nome autorizado.">
         <Rows
           addLabel="Adicionar depoimento"
-          button={OUTLINE}
-          empty={{
-            title: "Nenhum depoimento ainda",
-            description: "Use só depoimentos reais de alunos, com o nome que eles autorizaram.",
-          }}
+          button={GHOST}
+          icons={icons}
           rows={product.testimonials.map((item) => (
             <Disclosure
               key={item.name + item.text}
@@ -58,7 +55,7 @@ export function ReviewsSection({ product }: { product: Product }) {
             </Disclosure>
           }
         />
-      </Card>
+      </Section>
     </ProductForm>
   );
 }

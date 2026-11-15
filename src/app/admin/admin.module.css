@@ -1,10 +1,29 @@
 @layer screens {
+  /* From 1024 px the panel is a frame under the demo banner: the sidebar stays whole and only the content scrolls. */
+  :global(body):has(.shell) {
+    @media (min-width: 1024px) {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+  }
+
   .shell {
     min-height: 100dvh;
 
     @media (min-width: 1024px) {
       display: grid;
+      flex: 1;
       grid-template-columns: 15rem minmax(0, 1fr);
+      min-height: 0;
+    }
+  }
+
+  .content {
+    @media (min-width: 1024px) {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
   }
 
@@ -24,6 +43,7 @@
     /* A screen that is a workspace (the inbox) takes the whole area next to the sidebar. */
     &:has(> [data-fill]) {
       max-width: none;
+      height: 100%;
       padding: 0;
     }
   }

@@ -223,14 +223,16 @@ export function maskEmail(email: string): string {
   return `${local.slice(0, 1)}***@${domain}`;
 }
 
-function passwordDigest(password: string): Buffer {
-  return scryptSync(password, key("admin-password"), 32);
+// The only place the admin password is hashed: scrypt, slow on purpose. What it returns is a derived key, safe to
+// feed to HMAC as the session label so a new password signs everyone out.
+function stretch(secret: string): Buffer {
+  return scryptSync(secret, key("admin-password"), 32);
 }
 
 // scrypt is slow on purpose and isAdmin runs on every admin request, so the digest is kept until the password changes.
 function adminDigest(): Buffer {
   const password = process.env.ADMIN_PASSWORD ?? "";
-  if (adminHash?.password !== password) adminHash = { password, digest: passwordDigest(password) };
+  if (adminHash?.password !== password) adminHash = { password, digest: stretch(password) };
   return adminHash.digest;
 }
 
@@ -245,7 +247,7 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function signInAdmin(password: string, ip: string): Promise<GuardCode | null> {
   if (limited("admin", ip, 10, 900)) return "RATE_LIMITED";
-  if ((process.env.ADMIN_PASSWORD ?? "").length < 16 || !timingSafeEqual(passwordDigest(password), adminDigest()))
+  if ((process.env.ADMIN_PASSWORD ?? "").length < 16 || !timingSafeEqual(stretch(password), adminDigest()))
     return "INVALID_PASSWORD";
   await setCookie(ADMIN_COOKIE, sign(adminLabel(), "admin", ADMIN_TTL), ADMIN_TTL, "strict");
   return null;

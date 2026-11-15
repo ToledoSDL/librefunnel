@@ -4,10 +4,10 @@ import styles from "./brand-logo.module.css";
 // Brand colors are part of each logo, not of the product palette.
 const BRANDS: Record<string, { icon?: string; src?: string; color: string; initials?: string }> = {
   mercadopago: { src: "/brands/mercadopago.svg", color: "#00bcff" },
-  woovi: { src: "/brands/woovi.png", color: "#03d69d" },
+  woovi: { src: "/brands/woovi.svg", color: "#03d69d" },
   abacatepay: { src: "/brands/abacatepay.svg", color: "#7fb83d" },
-  depix: { color: "#6b6e66", initials: "DP" },
-  noxpay: { color: "#6b6e66", initials: "NX" },
+  depix: { src: "/brands/depix.svg", color: "#38e3ac" },
+  noxpay: { src: "/brands/noxpay.svg", color: "#f5a623" },
   pix: { icon: "pix", color: "#32bcad" },
   gmail: { icon: "gmail", color: "#ea4335" },
   brevo: { icon: "brevo", color: "#0b996e" },

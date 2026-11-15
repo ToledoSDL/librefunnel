@@ -25,6 +25,7 @@ Screens compose components from `src/components`. A screen never styles a compon
 | vertical rhythm    | `Stack` with `gap`                                  | spacing comes from the gap, never from margins |
 | horizontal line-up | `Row` (`justify="between"` for title plus action)   |                                                |
 | panel              | `Card` with `title`, `actions` props                | do not hand-write card headers                 |
+| group of settings  | `Section` with `title`, short `description`         | form pages stack sections, never one card each |
 | text               | `Text` with `variant` and `tone`                    | no bare `p`, `span`, `h2` in screens           |
 | list of records    | `Table`, or rows inside a `Card`                    |                                                |
 | loading            | a placeholder in the shape of the content           | never a blank area or a lone spinner           |
@@ -193,7 +194,7 @@ One component per file, grouped by responsibility: `src/components/<group>/<name
 
 | Folder in `src/components` | Components                                                                                                  |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `layout/`                  | `PageHeader`, `Stack`, `Row`, `Card`, `Disclosure`                                                          |
+| `layout/`                  | `PageHeader`, `Stack`, `Row`, `Card`, `Section`, `Disclosure`                                               |
 | `text/`                    | `Text`, `TextLink`, `Badge`, `Stat`                                                                         |
 | `action/`                  | `Button`, `Menu`, `CopyField`, `ThemeMenu`                                                                  |
 | `form/`                    | `Field`, `Input`, `MoneyInput`, `Textarea`, `Select`, `Switch`, `SegmentedControl`, `SaveBar`, `SettingRow` |
@@ -202,7 +203,7 @@ One component per file, grouped by responsibility: `src/components/<group>/<name
 | `feedback/`                | `Alert`, `EmptyState`, `Progress`, `Checklist`, `Avatar`                                                    |
 | `media/`                   | `Icon`, `BrandLogo`, `VideoPlayer`, `Cover`                                                                 |
 
-Interactive components (`Dialog`, `Menu`, `Select`, `Switch`) are built on Ariakit. A client component never imports `media/icon.tsx` or `media/brand-logo.tsx` (they load whole icon sets): the server side renders icons and button looks and passes them in as props. Icons come from the Iconify Lucide set by name (`<Icon name="chevron-right" />`), 16 px in rows, 20 px in buttons, always next to text or with an `aria-label`. Platform logos come from `BrandLogo` (Simple Icons, or the official file in `public/brands/`). Components exist only while a screen uses them; add one back to its folder when a screen needs it.
+Interactive components (`Dialog`, `Menu`, `Select`, `Switch`) are built on Ariakit. A client component never imports `media/icon.tsx` or `media/brand-logo.tsx` (they load whole icon sets): the server side renders icons and button looks and passes them in as props. Icons come from the Iconify Lucide set by name (`<Icon name="chevron-right" />`), 16 px in rows, 20 px in buttons, always next to text or with an `aria-label`. Platform logos come from `BrandLogo` (Simple Icons, or the official SVG in `public/brands/`, with a square `viewBox` tight around the mark so every logo renders at the same size). Components exist only while a screen uses them; add one back to its folder when a screen needs it.
 
 ## 7. CSS
 

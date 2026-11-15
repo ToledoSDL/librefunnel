@@ -1,3 +1,4 @@
+import { Button } from "@/components/action/button";
 import { CopyField } from "@/components/action/copy-field";
 import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
@@ -6,7 +7,8 @@ import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { savePix } from "@/lib/actions";
 import { NOXPAY_CURRENCIES } from "@/lib/orders";
-import { OUTLINE, PRIMARY, TextField, type Links } from "../shared";
+import type { ReactNode } from "react";
+import { href, OUTLINE, PRIMARY, TextField, type Links } from "../shared";
 import { ActionButton, SaveForm } from "../ui";
 import styles from "./connections.module.css";
 import { RemoveButton, SecretInput, Steps, TestButton } from "./parts";
@@ -127,16 +129,21 @@ function ProviderTile({ provider }: { provider: Provider }) {
       </span>
       <div className={styles.tileActions}>
         {provider.id === "static" ? (
-          provider.active ? null : (
-            <ActionButton
-              action={savePix}
-              fields={{ provider: "static" }}
-              button={OUTLINE}
-              label="Usar"
-              pendingLabel="Salvando"
-              done="Pronto: os próximos pedidos usam o Pix na chave do produto."
-            />
-          )
+          <>
+            <Button href={href("products")} size="sm">
+              Editar chaves nos produtos
+            </Button>
+            {provider.active ? null : (
+              <ActionButton
+                action={savePix}
+                fields={{ provider: "static" }}
+                button={OUTLINE}
+                label="Usar"
+                pendingLabel="Salvando"
+                done="Pronto: os próximos pedidos usam o Pix na chave do produto."
+              />
+            )}
+          </>
         ) : (
           <>
             <Dialog
@@ -160,12 +167,13 @@ function ProviderTile({ provider }: { provider: Provider }) {
   );
 }
 
-export function PixProviders({ providers }: { providers: Provider[] }) {
+export function PixProviders({ providers, children }: { providers: Provider[]; children?: ReactNode }) {
   return (
     <div className={styles.tiles}>
       {providers.map((provider) => (
         <ProviderTile key={provider.id} provider={provider} />
       ))}
+      {children}
     </div>
   );
 }

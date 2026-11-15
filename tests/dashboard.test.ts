@@ -4,6 +4,7 @@ import { removeConnection, saveEvolution, saveMeta, savePix, saveSmtp } from "@/
 import { credentials } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import { funnel, integrations, orders, revenueByDay, summary } from "@/lib/dashboard";
+import type { OrderFilter } from "@/lib/dashboard";
 import { seal, unseal } from "@/lib/guard";
 import { integration, message, order as orderTable } from "@/lib/schema";
 import { GET as csvRoute } from "@/app/admin/orders.csv/route";
@@ -93,12 +94,29 @@ describe("dashboard", () => {
 
   test("orders search finds by e-mail and txid, with the total from the window", async () => {
     const order = await buy({ email: "search@example.com" });
-    expect(await orders({ q: "SEARCH@", status: "", page: 1 })).toMatchObject({
+    const all = { product: "", days: null, page: 1 };
+    expect(await orders({ ...all, q: "SEARCH@", status: "" })).toMatchObject({
       total: 1,
       rows: [{ id: order, email: "search@example.com", received: 0, status: "pending" }],
     });
-    expect((await orders({ q: order, status: "pending", page: 1 })).total).toBe(1);
-    expect((await orders({ q: "%", status: "", page: 1 })).total).toBe(0);
+    expect((await orders({ ...all, q: order, status: "pending" })).total).toBe(1);
+    expect((await orders({ ...all, q: "%", status: "" })).total).toBe(0);
+  });
+
+  test("orders filter by product, bump included, and count each status under the other filters", async () => {
+    const all: OrderFilter = { q: "filters@", status: "", product: "", days: null, page: 1 };
+    const paid = await buy({ email: "filters@example.com", bump: "1" });
+    await pay(paid, 9700 + 1990);
+    await buy({ email: "filters@example.com", name: "Outra Pessoa" });
+    const result = await orders({ ...all, product: "planilha-metas" });
+    expect(result.rows.map((row) => row.id)).toEqual([paid]);
+    expect(result.counts).toEqual(new Map([["paid", 1]]));
+    expect((await orders({ ...all, status: "pending" })).counts).toEqual(
+      new Map([
+        ["paid", 1],
+        ["pending", 1],
+      ]),
+    );
   });
 
   test("CSV export needs the admin and neutralizes spreadsheet formulas", async () => {

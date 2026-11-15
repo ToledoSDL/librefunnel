@@ -41,6 +41,8 @@ export const TABS: { key: Tab; label: string }[] = [
 
 export const OUTLINE = buttonAttributes({ size: "sm" });
 
+export const GHOST = buttonAttributes({ variant: "ghost", size: "sm" });
+
 export const PRIMARY = buttonAttributes({ variant: "solid", tone: "primary", size: "sm" });
 
 export const DANGER = buttonAttributes({ variant: "soft", tone: "danger", size: "sm" });
@@ -141,25 +143,32 @@ export function OrderActions({ row }: { row: OrderRow }) {
 
   return (
     <Disclosure label={row.received > 0 && row.received < row.amount ? "Liberar mesmo assim" : "Liberar"}>
-      <ReleaseForm orderId={row.id} button={PRIMARY}>
-        <Text variant="body-sm">
-          Abra o extrato do banco (não o comprovante que o comprador mandou) e procure um Pix de{" "}
-          <Money cents={row.amount} /> com o identificador{" "}
-          <Text as="span" variant="body-sm" mono>
-            {row.txid}
-          </Text>
-          .
-        </Text>
-        {row.received > 0 ? (
-          <Text variant="body-sm" tone="muted">
-            Já registrado: <Money cents={row.received} />.
-          </Text>
-        ) : null}
-        <Field label="Valor que caiu na conta">
-          {(control) => <MoneyInput {...control} name="amount" required defaultCents={row.amount} />}
-        </Field>
-      </ReleaseForm>
+      <Release row={row} />
     </Disclosure>
+  );
+}
+
+// Releasing by hand: the seller checks the bank statement and types what arrived.
+export function Release({ row }: { row: OrderRow }) {
+  return (
+    <ReleaseForm orderId={row.id} button={PRIMARY}>
+      <Text variant="body-sm">
+        Abra o extrato do banco (não o comprovante que o comprador mandou) e procure um Pix de{" "}
+        <Money cents={row.amount} /> com o identificador{" "}
+        <Text as="span" variant="body-sm" mono>
+          {row.txid}
+        </Text>
+        .
+      </Text>
+      {row.received > 0 ? (
+        <Text variant="body-sm" tone="muted">
+          Já registrado: <Money cents={row.received} />.
+        </Text>
+      ) : null}
+      <Field label="Valor que caiu na conta">
+        {(control) => <MoneyInput {...control} name="amount" required defaultCents={row.amount} />}
+      </Field>
+    </ReleaseForm>
   );
 }
 

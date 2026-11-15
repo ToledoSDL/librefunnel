@@ -27,7 +27,7 @@ export function ModuleItem({ module, first, last }: { module: Module; first: boo
         </span>
         <div className={styles.itemActions}>
           <Dialog
-            trigger={{ label: "Editar", size: "sm" }}
+            trigger={{ label: "Editar módulo", icon: "pencil", iconOnly: true, variant: "ghost" }}
             title="Editar módulo"
             body={<ModuleForm module={module} />}
           />
@@ -43,7 +43,7 @@ export function ModuleItem({ module, first, last }: { module: Module; first: boo
       ) : null}
       <div className={styles.addLesson}>
         <Dialog
-          trigger={{ label: "Nova aula", icon: "plus", size: "sm" }}
+          trigger={{ label: "Nova aula", icon: "plus", size: "sm", variant: "ghost" }}
           title="Nova aula"
           description={`Entra no fim de ${module.title}.`}
           body={<LessonForm module={module.id} />}

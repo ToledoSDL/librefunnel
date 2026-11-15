@@ -19,11 +19,12 @@ export default async function ConnectionsPage() {
       <PageHeader title="Conexões" />
       <div className={styles.page}>
         <Section title="Recebimento">
-          <PixProviders providers={links.pix.providers} />
-          <WooviCrypto
-            crypto={links.pix.crypto}
-            woovi={links.pix.providers.some((provider) => provider.id === "woovi" && provider.configured)}
-          />
+          <PixProviders providers={links.pix.providers}>
+            <WooviCrypto
+              crypto={links.pix.crypto}
+              woovi={links.pix.providers.some((provider) => provider.id === "woovi" && provider.configured)}
+            />
+          </PixProviders>
         </Section>
         <Section title="Entrega e mensagens">
           <Email email={links.email} />

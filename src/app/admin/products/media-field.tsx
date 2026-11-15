@@ -4,8 +4,8 @@ import { MediaUpload } from "../ui";
 
 const HINTS = {
   image: "JPG, PNG ou WebP, até 10 MB.",
-  video: "MP4 ou WebM, até 1 GB. Deixe esta página aberta até chegar a 100% e depois salve.",
-  captions: "Arquivo de legenda WebVTT (.vtt), até 1 MB.",
+  video: "MP4 ou WebM, até 1 GB. Salve quando chegar a 100%.",
+  captions: "Arquivo .vtt, até 1 MB.",
 };
 
 export function MediaField({

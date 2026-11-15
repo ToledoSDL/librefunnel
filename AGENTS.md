@@ -28,6 +28,7 @@ bun run test           # tests only (bun test, one process per file)
 bun run migration      # after editing src/lib/schema.ts: writes the next migration
 bun run release        # patch, minor, major or 1.2.3: checks, bumps, tags and pushes; GitHub publishes the release
 bun run brand          # after changing the logo or the colors: rewrites every logo, icon and banner file
+bun run icons          # after adding a Lucide or brand icon to docs/icons.ts: rewrites src/components/media/icon-set.ts
 bun run demo-art       # after editing demo/art.ts: rewrites the demo images and sales video (needs rsvg-convert, ffmpeg, fonts in demo/media/CREDITS.md)
 ```
 

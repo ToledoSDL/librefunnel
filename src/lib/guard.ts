@@ -45,6 +45,8 @@ export function envProblems(): string[] {
   if ((process.env.ADMIN_PASSWORD ?? "").length < 16) problems.push("ADMIN_PASSWORD must have at least 16 characters");
   if (!/^https?:\/\/[^/\s]+$/.test(process.env.BASE_URL ?? ""))
     problems.push("BASE_URL must look like https://shop.example.com (no path, no trailing slash)");
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL)
+    problems.push("DATABASE_URL must point to PostgreSQL (compose.yaml sets it); the image has no embedded database");
   return problems;
 }
 

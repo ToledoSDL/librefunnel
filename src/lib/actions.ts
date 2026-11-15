@@ -629,7 +629,7 @@ export async function saveNfse(...[, form]: FormArgs): Promise<ActionState> {
   if (limited("test", "nfse", 10, 600)) return { code: "RATE_LIMITED" };
 
   const certificate = fresh
-    ? invoices.readCertificate(Buffer.from(await file.arrayBuffer()), field(form, "password"))
+    ? await invoices.readCertificate(Buffer.from(await file.arrayBuffer()), field(form, "password"))
     : undefined;
 
   if (typeof certificate === "string") return { code: certificate };

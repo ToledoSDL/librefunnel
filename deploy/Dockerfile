@@ -1,5 +1,5 @@
-# The build stages run on the builder's own platform: the standalone output is plain JS (sharp is excluded and PGlite is
-# WebAssembly), so the arm64 image is built without emulating Next.
+# The build stages run on the builder's own platform: the standalone output is plain JS (sharp and PGlite are left out),
+# so the arm64 image is built without emulating Next.
 FROM --platform=$BUILDPLATFORM oven/bun:1.4.4 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./

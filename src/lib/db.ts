@@ -3,12 +3,9 @@ import { randomInt } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { PGlite } from "@electric-sql/pglite";
 import { eq, is, sql } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { drizzle as pglite } from "drizzle-orm/pglite";
-import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import { SQL } from "bun";
 import type { ReservedSQL } from "bun";
 import { drizzle as bunSql } from "drizzle-orm/bun-sql";
@@ -24,6 +21,16 @@ declare global {
   var libreFunnelDemoResetDay: string | undefined;
   var libreFunnelDemoSeeded: boolean | undefined;
 }
+
+// PGlite serves only development and tests; the production image leaves it out (next.config.ts) and uses DATABASE_URL.
+const embedded =
+  process.env.DATABASE_URL || process.env.NODE_ENV === "production"
+    ? undefined
+    : {
+        PGlite: (await import("@electric-sql/pglite")).PGlite,
+        drizzle: (await import("drizzle-orm/pglite")).drizzle,
+        migrate: (await import("drizzle-orm/pglite/migrator")).migrate,
+      };
 
 const MIGRATIONS = { migrationsFolder: join(process.cwd(), "src", "lib", "migrations") };
 // Seeds and media of the public demo; only the image's demo target has this folder.
@@ -97,10 +104,11 @@ function connect(): Connection {
 
     return { database, migrate: () => migrateBunSql(database, MIGRATIONS), lead };
   }
+  if (!embedded) throw new Error("DATABASE_URL is not set");
   const dir = process.env.NODE_ENV === "test" ? undefined : join(dataDir(), "pglite");
   if (dir) mkdirSync(dir, { recursive: true });
-  const database = pglite(new PGlite(dir));
-  return { database, migrate: () => migratePglite(database, MIGRATIONS), lead: async () => true };
+  const database = embedded.drizzle(new embedded.PGlite(dir));
+  return { database, migrate: () => embedded.migrate(database, MIGRATIONS), lead: async () => true };
 }
 
 // Next loads instrumentation and routes as separate module graphs; globalThis keeps one connection per process.

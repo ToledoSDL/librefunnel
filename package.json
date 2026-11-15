@@ -13,6 +13,7 @@
     "migration": "bun --conditions=react-server node_modules/drizzle-kit/bin.cjs generate --dialect postgresql --schema src/lib/schema.ts --out src/lib/migrations",
     "release": "bun deploy/release.ts",
     "brand": "bun docs/brand.ts",
+    "icons": "bun docs/icons.ts",
     "demo-art": "bun demo/art.ts"
   },
   "overrides": {
@@ -60,8 +61,6 @@
   "dependencies": {
     "@ariakit/react": "0.4.43",
     "@electric-sql/pglite": "0.5.16",
-    "@iconify-json/lucide": "1.2.155",
-    "@iconify-json/simple-icons": "1.2.102",
     "drizzle-orm": "0.45.4",
     "hls.js": "1.7.4",
     "next": "16.4.6",
@@ -73,6 +72,9 @@
     "server-only": "0.0.1"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "1.2.155",
+    "@iconify-json/simple-icons": "1.2.102",
+    "@iconify/types": "2.0.0",
     "@stylistic/eslint-plugin": "6.0.0",
     "@types/bun": "1.4.4",
     "@types/node-forge": "1.3.14",

@@ -12,8 +12,10 @@ const config: NextConfig = {
   images: { unoptimized: true },
   // `bun run check` typechecks with the native compiler before every merge and release, so the build skips it.
   typescript: { ignoreBuildErrors: true },
-  // demo/ is read at runtime by path and ships only in the image's demo target.
-  outputFileTracingExcludes: { "*": ["node_modules/sharp/**", "node_modules/@img/**", "demo/**"] },
+  // demo/ is read at runtime by path and ships only in the image's demo target; PGlite serves only dev and tests.
+  outputFileTracingExcludes: {
+    "*": ["node_modules/sharp/**", "node_modules/@img/**", "node_modules/@electric-sql/**", "demo/**"],
+  },
   // The Content-Security-Policy needs a nonce per request, so src/proxy.ts sets it.
   async headers() {
     return [

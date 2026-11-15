@@ -1,32 +1,20 @@
-import { icons } from "@iconify-json/lucide";
+import { LUCIDE } from "./icon-set";
 import styles from "./icon.module.css";
 
-export type IconName = string;
+export type IconName = keyof typeof LUCIDE;
 
-function body(name: string): string {
-  const icon = icons.icons[name];
-
-  if (icon) return icon.body;
-
-  const parent = icons.aliases?.[name]?.parent;
-
-  if (!parent) throw new Error(`Lucide has no icon named ${name}`);
-
-  return body(parent);
-}
-
-// Any Lucide name from https://icon-sets.iconify.design/lucide/
+// A Lucide icon (https://icon-sets.iconify.design/lucide/) listed in docs/icons.ts.
 export function Icon({ name, size = 20, label }: { name: IconName; size?: 16 | 20; label?: string }) {
   return (
     <svg
       className={styles.icon}
       width={size}
       height={size}
-      viewBox={`0 0 ${icons.width} ${icons.height}`}
+      viewBox="0 0 24 24"
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      dangerouslySetInnerHTML={{ __html: body(name) }}
+      dangerouslySetInnerHTML={{ __html: LUCIDE[name] }}
     />
   );
 }

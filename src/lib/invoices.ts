@@ -3,7 +3,6 @@ import { createHash, createPrivateKey, createSign, X509Certificate } from "node:
 import { request } from "node:https";
 import { gzipSync } from "node:zlib";
 import { and, asc, eq, isNotNull, lte, sql } from "drizzle-orm";
-import forge from "node-forge";
 import { cpfValid, credentials, productNames } from "./catalog";
 import { addSeconds, db } from "./db";
 import type { Database } from "./db";
@@ -156,7 +155,9 @@ function cnpjOf(raw: Buffer): string | undefined {
 }
 
 // node:crypto opens PEM keys but not PKCS#12, and many A1 files still use the legacy ciphers OpenSSL 3 refuses.
-export function readCertificate(pfx: Buffer, password: string): Certificate | InvoiceCode {
+// node-forge loads only here, when the seller sends a certificate, so it stays out of the server's memory otherwise.
+export async function readCertificate(pfx: Buffer, password: string): Promise<Certificate | InvoiceCode> {
+  const { default: forge } = await import("node-forge");
   let key: string;
   let pems: string[];
   try {

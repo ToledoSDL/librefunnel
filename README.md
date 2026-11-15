@@ -168,7 +168,8 @@ Set up once (the demo instance lives in the `librefunnel` compartment):
    `/etc/sudoers.d/librefunnel-demo` with `ocarun ALL=(root) NOPASSWD: /opt/librefunnel/demo-deploy.sh`, so the agent's
    user can run that script and nothing else as root.
 3. A user `librefunnel-release` with an API key, in a group `librefunnel-release` allowed
-   `manage instance-agent-command-family` and `read instance-agent-command-execution-family` in the compartment.
+   `manage instance-agent-command-family`, `read instance-agent-command-execution-family` and `read instances` in the
+   compartment.
 4. The repository secrets `OCI_USER`, `OCI_TENANCY`, `OCI_FINGERPRINT`, `OCI_KEY` (the API private key), `OCI_REGION`,
    `DEMO_INSTANCE_ID` and `DEMO_COMPARTMENT_ID`.
 

@@ -255,11 +255,12 @@ One component per file, grouped by responsibility: `src/components/<group>/<name
 | `media/`                   | `Icon`, `BrandLogo`, `VideoPlayer`, `Cover`                                                                 |
 
 Interactive components (`Dialog`, `Menu`, `Select`, `Switch`) are built on Ariakit. A client component never imports
-`media/icon.tsx` or `media/brand-logo.tsx` (they load whole icon sets): the server side renders icons and button looks
-and passes them in as props. Icons come from the Iconify Lucide set by name (`<Icon name="chevron-right" />`), 16 px in
-rows, 20 px in buttons, always next to text or with an `aria-label`. Platform logos come from `BrandLogo` (Simple Icons,
-or the official SVG in `public/brands/`, with a square `viewBox` tight around the mark so every logo renders at the same
-size). Components exist only while a screen uses them; add one back to its folder when a screen needs it.
+`media/icon.tsx` or `media/brand-logo.tsx` (they carry every icon the store draws): the server side renders icons and
+button looks and passes them in as props. Icons are Lucide icons by name (`<Icon name="chevron-right" />`), listed in
+`docs/icons.ts`: a name not listed fails the typecheck, so add it there and run `bun run icons`. 16 px in rows, 20 px in
+buttons, always next to text or with an `aria-label`. Platform logos come from `BrandLogo` (Simple Icons from the same
+list, or the official SVG in `public/brands/`, with a square `viewBox` tight around the mark so every logo renders at
+the same size). Components exist only while a screen uses them; add one back to its folder when a screen needs it.
 
 ## 7. CSS
 

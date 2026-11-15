@@ -1,8 +1,8 @@
-import { icons } from "@iconify-json/simple-icons";
+import { SIMPLE_ICONS } from "./icon-set";
 import styles from "./brand-logo.module.css";
 
 // Brand colors are part of each logo, not of the product palette.
-const BRANDS: Record<string, { icon?: string; src?: string; color: string; initials?: string }> = {
+const BRANDS: Record<string, { icon?: keyof typeof SIMPLE_ICONS; src?: string; color: string; initials?: string }> = {
   mercadopago: { src: "/brands/mercadopago.svg", color: "#00bcff" },
   woovi: { src: "/brands/woovi.svg", color: "#03d69d" },
   abacatepay: { src: "/brands/abacatepay.svg", color: "#7fb83d" },
@@ -24,7 +24,7 @@ export type Brand = keyof typeof BRANDS;
 
 export function BrandLogo({ brand, size = "md" }: { brand: Brand; size?: "md" | "lg" }) {
   const entry = BRANDS[brand];
-  const body = entry?.icon ? icons.icons[entry.icon]?.body : undefined;
+  const body = entry?.icon ? SIMPLE_ICONS[entry.icon] : undefined;
 
   return (
     <span className={styles.logo} data-size={size} style={{ color: entry?.color }} aria-hidden>

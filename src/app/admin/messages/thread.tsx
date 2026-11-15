@@ -1,7 +1,7 @@
 import { ErrorText } from "@/app/ui";
 import { Button, buttonAttributes } from "@/components/action/button";
 import { Avatar } from "@/components/feedback/avatar";
-import { Icon } from "@/components/media/icon";
+import { Icon, type IconName } from "@/components/media/icon";
 import { Dialog } from "@/components/overlay/dialog";
 import { Text } from "@/components/text/text";
 import { resendMessage } from "@/lib/actions";
@@ -15,7 +15,7 @@ import styles from "./messages.module.css";
 type Thread = NonNullable<Awaited<ReturnType<typeof inbox>>["thread"]>;
 type Message = Thread["messages"][number];
 
-const STATUS_ICON: Record<string, { icon: string; label: string }> = {
+const STATUS_ICON: Record<string, { icon: IconName; label: string }> = {
   queued: { icon: "clock", label: "Na fila" },
   sending: { icon: "clock", label: "Enviando" },
   sent: { icon: "check", label: "Enviada" },

@@ -32,7 +32,9 @@ bun run icons          # after adding a Lucide or brand icon to docs/icons.ts: r
 bun run demo-art       # after editing demo/art.ts: rewrites the demo images and sales video (needs rsvg-convert, ffmpeg, fonts in demo/media/CREDITS.md)
 ```
 
-A change is done only when `bun run check` passes. CI runs the same plus a Docker build.
+A change is done only when `bun run check` passes. CI runs the same on every push; the Docker build runs only when
+something the image ships changes. The site goes out by itself on every push that changes `site/`, so a site fix needs
+no release; a release is for the store.
 
 ## Layout
 

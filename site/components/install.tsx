@@ -14,7 +14,7 @@ export function InstallCommand() {
 
   return (
     <div className="flex w-full max-w-xl items-center gap-2 rounded-full bg-white/95 p-1.5 pl-5 text-[#181917] shadow-sm">
-      <code className="min-w-0 flex-1 overflow-x-auto font-mono text-[13px] whitespace-nowrap sm:text-sm">
+      <code className="min-w-0 flex-1 overflow-x-auto font-mono text-[13px] whitespace-nowrap [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,#000_80%,transparent)] [&::-webkit-scrollbar]:hidden">
         <span className="text-[#686b64] select-none">$ </span>
         {COMMAND}
       </code>

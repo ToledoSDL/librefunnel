@@ -1,0 +1,28 @@
+name: Image
+
+# The store image builds only when something it ships changes: deploy/Dockerfile.dockerignore leaves these paths out.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["site/**", "docs/**", "tests/**", "**.md"]
+  pull_request:
+    paths-ignore: ["site/**", "docs/**", "tests/**", "**.md"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    # The release workflow builds and publishes the image of every "Release vX" commit.
+    if: github.event_name == 'pull_request' || !startsWith(github.event.head_commit.message, 'Release v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          file: deploy/Dockerfile
+          cache-from: type=gha,scope=app

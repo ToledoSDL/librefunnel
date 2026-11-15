@@ -75,25 +75,8 @@ jobs:
   # librefunnel.com serves /install from the latest release, so the site goes out right after it.
   site:
     needs: release
-    runs-on: ubuntu-latest
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - name: Cloudflare secrets
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets to publish the site."
-            exit 1
-          fi
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-      - working-directory: site
-        run: bun install --frozen-lockfile && bun run build
-      - working-directory: site
-        run: bunx wrangler@4.162.0 pages deploy out --project-name librefunnel --branch main
+    uses: ./.github/workflows/site.yml
+    secrets: inherit
 
   # The public demo follows every release, like the site. Oracle Cloud's Run Command carries the deploy, so the demo
   # server opens no port: its agent fetches the command, runs deploy/demo-deploy.sh and reports the output here.

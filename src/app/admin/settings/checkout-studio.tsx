@@ -6,7 +6,7 @@ import type { ButtonAttributes } from "@/components/action/button";
 import segmentedStyles from "@/components/form/segmented-control.module.css";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
-import { Money } from "@/app/ui";
+import { Money } from "@/app/format";
 import styles from "./checkout-studio.module.css";
 
 type Look = {

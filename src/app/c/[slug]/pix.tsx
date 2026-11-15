@@ -12,8 +12,10 @@ import type { Product } from "@/lib/catalog";
 import { hasPaidOrderCookie } from "@/lib/members";
 import { pixQrSvg } from "@/lib/orders";
 import type { PixOrder } from "@/lib/orders";
-import { enterFromOrder } from "@/lib/actions";
-import { ActionForm, DateTime, FormMessage, Money, RefreshWhilePending, SubmitLabel } from "@/app/ui";
+import { enterFromOrder, simulatePayment } from "@/lib/actions";
+import { demoMode } from "@/lib/guard";
+import { DateTime, Money } from "@/app/format";
+import { ActionForm, FormMessage, RefreshWhilePending, SubmitLabel } from "@/app/ui";
 import styles from "./page.module.css";
 function StatusCard({ badge, title, children }: { badge: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -109,6 +111,21 @@ export async function PixPage({
               </div>
             </div>
           </Card>
+          {demoMode() ? (
+            <Card title="Demonstração">
+              <Text variant="body-sm" tone="muted">
+                Esta loja não recebe Pix de verdade. Simule o pagamento para ver o pedido liberado e a área de membros.
+              </Text>
+              <ActionForm action={simulatePayment} fields={{ orderId: order.id }}>
+                <Stack gap={2}>
+                  <Button type="submit" variant="outline" tone="neutral" block>
+                    <SubmitLabel idle="Simular pagamento" pending="Confirmando pagamento" />
+                  </Button>
+                  <FormMessage />
+                </Stack>
+              </ActionForm>
+            </Card>
+          ) : null}
           <Card title="Resumo do pedido">
             <Stack gap={2}>
               <Row justify="between" align="baseline">

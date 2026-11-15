@@ -13,3 +13,4 @@ tests
 deploy
 *.md
 !public/**/*.md
+site

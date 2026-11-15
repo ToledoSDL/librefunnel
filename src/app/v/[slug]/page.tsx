@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { preload } from "react-dom";
 import { Disclosure } from "@/components/layout/disclosure";
 import { Icon } from "@/components/media/icon";
 import { DEFAULT_BAR, getProduct, settings } from "@/lib/catalog";
@@ -10,7 +10,8 @@ import { streamFor } from "@/lib/media";
 import { brl } from "@/lib/messages";
 import { offerOpen } from "@/lib/orders";
 import { Footer, JsonLd, Testimonials } from "@/app/buyer";
-import { DateTime, Money, TrackCta, Tracker } from "@/app/ui";
+import { DateTime, Money } from "@/app/format";
+import { TrackCta, Tracker } from "@/app/track";
 import { inkFor } from "@/app/color";
 import { Countdown } from "./countdown";
 import styles from "./page.module.css";
@@ -118,13 +119,13 @@ function Buy({ product, href }: { product: Product; href: string }) {
       </p>
 
       <TrackCta product={product.slug}>
-        <Link className={styles.cta} href={href}>
+        <a className={styles.cta} href={href}>
           <span>
             {ctaText(product)}
             <small>Acesso liberado assim que o Pix cai</small>
           </span>
           <Icon name="arrow-right" />
-        </Link>
+        </a>
       </TrackCta>
 
       <p className={styles.reassure}>
@@ -201,6 +202,10 @@ export default async function SalesPage({ params, searchParams }: Props) {
   const ctaSeconds = product.vsl?.ctaSeconds ?? 0;
   const delayed = Boolean(video) && ctaSeconds > 0;
 
+  const poster = product.banner ?? product.cover;
+  // The poster is the largest paint, and the browser only finds it once the player's markup is parsed.
+  if (video && poster) preload(poster, { as: "image", fetchPriority: "high" });
+
   const bar = open ? product.bar : undefined;
   const barColor = bar?.color ?? DEFAULT_BAR;
 
@@ -211,7 +216,12 @@ export default async function SalesPage({ params, searchParams }: Props) {
       {bar ? (
         <div className={styles.bar} style={{ background: barColor, color: inkFor(barColor) }}>
           <p>{bar.text}</p>
-          {product.offerEndsAt ? <Countdown endsAt={product.offerEndsAt.toISOString()} /> : null}
+          {product.offerEndsAt ? (
+            <Countdown
+              endsAt={product.offerEndsAt.toISOString()}
+              seconds={Math.max(0, Math.ceil((product.offerEndsAt.getTime() - Date.now()) / 1000))}
+            />
+          ) : null}
         </div>
       ) : null}
       <main className={styles.main}>
@@ -231,7 +241,7 @@ export default async function SalesPage({ params, searchParams }: Props) {
             product={slug}
             src={video}
             stream={await streamFor(video)}
-            poster={product.banner ?? product.cover}
+            poster={poster}
             title={product.name}
             captions={product.vsl?.captions}
             ctaSeconds={ctaSeconds}

@@ -3,12 +3,14 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { settings } from "@/lib/catalog";
-import { baseUrl } from "@/lib/guard";
+import { DemoBanner } from "@/components/feedback/demo-banner";
+import { baseUrl, demoMode } from "@/lib/guard";
 import { inkFor } from "./color";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
+// Only the Pix code and admin fields use it, so it never competes with the first paint.
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", preload: false });
 
 export async function generateMetadata(): Promise<Metadata> {
   const store = await settings();
@@ -47,7 +49,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         {accent ? <style>{`:root{--store-accent:${accent};--store-accent-ink:${inkFor(accent)}}`}</style> : null}
       </head>
-      <body>{children}</body>
+      <body>
+        {demoMode() ? <DemoBanner /> : null}
+        {children}
+      </body>
     </html>
   );
 }

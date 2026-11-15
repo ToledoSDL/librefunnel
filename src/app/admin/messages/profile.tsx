@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { DateTime, Money } from "@/app/ui";
+import { DateTime, Money } from "@/app/format";
 import { Avatar } from "@/components/feedback/avatar";
 import { Icon } from "@/components/media/icon";
 import { Badge } from "@/components/text/badge";

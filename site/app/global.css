@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --color-fd-background: #f5f4f0;
+  --color-fd-foreground: #181917;
+  --color-fd-muted: #ecebe7;
+  --color-fd-muted-foreground: #686b64;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #181917;
+  --color-fd-card: #ffffff;
+  --color-fd-card-foreground: #181917;
+  --color-fd-border: #dedcd6;
+  --color-fd-primary: #254ccb;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #ecebe7;
+  --color-fd-secondary-foreground: #181917;
+  --color-fd-accent: #ecebe7;
+  --color-fd-accent-foreground: #181917;
+  --color-fd-ring: #254ccb;
+}
+
+.dark,
+.dark #nd-sidebar {
+  --color-fd-background: #141513;
+  --color-fd-foreground: #f0f0eb;
+  --color-fd-muted: #252722;
+  --color-fd-muted-foreground: #a1a49b;
+  --color-fd-popover: #1c1d1a;
+  --color-fd-popover-foreground: #f0f0eb;
+  --color-fd-card: #1c1d1a;
+  --color-fd-card-foreground: #f0f0eb;
+  --color-fd-border: #343630;
+  --color-fd-primary: #8ca5ff;
+  --color-fd-primary-foreground: #141513;
+  --color-fd-secondary: #252722;
+  --color-fd-secondary-foreground: #f0f0eb;
+  --color-fd-accent: #252722;
+  --color-fd-accent-foreground: #f0f0eb;
+  --color-fd-ring: #8ca5ff;
+}
+
+html {
+  scrollbar-gutter: stable;
+}

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { attachStream } from "@/app/stream";
-import { QUARTILES, track } from "@/app/ui";
-import type { TrackEvent } from "@/app/ui";
+import { QUARTILES, track } from "@/app/track";
+import type { TrackEvent } from "@/app/track";
 import type { Player, Trigger } from "@/lib/catalog";
 import styles from "./page.module.css";
 import { watched } from "./retention";

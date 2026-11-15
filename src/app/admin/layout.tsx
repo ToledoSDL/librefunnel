@@ -6,7 +6,7 @@ import { Icon } from "@/components/media/icon";
 import { Card } from "@/components/layout/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { adminSignOut } from "@/lib/actions";
-import { isAdmin } from "@/lib/guard";
+import { demoMode, isAdmin } from "@/lib/guard";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { StoreMark } from "@/app/buyer";
@@ -16,15 +16,35 @@ import { VersionPanel } from "./version-panel";
 import { ActionButton, AdminSignInForm } from "./ui";
 
 function SignIn() {
+  // The demo password is public on purpose: it is the demo server's ADMIN_PASSWORD.
+  const demoPassword = demoMode() ? (process.env.ADMIN_PASSWORD ?? "") : undefined;
+
   return (
     <main className={styles.signIn}>
       <StoreMark />
-      <PageHeader title="Entrar no painel" description="Use a senha definida em ADMIN_PASSWORD no servidor." />
+      <PageHeader
+        title="Entrar no painel"
+        description={
+          demoPassword === undefined
+            ? "Use a senha definida em ADMIN_PASSWORD no servidor."
+            : `Painel de demonstração, aberto a todos. A senha já está preenchida: ${demoPassword}`
+        }
+      />
       <Card>
-        <AdminSignInForm button={buttonAttributes({ variant: "solid", tone: "primary", block: true })}>
+        <AdminSignInForm
+          button={buttonAttributes({ variant: "solid", tone: "primary", block: true })}
+          label={demoPassword === undefined ? "Entrar" : "Entrar na demonstração"}
+        >
           <Field label="Senha do painel">
             {(control) => (
-              <Input {...control} name="password" type="password" required autoComplete="current-password" />
+              <Input
+                {...control}
+                name="password"
+                type={demoPassword === undefined ? "password" : "text"}
+                defaultValue={demoPassword}
+                required
+                autoComplete="current-password"
+              />
             )}
           </Field>
         </AdminSignInForm>

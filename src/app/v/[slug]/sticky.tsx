@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { track } from "@/app/ui";
+import { track } from "@/app/track";
 import styles from "./page.module.css";
 
 // Shows the bar only once the offer under the video has been seen and scrolled past, so the price is never on screen twice.

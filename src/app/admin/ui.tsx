@@ -20,7 +20,7 @@ import styles from "./admin.module.css";
 type Look = ReturnType<typeof buttonAttributes>;
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
-const UPLOAD_CODES = ["MEDIA_TYPE", "MEDIA_TOO_LARGE", "UPLOAD_FAILED", "NOT_SIGNED_IN"] as const;
+const UPLOAD_CODES = ["MEDIA_TYPE", "MEDIA_TOO_LARGE", "UPLOAD_FAILED", "NOT_SIGNED_IN", "DEMO_BLOCKED"] as const;
 
 function Feedback({ code, done }: { code: Code | null; done?: string | false }) {
   return (
@@ -38,7 +38,7 @@ function Feedback({ code, done }: { code: Code | null; done?: string | false }) 
   );
 }
 
-export function AdminSignInForm({ button, children }: { button: Look; children: ReactNode }) {
+export function AdminSignInForm({ button, label, children }: { button: Look; label: string; children: ReactNode }) {
   const [state, action, pending] = useActionState(adminSignIn, { code: null });
 
   return (
@@ -46,7 +46,7 @@ export function AdminSignInForm({ button, children }: { button: Look; children: 
       <Stack gap={4}>
         {children}
         <Feedback code={state.code} />
-        <SubmitButton {...button}>{pending ? "Entrando" : "Entrar"}</SubmitButton>
+        <SubmitButton {...button}>{pending ? "Entrando" : label}</SubmitButton>
       </Stack>
     </form>
   );

@@ -1,4 +1,4 @@
-import { Money } from "@/app/ui";
+import { Money } from "@/app/format";
 import { buttonAttributes } from "@/components/action/button";
 import { Field } from "@/components/form/field";
 import { Input } from "@/components/form/input";

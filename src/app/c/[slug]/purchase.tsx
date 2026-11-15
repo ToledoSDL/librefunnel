@@ -2,7 +2,8 @@ import { Field } from "@/components/form/field";
 import { Input } from "@/components/form/input";
 import { Icon } from "@/components/media/icon";
 import type { OrderBump } from "@/lib/catalog";
-import { CheckoutForm, CheckoutTotal, FieldMessage, FormMessage, Money, SubmitLabel } from "@/app/ui";
+import { Money } from "@/app/format";
+import { CheckoutForm, CheckoutTotal, FieldMessage, FormMessage, SubmitLabel } from "@/app/ui";
 import { ConfirmEmail } from "./confirm";
 import styles from "./page.module.css";
 

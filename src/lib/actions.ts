@@ -11,6 +11,7 @@ import {
   cleanName,
   cleanPhone,
   clientIp,
+  demoMode,
   isAdmin,
   limited,
   printable,
@@ -18,7 +19,7 @@ import {
   signOutAdmin,
 } from "./guard";
 import type { GuardCode } from "./guard";
-import { connectCloudflare, connectStorage, testStorage } from "./media";
+import { connectStorage, setUpR2, testStorage } from "./media";
 import type { MediaCode, StorageCode } from "./media";
 import * as members from "./members";
 import type { MemberCode } from "./members";
@@ -310,6 +311,12 @@ export async function enterFromOrder(): Promise<ActionState> {
   redirect("/m");
 }
 
+export async function simulatePayment(...[, form]: FormArgs): Promise<ActionState> {
+  const orderId = field(form, "orderId");
+  if (!ORDER_ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
+  return done(await orders.simulatePayment(orderId));
+}
+
 export async function completeLesson(...[, form]: FormArgs): Promise<ActionState> {
   const code = await members.completeLesson(field(form, "product"), field(form, "lesson"));
   if (code) return { code };
@@ -373,6 +380,7 @@ export async function resendAccess(...[, form]: FormArgs): Promise<ActionState> 
 
 export async function connectWhatsApp(): Promise<WhatsAppState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const result = await messages.connectWhatsApp();
   revalidatePath("/admin");
   return result;
@@ -380,12 +388,14 @@ export async function connectWhatsApp(): Promise<WhatsAppState> {
 
 export async function disconnectWhatsApp(): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   return done(await messages.disconnectWhatsApp());
 }
 
 // The form field "kind" is smtp, meta, evolution, whatsapp, mercadopago, woovi or abacatepay.
 export async function testConnection(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const kind = field(form, "kind");
   const psp = orders.pixProvider(kind);
   const known = ["smtp", "meta", "evolution", "whatsapp", "storage"].includes(kind);
@@ -401,6 +411,7 @@ export async function testConnection(...[, form]: FormArgs): Promise<ActionState
 
 export async function saveSmtp(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const preset = messages.SMTP_PRESETS.find((entry) => entry.id === field(form, "preset"));
   const host = preset?.host ?? field(form, "host").trim().toLowerCase();
   if (!HOST.test(host)) return { code: "INVALID_HOST" };
@@ -418,18 +429,17 @@ export async function saveSmtp(...[, form]: FormArgs): Promise<ActionState> {
 
 export async function connectR2(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const token = field(form, "token").trim();
   if (!/^[\w-]{20,200}$/.test(token)) return { code: "CLOUDFLARE_TOKEN_INVALID" };
   if (limited("test", "storage", 10, 600)) return { code: "RATE_LIMITED" };
-  const connected = await connectCloudflare(token);
-  if ("code" in connected) return { code: connected.code };
-  const { endpoint, name, region, accessKey, secret } = connected.target;
-  await catalog.saveCredentials("storage", { endpoint, bucket: name, region, accessKey }, { secret });
-  return done(null);
+  const code = await setUpR2(token);
+  return code ? { code } : done(null);
 }
 
 export async function saveStorage(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   // R2 shows the S3 address with the bucket at the end, so that form is accepted as pasted.
   const endpoint = URL.parse(field(form, "endpoint").trim());
   const path = endpoint?.pathname.replace(/^\/|\/$/g, "") ?? "";
@@ -463,6 +473,7 @@ export async function saveStorage(...[, form]: FormArgs): Promise<ActionState> {
 
 export async function saveMeta(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const pixelId = field(form, "pixelId").trim();
   if (!/^\d{5,20}$/.test(pixelId)) return { code: "INVALID_PIXEL_ID" };
   const testEventCode = field(form, "testEventCode").trim();
@@ -477,6 +488,7 @@ export async function saveMeta(...[, form]: FormArgs): Promise<ActionState> {
 // Saves the provider's keys and makes it the one new orders use; orders already issued keep their provider.
 export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const provider = orders.pixProvider(field(form, "provider"));
   if (!provider) return { code: "INVALID_PAYLOAD" };
   if (provider !== "static") {
@@ -497,6 +509,7 @@ export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
 // A blank address goes back to the Evolution bundled with the server.
 export async function saveEvolution(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const url = field(form, "url").trim().replace(/\/+$/, "");
   if (!url) {
     await catalog.removeCredentials("evolution");
@@ -512,6 +525,7 @@ export async function saveEvolution(...[, form]: FormArgs): Promise<ActionState>
 
 export async function saveCloud(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const stored = (await catalog.credentials("whatsapp"))("whatsapp");
   const token = credential(field(form, "token")) || stored("token");
   if (!token) return { code: "INVALID_CREDENTIAL" };
@@ -527,6 +541,7 @@ export async function saveCloud(...[, form]: FormArgs): Promise<ActionState> {
 
 export async function rotateWebhookSecret(): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const secret = await orders.rotateWebhookSecret();
   revalidatePath("/", "layout");
   return { code: null, ok: true, secret };
@@ -535,6 +550,7 @@ export async function rotateWebhookSecret(): Promise<ActionState> {
 // The form field "kind" names the connection; removing the active Pix provider goes back to the static Pix.
 export async function removeConnection(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
   const kind = REMOVABLE.find((entry) => entry === field(form, "kind"));
   if (!kind) return { code: "INVALID_PAYLOAD" };
   await catalog.removeCredentials(kind);
@@ -780,6 +796,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
 
 export async function updateStore(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
 
   const code = await updates.startUpdate(field(form, "version"));
 
@@ -788,6 +805,7 @@ export async function updateStore(...[, form]: FormArgs): Promise<ActionState> {
 
 export async function restartStore(): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
 
   const code = await updates.restartStore();
 
@@ -796,6 +814,7 @@ export async function restartStore(): Promise<ActionState> {
 
 export async function saveAutoUpdate(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
 
   const code = await updates.setAutoUpdate(field(form, "hour"));
 

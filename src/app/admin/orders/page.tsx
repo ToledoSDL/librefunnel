@@ -1,4 +1,4 @@
-import { DateTime } from "@/app/ui";
+import { DateTime } from "@/app/format";
 import { Button } from "@/components/action/button";
 import { Pagination } from "@/components/data/pagination";
 import { Table } from "@/components/data/table";

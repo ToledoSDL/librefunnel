@@ -1,3 +1,10 @@
+# Docker keeps every log line forever by default, which fills a small disk and stops the database. 3 x 10 MB per service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   app:
     # Updates swap this image; everything the store saved lives in the volumes below and in .env.
@@ -15,18 +22,34 @@ services:
       UPDATER_URL: http://updater:8090
       UPDATER_TOKEN: ${UPDATER_TOKEN:-${POSTGRES_PASSWORD}}
       DATABASE_URL: postgresql://librefunnel:${POSTGRES_PASSWORD}@db:5432/librefunnel
+      BACKUP_DIR: /backups
+      # Set only by deploy/install.sh for one start, to connect R2; never written to .env.
+      CLOUDFLARE_TOKEN: ${CLOUDFLARE_TOKEN:-}
     volumes:
       - data:/data
+      # Read only: the app copies the daily dump to the connected bucket.
+      - backups:/backups:ro
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
+      # Checked every 2 s while starting, so an update switches to the new container as soon as it answers.
+      start_period: 3m
+      start_interval: 2s
+    logging: *logging
 
   db:
+    logging: *logging
     image: postgres:17.12-alpine
     restart: unless-stopped
     environment:
@@ -43,6 +66,7 @@ services:
       retries: 5
 
   backup:
+    logging: *logging
     image: postgres:17.12-alpine
     restart: unless-stopped
     environment:
@@ -62,6 +86,7 @@ services:
         condition: service_healthy
 
   caddy:
+    logging: *logging
     image: caddy:2.11.9-alpine
     restart: unless-stopped
     env_file: .env
@@ -76,6 +101,9 @@ services:
     depends_on: [app]
 
   evolution:
+    logging: *logging
+    # Off until WhatsApp is connected in the admin, which turns it on through the updater: it uses about 300 MB.
+    profiles: [whatsapp]
     image: evoapicloud/evolution-api:v2.3.7
     restart: unless-stopped
     environment:
@@ -96,6 +124,10 @@ services:
         condition: service_healthy
 
   updater:
+    logging: *logging
+    image: ghcr.io/toledosdl/librefunnel-updater:${LIBREFUNNEL_VERSION:-latest}
+    # 0 when the installer was told --no-updater: updates are then the installer run again.
+    scale: ${INSTALL_UPDATER:-1}
     build:
       context: .
       dockerfile: deploy/Dockerfile.updater
@@ -105,7 +137,7 @@ services:
       TZ: America/Sao_Paulo
       # Same project name as on the host, so compose inside drives the same containers and volumes.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
-    # It only recreates the app service and runs the backup, which use no host paths, so a fixed folder works on any OS.
+    # It only recreates the app, starts or stops Evolution and runs the backup, which use no host paths, so a fixed folder works on any OS.
     working_dir: /srv/librefunnel
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

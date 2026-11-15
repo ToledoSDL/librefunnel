@@ -4,6 +4,8 @@
     --checkout-buy: var(--store-accent, #1fa855);
     --checkout-buy-hover: color-mix(in oklab, var(--checkout-buy), black 14%);
     --checkout-buy-ink: var(--store-accent-ink, #ffffff);
+    /* The accent reads well as a button but not always as small text: pulled toward the text color for 4.5:1. */
+    --checkout-buy-text: color-mix(in oklab, var(--checkout-buy), var(--text) 35%);
     --checkout-bump: light-dark(#fff7d6, #2c2619);
     --checkout-bump-line: light-dark(#e0a400, #b88a1c);
     --checkout-bump-head: light-dark(#ffd34d, #4a3b12);
@@ -52,7 +54,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    color: var(--checkout-buy);
+    color: var(--checkout-buy-text);
     font-size: var(--text-sm);
     font-weight: 600;
   }

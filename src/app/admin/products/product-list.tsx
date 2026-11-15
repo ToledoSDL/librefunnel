@@ -1,4 +1,4 @@
-import { Money } from "@/app/ui";
+import { Money } from "@/app/format";
 import { Button } from "@/components/action/button";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";

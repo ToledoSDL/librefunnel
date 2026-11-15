@@ -23,7 +23,7 @@
       "deploy/updater.ts"
     ],
     "ignore": [
-      "docs/site/**"
+      "site/**"
     ]
   },
   "prettier": {

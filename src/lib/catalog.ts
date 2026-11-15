@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
+import { cache } from "react";
 import { db, newId } from "./db";
 import type { Database } from "./db";
 import { cleanEmail, seal, unseal } from "./guard";
@@ -308,9 +309,9 @@ export function products(admin = false): Promise<Product[]> {
 }
 
 // Archived products still resolve here so old orders, Pix pages and member access keep working.
-export async function getProduct(slug: string, admin = false): Promise<Product | undefined> {
-  return (await load(eq(product.slug, slug), admin))[0];
-}
+export const getProduct = cache(
+  async (slug: string, admin = false): Promise<Product | undefined> => (await load(eq(product.slug, slug), admin))[0],
+);
 
 export function ownedProducts(slugs: string[]): Promise<Product[]> {
   return load(inArray(product.slug, slugs), false);
@@ -509,7 +510,8 @@ export async function archive(kind: Kind, key: string | number, archived: boolea
   return changed.length === 1;
 }
 
-export async function settings(executor: Database = db()): Promise<Settings> {
+// cache() lasts one request: the layout, the metadata and the page of one view share a single read.
+export const settings = cache(async (executor: Database = db()): Promise<Settings> => {
   const rows = await executor.select({ key: setting.key, value: setting.value }).from(setting);
   const values = new Map(rows.map((row): [string, string] => [row.key, row.value]));
   return {
@@ -543,7 +545,7 @@ export async function settings(executor: Database = db()): Promise<Settings> {
     thanksUrl: values.get("thanks_url") || undefined,
     thanksLabel: values.get("thanks_label") || CHECKOUT_LABELS.thanks,
   };
-}
+});
 
 // Only the keys given are written, so each settings screen saves its own fields without touching the rest.
 export async function saveSettings(values: SettingValues) {

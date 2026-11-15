@@ -1,8 +1,25 @@
+{
+	# Quoted so an empty ACME_EMAIL is valid; with an address, ZeroSSL becomes the fallback when Let's Encrypt fails.
+	email "{$ACME_EMAIL}"
+	servers {
+		# Behind Cloudflare, TRUSTED_PROXIES lists its ranges so {client_ip} is the visitor (CF-Connecting-IP cannot be forged through Cloudflare).
+		trusted_proxies static {$TRUSTED_PROXIES:private_ranges}
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+}
+
 (app) {
-	reverse_proxy app:3000 {
-		# Hold requests while the app restarts during an update instead of answering 502.
+	reverse_proxy {
+		# The store reads the last X-Forwarded-For hop, so send only the resolved visitor address.
+		header_up X-Forwarded-For {client_ip}
+		# During an update two app containers answer to the same name; looking it up every second sends requests to both.
+		dynamic a app 3000 {
+			refresh 1s
+		}
+		# A container that is starting or stopping refuses the connection: the request waits for or goes to the other one.
 		lb_try_duration 15s
-		lb_try_interval 500ms
+		lb_try_interval 250ms
+		fail_duration 10s
 	}
 }
 

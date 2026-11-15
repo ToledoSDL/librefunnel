@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { vi } from "vitest";
 import { saveCredentials } from "@/lib/catalog";
-import { migrate } from "@/lib/db";
+import { db, migrate, seedDemo } from "@/lib/db";
 import { WEBHOOK_SECRET } from "./fakes";
 
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "librefunnel-test-"));
@@ -58,4 +58,6 @@ vi.mock("nodemailer", async () => {
 });
 
 await migrate();
+// The demo catalog is the fixture every suite buys from; the app itself loads it only in demo mode.
+await seedDemo(db(), "store.sql");
 await saveCredentials("webhook", {}, { secret: WEBHOOK_SECRET });

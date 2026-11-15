@@ -11,7 +11,13 @@ import {
 import { cookies } from "next/headers";
 
 export type GuardCode =
-  "INVALID_SIGNATURE" | "INVALID_PAYLOAD" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INVALID_PASSWORD";
+  | "INVALID_SIGNATURE"
+  | "INVALID_PAYLOAD"
+  | "PAYLOAD_TOO_LARGE"
+  | "RATE_LIMITED"
+  | "INVALID_PASSWORD"
+  | "DEMO_BLOCKED"
+  | "DEMO_ONLY";
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 export type JsonObject = { [key: string]: Json };
 
@@ -38,6 +44,11 @@ export function envProblems(): string[] {
   if (!/^https?:\/\/[^/\s]+$/.test(process.env.BASE_URL ?? ""))
     problems.push("BASE_URL must look like https://shop.example.com (no path, no trailing slash)");
   return problems;
+}
+
+// The public demo store: nothing leaves the server and the data goes back to the seed every night.
+export function demoMode(): boolean {
+  return process.env.DEMO_MODE === "1";
 }
 
 export function baseUrl(): string {

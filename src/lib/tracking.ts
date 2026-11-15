@@ -4,7 +4,19 @@ import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { credentials, productNames } from "./catalog";
 import { addSeconds, db, newId } from "./db";
-import { baseUrl, clientIp, isObject, jsonObject, limited, now, printable, readBody, setCookie, sha256 } from "./guard";
+import {
+  baseUrl,
+  clientIp,
+  demoMode,
+  isObject,
+  jsonObject,
+  limited,
+  now,
+  printable,
+  readBody,
+  setCookie,
+  sha256,
+} from "./guard";
 import type { JsonObject } from "./guard";
 import { conversion, customer, event, order, payment, product, retention, touch } from "./schema";
 
@@ -272,7 +284,7 @@ function keyed(keys: ConversionKey[]) {
 export async function sendConversions() {
   const t = new Date();
   const queued = and(eq(conversion.status, "queued"), lte(conversion.nextAt, t));
-  const config = await metaConfig();
+  const config = demoMode() ? undefined : await metaConfig();
   if (!config) {
     await db().update(conversion).set({ status: "skipped", error: "META_NOT_CONFIGURED" }).where(queued);
     return;

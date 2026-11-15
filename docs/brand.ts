@@ -94,7 +94,7 @@ ${pills.join("\n")}
 
 const files = {
   "src/app/icon.svg": adaptive(32, "LibreFunnel"),
-  "docs/site/icon.svg": adaptive(32, "LibreFunnel"),
+  "site/public/icon.svg": adaptive(32, "LibreFunnel"),
   "docs/logo.svg": adaptive(64, "LibreFunnel logo"),
   "docs/avatar.svg": avatar(),
   "docs/wordmark.svg": wordmark(),

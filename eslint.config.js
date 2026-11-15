@@ -2,7 +2,7 @@ import stylistic from "@stylistic/eslint-plugin";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: [".next/**", "docs/site/**"] },
+  { ignores: [".next/**", "site/**"] },
   {
     files: ["**/*.{ts,tsx,js}"],
     languageOptions: { parser: tseslint.parser },

@@ -8,6 +8,7 @@ import { addSeconds, db, one } from "./db";
 import type { Database } from "./db";
 import {
   baseUrl,
+  demoMode,
   derive,
   firstName,
   hmacHex,
@@ -24,10 +25,12 @@ import type { Json, JsonObject } from "./guard";
 import { mintLogin } from "./members";
 import { contact, customer, message, order, recoveryStep, reply } from "./schema";
 import { GRAPH } from "./tracking";
+import { switchWhatsApp } from "./updates";
 
 export type MessageCode =
   | "CHANNEL_NOT_CONFIGURED"
   | "WHATSAPP_DISCONNECTED"
+  | "WHATSAPP_STARTING"
   | "OPTED_OUT"
   | "DAILY_CAP"
   | "INVALID_ADDRESS"
@@ -662,6 +665,16 @@ function quietUntil(t: Date): Date | undefined {
 export async function sendMessages() {
   const t = new Date();
 
+  // The demo shows the outbox working, but externalId "demo" marks that nothing was delivered.
+  if (demoMode()) {
+    await db()
+      .update(message)
+      .set({ status: "sent", externalId: "demo", sentAt: t, error: null })
+      .where(and(eq(message.status, "queued"), lte(message.nextAt, t)));
+
+    return;
+  }
+
   // SKIP LOCKED plus the status check lets two senders run at once without claiming the same message.
   const due = db()
     .select({ id: message.id })
@@ -819,7 +832,7 @@ export async function refreshPhotos() {
   if (due.length === 0) return;
   const stored = await credentials("whatsapp", "evolution");
   const config = evolutionOf(stored("evolution"));
-  if (cloudOf(stored("whatsapp")) || !config || (await whatsappState(config)) !== "open") return;
+  if (demoMode() || cloudOf(stored("whatsapp")) || !config || (await whatsappState(config)) !== "open") return;
 
   for (const { address } of due) {
     const photo = (await fetchPhoto(config, address)) ?? {};
@@ -839,11 +852,36 @@ export async function contactPhoto(address: string) {
   return row?.photo && row.photoType ? { bytes: Buffer.from(row.photo, "base64"), type: row.photoType } : undefined;
 }
 
+function bundled(config: Evolution) {
+  return config.url === process.env.EVOLUTION_URL?.replace(/\/+$/, "");
+}
+
+// The bundled Evolution is off until WhatsApp is first connected, to save its memory: turn it on and wait up to a minute.
+async function wakeEvolution(config: Evolution): Promise<boolean> {
+  if (await switchWhatsApp(true)) return false;
+
+  for (let tries = 0; tries < 20; tries++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    if (
+      await evolution(config, "/").then(
+        () => true,
+        () => false,
+      )
+    )
+      return true;
+  }
+
+  return false;
+}
+
 export async function connectWhatsApp(): Promise<{ code: MessageCode | null; qr?: string; pairingCode?: string }> {
   const config = await evolutionConfig();
   if (!config) return { code: "CHANNEL_NOT_CONFIGURED" };
+  const path = `/instance/connectionState/${INSTANCE}`;
+  const reached = await evolution(config, path).catch(() => undefined);
+  if (!reached && bundled(config) && !(await wakeEvolution(config))) return { code: "WHATSAPP_STARTING" };
   try {
-    const state = await evolution(config, `/instance/connectionState/${INSTANCE}`);
+    const state = reached ?? (await evolution(config, path));
     if (state.status === 404) {
       const created = await evolution(config, "/instance/create", "POST", {
         instanceName: INSTANCE,
@@ -887,7 +925,10 @@ export async function disconnectWhatsApp(): Promise<MessageCode | null> {
   if (!config) return "CHANNEL_NOT_CONFIGURED";
   try {
     const response = await evolution(config, `/instance/delete/${INSTANCE}`, "DELETE");
-    return response.status < 300 || response.status === 404 ? null : "PROVIDER_REJECTED";
+    if (response.status >= 300 && response.status !== 404) return "PROVIDER_REJECTED";
+    // Without a number connected the bundled Evolution only takes memory, so it goes off until the next connect.
+    if (bundled(config)) await switchWhatsApp(false);
+    return null;
   } catch {
     return "PROVIDER_UNREACHABLE";
   }

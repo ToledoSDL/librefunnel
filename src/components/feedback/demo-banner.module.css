@@ -1,0 +1,8 @@
+@layer components {
+  .banner {
+    padding: var(--space-2) var(--gutter);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+    text-align: center;
+  }
+}

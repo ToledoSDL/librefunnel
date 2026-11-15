@@ -7,15 +7,11 @@ import { useFormStatus } from "react-dom";
 import { Text } from "@/components/text/text";
 import type { ActionState, Code } from "@/lib/actions";
 import { createOrder } from "@/lib/actions";
+import { Money } from "./format";
 
-export type TrackEvent =
-  "page_view" | "video_play" | "video_25" | "video_50" | "video_75" | "video_100" | "cta_view" | "cta_click";
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 type FormView = { code: Code | null; ok: boolean; withBump: boolean };
 
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const DAY = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
-const TIME = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
 const CHECKOUT_STORAGE = "lf_checkout";
 
 const FIELD_CODES: Partial<Record<Code, string>> = {
@@ -25,13 +21,6 @@ const FIELD_CODES: Partial<Record<Code, string>> = {
 };
 
 const FormContext = createContext<FormView>({ code: null, ok: false, withBump: false });
-
-export const QUARTILES: [number, TrackEvent][] = [
-  [0.25, "video_25"],
-  [0.5, "video_50"],
-  [0.75, "video_75"],
-  [0.98, "video_100"],
-];
 
 const ERROR_TEXT: Record<Code, string> = {
   PRODUCT_NOT_FOUND: "Este produto não está mais à venda neste endereço. Confira o link com o vendedor.",
@@ -56,6 +45,9 @@ const ERROR_TEXT: Record<Code, string> = {
   INVALID_PAYLOAD: "Os dados chegaram num formato inesperado. Atualize a página e tente de novo.",
   PAYLOAD_TOO_LARGE: "Os dados enviados passam do tamanho permitido. Envie menos conteúdo de uma vez.",
   INVALID_PASSWORD: "Senha incorreta. Use o valor de ADMIN_PASSWORD configurado no servidor.",
+  DEMO_BLOCKED:
+    "Isto fica desligado na demonstração, para nada sair de verdade nem encher o servidor. Na sua loja, funciona normalmente.",
+  DEMO_ONLY: "O pagamento simulado só existe na demonstração. Pague o Pix pelo app do seu banco.",
   INVALID_EVENT: "Evento de rastreamento desconhecido. Atualize a página.",
   META_NOT_CONFIGURED:
     "Meta não configurada: preencha o ID do Pixel e o token da API de Conversões em Conexões e salve.",
@@ -64,6 +56,8 @@ const ERROR_TEXT: Record<Code, string> = {
   META_UNREACHABLE: "A Meta não respondeu agora. O envio é tentado de novo sozinho.",
   CHANNEL_NOT_CONFIGURED: "Canal não configurado. Preencha os dados do e-mail ou do WhatsApp em Conexões e salve.",
   WHATSAPP_DISCONNECTED: "WhatsApp desconectado. Conecte de novo pelo QR Code na aba Conexões e reenvie.",
+  WHATSAPP_STARTING:
+    "O WhatsApp está sendo ligado no servidor. Na primeira vez o download leva alguns minutos: clique em Conectar de novo daqui a pouco.",
   OPTED_OUT: "Esta pessoa pediu para não receber mensagens (respondeu SAIR), então nada foi enviado.",
   DAILY_CAP: "Limite diário do WhatsApp atingido, para o número não ser bloqueado. Reenvie amanhã.",
   INVALID_ADDRESS: "O e-mail ou WhatsApp do pedido não existe. Confirme o endereço com o comprador antes de reenviar.",
@@ -182,14 +176,6 @@ const ERROR_TEXT: Record<Code, string> = {
   UPLOAD_FAILED: "O envio foi interrompido. Confira a internet e tente de novo; vídeos grandes levam alguns minutos.",
 };
 
-export function track(event: TrackEvent, product: string) {
-  const body = JSON.stringify({ e: event, p: product, q: location.search, r: document.referrer, l: location.pathname });
-  if (navigator.sendBeacon("/t", new Blob([body], { type: "application/json" }))) return;
-  fetch("/t", { method: "POST", body, headers: { "content-type": "application/json" }, keepalive: true }).catch(
-    () => undefined,
-  );
-}
-
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "");
   if (digits.length > 11) return value;
@@ -289,31 +275,8 @@ export function ActionForm({
   );
 }
 
-export function Money({ cents }: { cents: number }) {
-  return <span suppressHydrationWarning>{BRL.format(cents / 100)}</span>;
-}
-
-export function DateTime({ at }: { at: Date }) {
-  return (
-    <time dateTime={at.toISOString()} suppressHydrationWarning>
-      {DAY.format(at)} às {TIME.format(at)}
-    </time>
-  );
-}
-
 export function ErrorText({ code }: { code: Code }) {
   return ERROR_TEXT[code];
-}
-
-export function Tracker({ product }: { product: string }) {
-  useEffect(() => {
-    track("page_view", product);
-  }, [product]);
-  return null;
-}
-
-export function TrackCta({ product, children }: { product: string; children: ReactNode }) {
-  return <div onClick={() => track("cta_click", product)}>{children}</div>;
 }
 
 export function CheckoutForm({

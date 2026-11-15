@@ -21,9 +21,10 @@ function parts(seconds: number) {
 }
 
 // Counts down to the product's real offer deadline; at zero the page reloads and the server shows the offer as closed.
-export function Countdown({ endsAt }: { endsAt: string }) {
+// The server sends the seconds left, so the bar paints at its final size instead of growing after hydration.
+export function Countdown({ endsAt, seconds }: { endsAt: string; seconds: number }) {
   const end = Date.parse(endsAt);
-  const [left, setLeft] = useState<number | null>(null);
+  const [left, setLeft] = useState(seconds);
 
   useEffect(() => {
     let previous = 0;
@@ -40,8 +41,6 @@ export function Countdown({ endsAt }: { endsAt: string }) {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [end]);
-
-  if (left === null) return null;
 
   return (
     <span className={styles.countdown} role="timer" aria-label="Tempo até o fim da oferta">

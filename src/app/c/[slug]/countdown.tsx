@@ -23,5 +23,10 @@ export function Countdown({ until }: { until: number }) {
     return () => clearInterval(timer);
   }, [until]);
 
-  return <time dateTime={new Date(until).toISOString()}>{text}</time>;
+  // Server and phone clocks read a second or two apart; the next tick corrects it without a client re-render.
+  return (
+    <time dateTime={new Date(until).toISOString()} suppressHydrationWarning>
+      {text}
+    </time>
+  );
 }

@@ -1,4 +1,4 @@
-import { migrate } from "./lib/db";
+import { leadJobs, migrate, nightlyDemoReset } from "./lib/db";
 import * as guard from "./lib/guard";
 import * as media from "./lib/media";
 import * as messages from "./lib/messages";
@@ -11,6 +11,7 @@ declare global {
 }
 
 const TICK_MS = 30_000;
+const DRAIN_MS = 5_000;
 
 export async function start() {
   if (process.env.NEXT_PHASE === "phase-production-build" || globalThis.libreFunnelJobs) return;
@@ -26,7 +27,17 @@ export async function start() {
       "[librefunnel] TRUST_PROXY is not 1: every visitor shares one rate-limit bucket and no IP reaches Meta",
     );
   await migrate();
-  await messages.requeueStuck();
+
+  // The image sets NEXT_MANUAL_SIG_HANDLE so Next does not exit at once: requests in flight finish while the new container takes over.
+  if (process.env.NEXT_MANUAL_SIG_HANDLE) process.once("SIGTERM", () => setTimeout(() => process.exit(0), DRAIN_MS));
+
+  // deploy/install.sh starts the store once with its Cloudflare token and reads this line to tell the seller whether R2 is on.
+  const cloudflareToken = process.env.CLOUDFLARE_TOKEN;
+  if (cloudflareToken)
+    void media
+      .setUpR2(cloudflareToken)
+      .then((code) => console.info(`[librefunnel] r2: ${code ?? "OK"}`))
+      .catch(() => console.warn("[librefunnel] r2: STORAGE_UNREACHABLE"));
 
   const jobs = [
     orders.expireOrders,
@@ -38,15 +49,27 @@ export async function start() {
     messages.refreshPhotos,
     tracking.sendConversions,
     media.transcodeVideos,
+    media.sendBackup,
     checkRelease,
+    nightlyDemoReset,
   ];
 
   let running = false;
+  let leading = false;
 
   const tick = async () => {
     if (running) return;
     running = true;
-    for (const job of jobs) {
+    try {
+      const lead = await leadJobs();
+      // Messages left "sending" belong to the container that held the lock before and is gone now.
+      if (lead && !leading) await messages.requeueStuck();
+      leading = lead;
+    } catch (error) {
+      leading = false;
+      console.warn("[librefunnel] could not take the jobs lock", error);
+    }
+    for (const job of leading ? jobs : []) {
       try {
         await job();
       } catch (error) {

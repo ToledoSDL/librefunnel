@@ -7,7 +7,7 @@ import { credentials, orderBump, saveCredentials, settings } from "./catalog";
 import type { Credentials, Product } from "./catalog";
 import { addSeconds, db, newId, one } from "./db";
 import type { Database } from "./db";
-import { firstName, hmacHex, isObject, jsonObject, maskEmail, readBody, safeEqual } from "./guard";
+import { demoMode, firstName, hmacHex, isObject, jsonObject, maskEmail, readBody, safeEqual } from "./guard";
 import type { GuardCode, Json, JsonObject } from "./guard";
 import { enqueueSale, recoverySteps } from "./messages";
 import { conversion, customer, order, payment } from "./schema";
@@ -387,6 +387,18 @@ export async function releaseOrder(orderId: string, amount: number): Promise<Ord
     await insertPayment(tx, found.id, amount, "admin", null, null);
     return markPaid(tx, found);
   });
+}
+
+// The demo has no bank behind it: this records the full amount through the same path a confirmed Pix takes.
+export async function simulatePayment(orderId: string): Promise<OrderCode | GuardCode | null> {
+  if (!demoMode()) return "DEMO_ONLY";
+
+  const [open] = await db()
+    .select({ amount: order.amount })
+    .from(order)
+    .where(and(eq(order.id, orderId), eq(order.status, "pending"), gt(order.expiresAt, new Date())));
+
+  return open ? recordPayment(orderId, open.amount, `demo:${orderId}`, "") : "INVALID_TRANSITION";
 }
 
 export function refundOrder(orderId: string): Promise<OrderCode | null> {
@@ -880,7 +892,8 @@ export async function attachCharges() {
   const stored = await credentials("pix", "mercadopago", "woovi", "abacatepay");
   const psp = pspOf(stored("pix")("provider"));
   const keys = psp && pspKeys(stored, psp);
-  if (!psp || !keys || !pspConfigured(psp, keys)) return;
+  // Every PSP charge starts here; checks and webhooks only follow orders that have one.
+  if (!psp || !keys || !pspConfigured(psp, keys) || demoMode()) return;
   const t = new Date();
 
   const rows = await db()

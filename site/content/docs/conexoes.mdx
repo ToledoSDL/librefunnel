@@ -1,0 +1,60 @@
+---
+title: Conexões
+description: Tudo o que a loja usa de fora fica em Conexões, no painel. Cada cartão tem um botão Testar, e as mudanças valem na hora, sem reiniciar.
+---
+
+Senhas e chaves salvas ali ficam criptografadas e não aparecem de novo. Para trocar, digite o valor novo; para manter, deixe o campo em branco.
+
+## E-mail
+
+Obrigatório: é por e-mail que o comprador recebe o link de acesso.
+
+- **Gmail**, sem custo: ligue a verificação em duas etapas na conta Google, crie uma senha de app em [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) e cole as 16 letras em Senha. A senha normal do Gmail não funciona.
+- **Brevo** ou **Mailjet**, com planos grátis, já estão na lista de provedores.
+- **Outro**: qualquer servidor SMTP, na porta 587 (ou 465, se o provedor pedir). A Oracle bloqueia a porta 25.
+
+Antes de testar, preencha o seu e-mail em Configurações: o teste vai para ele.
+
+## Recebimento do Pix
+
+Sem provedor, cada Pix cai direto na chave do produto, sem tarifa, e você libera o pedido depois de conferir o extrato do banco. Nunca libere com base em comprovante enviado pelo comprador: é fácil de falsificar.
+
+Com um provedor, cada pedido ganha o seu próprio Pix e o acesso é liberado sozinho quando o provedor confirma que o valor inteiro chegou. Reembolso, estorno e MED perdido tiram o acesso.
+
+| Provedor                | Tarifa (novembro de 2026)                                                           | Conta              |
+| ----------------------- | ----------------------------------------------------------------------------------- | ------------------ |
+| Pix direto na sua chave | Sem tarifa                                                                          | Qualquer chave Pix |
+| Mercado Pago            | 0,99% por venda                                                                     | CPF ou CNPJ        |
+| Woovi                   | 0,80% por Pix (mínimo R$ 0,50, máximo R$ 5,00) ou R$ 0,85 por Pix, conforme o plano | CNPJ (MEI serve)   |
+| AbacatePay              | R$ 0,80 por Pix                                                                     | CNPJ (MEI serve)   |
+
+No cartão Recebimento do Pix, cole as chaves do provedor, clique em **Salvar e usar este provedor** e cadastre no painel do provedor o endereço de webhook que a loja mostra. O webhook só avisa a loja, que então pergunta ao provedor quanto foi pago. Trocar de provedor muda só os pedidos novos.
+
+Para outro gateway ou automação própria, existe o **Webhook genérico de pagamento**, assinado com HMAC-SHA256. O formato está no [guia no GitHub](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#other-payment-providers).
+
+## WhatsApp
+
+O WhatsApp manda a recuperação de carrinho, o aviso de pagamento e as respostas por palavra-chave. Há dois jeitos de conectar:
+
+|              | Pelo QR Code                                                               | Oficial (Meta)                                                                                                                           |
+| ------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Como conecta | Escaneia o QR Code em Aparelhos conectados, como no WhatsApp Web           | Token de um usuário do sistema no Business Manager e o segredo do app                                                                    |
+| Custo        | Nenhum. A Evolution API roda no mesmo servidor e usa uns 300 MB de memória | A Meta cobra por mensagem de modelo, pelo preço dela                                                                                     |
+| Mensagens    | Texto livre                                                                | Texto livre só até 24 horas depois da última mensagem do comprador; o resto vai dentro do modelo `librefunnel_aviso`, aprovado pela Meta |
+| Número       | Use um número só para vendas                                               | Número da sua conta WhatsApp Business na Meta                                                                                            |
+
+Nos dois casos: quem responde SAIR ou PARAR deixa de receber mensagens automáticas, nada sai entre 21h e 9h (horário de Brasília), o limite é de 2 mensagens de recuperação por pessoa por dia e 300 mensagens automáticas por dia, e a recuperação para assim que o pedido é pago.
+
+## Meta (API de Conversões)
+
+A loja envia para a Meta, pelo servidor, o checkout iniciado (quando o Pix é gerado) e a compra (quando é paga). Assim os anúncios otimizam para venda, não para clique. A Meta recebe nome, e-mail e telefone só em hash.
+
+1. No Gerenciador de Eventos, copie o ID do pixel e gere um token da API de Conversões nas configurações dele.
+2. Em Conexões, cole os dois e, para conferir, o código de teste da aba Eventos de teste. Clique em Testar.
+3. Depois que o evento aparecer, apague o código de teste e salve de novo. Enquanto ele estiver lá, as vendas não contam para as campanhas.
+
+Coloque UTMs em todo link de anúncio para o painel saber qual anúncio vendeu.
+
+## Vídeos (Cloudflare R2 ou S3)
+
+Opcional. Tira o tráfego dos vídeos do seu servidor. O passo a passo está em [Cloudflare](/docs/cloudflare/).

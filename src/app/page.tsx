@@ -11,7 +11,8 @@ import { products, settings } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
 import { Footer, JsonLd } from "./buyer";
 import styles from "./page.module.css";
-import { Money, Tracker } from "./ui";
+import { Money } from "./format";
+import { Tracker } from "./track";
 
 export async function generateMetadata(): Promise<Metadata> {
   await connection();

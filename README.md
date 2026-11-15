@@ -30,37 +30,19 @@ Selling a course online usually means paying monthly for a page builder, a check
 - **Attribution**: UTMs with first and last touch, and sales sent to Meta through the Conversions API.
 - **Admin dashboard**: revenue, funnel, sources, orders with release and refund, messages, connections and CSV export. Products, course content, automations, e-mail, Pix providers and Meta are set up there too, each connection with a **Testar** button, and changes apply instantly.
 
-## Quick start
+## Install
 
-You need a Linux server with a public IP and ports 80 and 443 open. The free [Oracle Cloud Always Free](https://www.oracle.com/cloud/free/) tier works well. The [deployment guide](docs/deploy.md) walks through every click, from creating the server to the first sale.
+You need a Linux server (x64 or arm64) with a public IP and ports 80 and 443 open. The free [Oracle Cloud Always Free](https://www.oracle.com/cloud/free/) tier works well. Connect to it over SSH and run:
 
-1. **Point a hostname at your server.** Use a free [DuckDNS](https://www.duckdns.org) name (`yourstore.duckdns.org`) or an `A` record on your own domain.
-2. **Connect to the server and install Docker.**
+```sh
+curl -fsSL https://librefunnel.com/install | sh
+```
 
-   ```sh
-   ssh -i your-key.key ubuntu@YOUR_SERVER_IP
-   curl -fsSL https://get.docker.com | sudo sh
-   sudo usermod -aG docker $USER && exit
-   ```
+It installs Docker if needed, asks for the store address (or uses `<IP>.sslip.io`, which works with no DNS), an optional e-mail for the certificate, the dashboard password (or generates one) and whether the domain is on Cloudflare, protects a new server (firewall, automatic security updates, fail2ban, SSH by key only when you have one), downloads the latest release to `/opt/librefunnel` and starts it. At the end it prints the store and dashboard addresses and the password, once. With a Cloudflare API token it also points the DNS, sets HTTPS, locks ports 80 and 443 to Cloudflare and connects R2 for videos.
 
-   On Oracle Cloud, also open the server's own firewall: `sudo iptables -I INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT && sudo netfilter-persistent save`.
+Every step is its own question with a matching option, such as `--no-cf-firewall`, `--no-r2` or `--no-updater`, and it prints a one-line summary before changing anything. `--plan` prints what it would do and changes nothing; `--yes` asks nothing. Running it again keeps your settings and your earlier answers. The [deployment guide](docs/deploy.md) walks through every click, from creating the server to the first sale, explains every option and the token permissions, and has the [manual install](docs/deploy.md#manual-install) without the script.
 
-3. **Download LibreFunnel.** Reconnect with `ssh`, then:
-
-   ```sh
-   git clone https://github.com/ToledoSDL/librefunnel.git
-   cd librefunnel
-   cp .env.example .env
-   ```
-
-4. **Fill in `.env`.** Open it with `nano .env` and set at least `BASE_URL`, `DOMAIN`, `ADMIN_PASSWORD`, `SECRET` and `POSTGRES_PASSWORD` (see [Configuration](#configuration)).
-5. **Start it.**
-
-   ```sh
-   docker compose up -d --build
-   ```
-
-6. **Open `https://yourstore.duckdns.org/admin`** and sign in with `ADMIN_PASSWORD`. Caddy issues the HTTPS certificate on its own. A demo product is already there: set your Pix key, price and lessons in the Products tab, then set up e-mail in **Conexões** so buyers receive their access link.
+Then open `https://<your address>/admin`, create your first product with its Pix key, price and lessons, and set up e-mail in **Conexões** so buyers receive their access link.
 
 ## Configuration
 
@@ -114,6 +96,19 @@ bun run check
 ```
 
 Stack: Next.js 16 (App Router, standalone output), React 19, PostgreSQL with Drizzle ORM, nodemailer, Docker Compose and Caddy. Business rules live in `src/lib`, pages in `src/app`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Website
+
+[librefunnel.com](https://librefunnel.com) lives in `site/`, a separate [Fumadocs](https://fumadocs.dev) app with its own dependencies. Docs pages are MDX files in `site/content/docs`.
+
+```sh
+cd site
+bun install
+bun run dev     # http://localhost:3000
+bun run build   # static export in site/out, with deploy/install.sh copied to site/out/install
+```
+
+On Cloudflare Pages, set the root directory to `site`, the build command to `bun install && bun run build` and the output directory to `out`. `site/public/_headers` serves `/install` as plain text.
 
 ## License
 

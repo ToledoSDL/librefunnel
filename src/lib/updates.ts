@@ -112,6 +112,10 @@ export function restartStore() {
   return command("/restart");
 }
 
+export function switchWhatsApp(on: boolean) {
+  return command(`/whatsapp?on=${on ? 1 : 0}`);
+}
+
 export function setAutoUpdate(hour: string) {
   return command(`/auto?hour=${encodeURIComponent(hour)}`);
 }

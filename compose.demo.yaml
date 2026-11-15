@@ -1,0 +1,7 @@
+# Public demo only (DEMO_MODE=1 in .env): builds the image's demo target, which adds the demo/ seeds and media.
+# docker compose -f compose.yaml -f compose.demo.yaml up -d --build app db caddy
+services:
+  app:
+    image: librefunnel-demo
+    build:
+      target: demo

@@ -1,6 +1,12 @@
 # Deployment guide
 
-This guide takes you from nothing to a live store at `https://yourstore.duckdns.org`, on a free server, with no technical background. Plan for about an hour. Follow the steps in order and copy each command exactly.
+This guide takes you from nothing to a live store on a free server, with no technical background. Plan for about half an hour. Follow the steps in order and copy each command exactly.
+
+Already connected to a Linux server (x64 or arm64, Ubuntu or Debian for the server protection)? Run this and answer the questions; [step 5](#5-run-the-installer) explains each one:
+
+```sh
+curl -fsSL https://librefunnel.com/install | sh
+```
 
 **What you need**
 
@@ -12,16 +18,13 @@ This guide takes you from nothing to a live store at `https://yourstore.duckdns.
 
 1. [Create the server](#1-create-the-server)
 2. [Open ports 80 and 443](#2-open-ports-80-and-443)
-3. [Get a hostname](#3-get-a-hostname)
+3. [Choose the address](#3-choose-the-address)
 4. [Connect to the server](#4-connect-to-the-server)
-5. [Install Docker](#5-install-docker)
-6. [Download LibreFunnel](#6-download-librefunnel)
-7. [Fill in the settings file](#7-fill-in-the-settings-file)
-8. [Start the store](#8-start-the-store)
-9. [Set up e-mail](#9-set-up-e-mail)
-10. [Set up your store in the dashboard](#10-set-up-your-store-in-the-dashboard)
+5. [Run the installer](#5-run-the-installer)
+6. [Set up e-mail](#6-set-up-e-mail)
+7. [Set up your store in the dashboard](#7-set-up-your-store-in-the-dashboard)
 
-Optional: [WhatsApp](#whatsapp), [Pix providers](#pix-providers-automatic-confirmation), [other payment providers](#other-payment-providers), [Meta Conversions API](#meta-conversions-api), [video storage](#video-storage-cloudflare-r2-or-s3). Day to day: [updating](#updating), [logs](#logs), [backups and restore](#backups-and-restore), [troubleshooting](#troubleshooting).
+Optional: [Cloudflare](#cloudflare), [WhatsApp](#whatsapp), [Pix providers](#pix-providers-automatic-confirmation), [other payment providers](#other-payment-providers), [Meta Conversions API](#meta-conversions-api), [video storage](#video-storage-cloudflare-r2-or-s3). Without the installer: [manual install](#manual-install). Day to day: [updating](#updating), [logs](#logs), [backups and restore](#backups-and-restore), [troubleshooting](#troubleshooting).
 
 ## 1. Create the server
 
@@ -33,6 +36,15 @@ Optional: [WhatsApp](#whatsapp), [Pix providers](#pix-providers-automatic-confir
 4. Under **Networking**, keep the defaults and make sure **Assign a public IPv4 address** is on.
 5. Under **Add SSH keys**, choose **Generate a key pair for me** and click **Save private key**. Keep this `.key` file safe: it is the only way into your server.
 6. Click **Create**. When the instance shows **Running**, copy its **Public IP address** (for example `203.0.113.10`). You will use it several times.
+
+> Another provider works too. The smallest that runs the store is 1 vCPU and 1 GB of memory with a 2 GB swap file, which covers the few seconds of an update when two copies of the store run at once. Create the swap once, after step 4:
+>
+> ```sh
+> sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+> echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+> ```
+>
+> With WhatsApp by QR Code (Evolution) on, use 2 GB of memory.
 
 > If Oracle says it is **out of capacity**, try another availability domain in step 4, or try again a few hours later. Free Ampere machines are popular.
 
@@ -49,11 +61,15 @@ Visitors reach your store through ports 80 (HTTP) and 443 (HTTPS). Oracle blocks
    | `0.0.0.0/0` | TCP         | `80`                   |
    | `0.0.0.0/0` | TCP         | `443`                  |
 
-Oracle's Ubuntu image also has its own firewall. You open it in [step 5](#5-install-docker).
+Oracle's Ubuntu image also has its own firewall. The installer replaces it with its own in [step 5](#5-run-the-installer); if you say no to the server protection there, run the `iptables` command from [the manual install](#install-docker).
 
-## 3. Get a hostname
+## 3. Choose the address
 
-Your store needs a name, and HTTPS needs one too.
+Your store needs a name, and HTTPS needs one too. Pick one:
+
+**None yet**: skip this step. The installer offers `203-0-113-10.sslip.io` (your server's IP with dashes), which already points to the server. To move to your own domain later, run the installer again with `--domain`.
+
+**Your own domain on Cloudflare**: skip this step too. The installer creates the record, see [Cloudflare](#cloudflare).
 
 **Free with DuckDNS**
 
@@ -63,7 +79,7 @@ Your store needs a name, and HTTPS needs one too.
 
 Your address is now `yourstore.duckdns.org`.
 
-**With your own domain**
+**Your own domain elsewhere**
 
 At your domain registrar, create an `A` record pointing your chosen name (such as `store.yourdomain.com.br`) to the server's public IP.
 
@@ -86,7 +102,131 @@ ssh -i ~/Downloads/your-key.key ubuntu@203.0.113.10
 
 Type `yes` when asked whether to continue connecting. When the prompt changes to `ubuntu@...`, you are on the server. Every command from here on runs there. To paste in the terminal, right-click (Windows) or press `Cmd+V` (macOS).
 
-## 5. Install Docker
+## 5. Run the installer
+
+```sh
+curl -fsSL https://librefunnel.com/install | sh
+```
+
+To read it before it runs: `curl -fsSLo install.sh https://librefunnel.com/install`, then `less install.sh` and `sh install.sh`. With `--plan` it prints everything it would do and changes nothing.
+
+It runs as root (it calls `sudo` by itself) and:
+
+1. Installs Docker with Docker's official script, after asking, when the server has none.
+2. Asks one question per step; Enter takes the default:
+   - **Domínio da loja**: the address from step 3. Enter takes `<IP>.sslip.io`.
+   - **E-mail para o certificado HTTPS**: optional.
+   - **Senha do painel**: Enter generates a strong one, shown once at the end.
+   - **O domínio está na Cloudflare?** (no): then one question for each part, see [Cloudflare](#cloudflare).
+   - **Ligar já o WhatsApp por QR Code?** (no): Evolution takes about 300 MB of memory, and **Conexões** turns it on later.
+   - **Atualizar e reiniciar a loja pelo painel?** (yes): runs the `updater` service. Without it, the dashboard cannot update or restart the store, and updates are the installer run again (see [Updating](#updating)).
+   - **Proteger o servidor?** (yes on a new install): see below.
+3. Prints one line with every choice and asks to continue, then installs Docker with Docker's official script if the server has none.
+4. Downloads `compose.yaml`, `deploy/Caddyfile` and `deploy/evolution.sql` of the latest release into `/opt/librefunnel` and writes `.env` there, readable by root only, with a random `SECRET` and `POSTGRES_PASSWORD`. Nothing else goes on the server: the store and the updater come as ready-made images.
+5. Starts the store and waits until `https://<your address>` answers. If the address does not point to the server yet, it prints the exact DNS record to create.
+
+At the end it prints the store and dashboard addresses and the dashboard password. The password is shown this once only; it also stays in `/opt/librefunnel/.env`.
+
+Running it again is safe: what is in `.env` stays, only what is missing is filled in, and the three files are downloaded again for the installed version. The choices are stored in `.env` as `INSTALL_*` keys, so a re-run never flips one: to change a choice, run it again with that choice's option, such as `--updater` or `--no-cf-firewall`.
+
+**Server protection** (yes by default on a new install, Debian and Ubuntu only): the ufw firewall with SSH (port 22 and the port you are connected on), 80 and 443 open; automatic security updates (unattended-upgrades); fail2ban for SSH; and SSH password login turned off, only when your user already has a key in `~/.ssh/authorized_keys`, so it never locks you out.
+
+**Options** go after `sh -s --`, as in `curl -fsSL https://librefunnel.com/install | sh -s -- --plan`:
+
+| Option                              | What it does                                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `--plan`                            | Prints what it would do and does nothing (`--dry-run` too).                                   |
+| `--yes`                             | Asks nothing: takes the options given, the earlier choices and the defaults.                  |
+| `--domain <name>`                   | The store address, such as `loja.seudominio.com.br`.                                          |
+| `--email <address>`                 | E-mail for the HTTPS certificate.                                                             |
+| `--cloudflare`, `--no-cloudflare`   | Use Cloudflare, or not.                                                                       |
+| `--cf-dns`, `--no-cf-dns`           | Cloudflare: point the address at the server, proxied.                                         |
+| `--cf-ssl`, `--no-cf-ssl`           | Cloudflare: SSL Full (strict), minimum TLS 1.2, Always Use HTTPS off (zone-wide).             |
+| `--cf-firewall`, `--no-cf-firewall` | Cloudflare: ports 80 and 443 only from Cloudflare. Never with `--no-cf-dns`.                  |
+| `--r2`, `--no-r2`                   | Cloudflare: R2 for videos and images.                                                         |
+| `--whatsapp`, `--no-whatsapp`       | Start WhatsApp by QR Code now, or leave it for **Conexões**.                                  |
+| `--updater`, `--no-updater`         | Updates and restarts from the dashboard, or only from the terminal.                           |
+| `--harden`, `--no-harden`           | Protect the server, or not.                                                                   |
+| `--ssh-from <ip>`                   | With the firewall, SSH accepts only this IP. Refused when you are connected from another one. |
+| `--dir <folder>`                    | Where the store lives, `/opt/librefunnel` by default.                                         |
+
+Secrets go in environment variables, so they stay out of the shell history: `LIBREFUNNEL_ADMIN_PASSWORD` and `CLOUDFLARE_API_TOKEN`. With no questions at all:
+
+```sh
+export CLOUDFLARE_API_TOKEN=<your token>
+curl -fsSL https://librefunnel.com/install | sh -s -- --yes --domain loja.seudominio.com.br --cloudflare
+```
+
+Commands in the rest of this guide run in the store folder as root: start with `cd /opt/librefunnel` and put `sudo` before `docker compose`.
+
+### Cloudflare
+
+With the domain on Cloudflare, one API token lets the installer do the rest.
+
+1. Open [the token form with the permissions filled in](https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22zone%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22edit%22%7D%5D&name=LibreFunnel) (the installer prints the same link), or create a custom token at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) with exactly these permissions:
+
+   | Type    | Permission         | Access | Used for                   |
+   | ------- | ------------------ | ------ | -------------------------- |
+   | Zone    | Zone               | Read   | finding the domain         |
+   | Zone    | DNS                | Edit   | the `A` and `AAAA` records |
+   | Zone    | Zone Settings      | Edit   | SSL mode and minimum TLS   |
+   | Account | Workers R2 Storage | Edit   | the video bucket           |
+
+   Under **Zone Resources**, choose only your domain.
+
+2. If R2 was never used on the account, open **R2** in the Cloudflare dashboard once and enable it (the free plan covers 10 GB).
+3. Answer yes to **O domínio está na Cloudflare?** and paste the token. It is typed without showing. Enter without a token skips the DNS, SSL and R2 parts and leaves them as they are.
+
+Each part below is its own question (yes by default) with an option to skip it: `--no-cf-dns`, `--no-cf-ssl`, `--no-cf-firewall` and `--no-r2`. The firewall part is offered only with the DNS part, since without the proxy visitors reach the server directly and the lock would take the store offline. The token is needed only for DNS, SSL and R2.
+
+The installer then:
+
+- creates or updates the `A` record (and `AAAA` when the server has a public IPv6) for the address, proxied (orange cloud);
+- sets SSL to **Full (strict)**, minimum TLS to 1.2 and **Always Use HTTPS** off, since Caddy redirects to HTTPS itself and Let's Encrypt validates over plain HTTP through Cloudflare. These are zone settings, so they apply to every name on the domain; the installer prints each one it changes;
+- writes Cloudflare's current IP ranges to `TRUSTED_PROXIES`, so the store sees each visitor's real IP;
+- accepts ports 80 and 443 only from those ranges, in ufw and in Docker's `DOCKER-USER` chain (Docker's published ports skip ufw's own rules);
+- connects [video storage](#video-storage-cloudflare-r2-or-s3) the same way **Conexões** > **Cloudflare R2** does: a private bucket named after the store, uploads allowed from your address, and S3 keys derived from the token. The token is not saved in `.env`: only the first start of the store receives it, and that container is replaced right after.
+
+The R2 keys come from this token, so keep it: deleting or rolling it disconnects video storage until you connect R2 again in **Conexões**. Run the installer again with the token to refresh the IP ranges or redo any step.
+
+## 6. Set up e-mail
+
+Buyers receive their access link by e-mail, so this step is required. Oracle blocks outbound port 25, so use port 587, which every provider below supports.
+
+Open `https://yourstore.duckdns.org/admin` and sign in with `ADMIN_PASSWORD`. In **Settings**, fill in your own e-mail first: the test message goes there. Then open **Conexões**.
+
+**Gmail (free)**
+
+1. Turn on [2-Step Verification](https://myaccount.google.com/signinoptions/two-step-verification) on your Google account.
+2. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create an app password named `LibreFunnel`, and copy the 16 letters it shows.
+3. In the **E-mail** card, choose **Gmail** under **Provedor**, put your Gmail address in **Usuário** and the 16 letters, without spaces, in **Senha**. Leave **Remetente** blank. Click **Salvar e-mail**.
+4. Click **Testar**. It signs in to Gmail and sends a message to your own e-mail. If it fails, the message says whether the password, the server or your e-mail in **Settings** is the problem.
+
+Your normal Gmail password does not work here: it must be the app password.
+
+**Alternatives**: [Brevo](https://www.brevo.com) and [Mailjet](https://www.mailjet.com) have free plans and are in the **Provedor** list. With Brevo, **Usuário** is the SMTP login and **Senha** is the SMTP key (not the API key). With Mailjet, they are the API Key and the Secret Key. For any other provider, choose **Outro** and fill in **Servidor SMTP** and **Porta** (587, or 465 only if the provider asks for it).
+
+Passwords and keys saved in **Conexões** are stored encrypted with a key derived from `SECRET` and are never shown again. To change one, type the new value; leave the field blank to keep the saved one. Changes apply to the next message, without a restart.
+
+## 7. Set up your store in the dashboard
+
+Everything below is saved instantly, with no restart.
+
+1. **Settings**: set your brand name, your own e-mail and WhatsApp (sale notices and test messages go there), your terms URL and how many hours a Pix order stays valid.
+2. **Products**: the store starts empty. Create your first product and set the name, price, your **Pix key** with the account holder name and city, the sales video and the second the buy button appears, the offer deadline, guarantee days, FAQ and testimonials. Add an order bump if you want one.
+3. **Course content**: in the same product, add modules and lessons, reorder them, and upload each lesson's video and cover image.
+4. **Automations**: review the recovery steps (channel, delay and text) and the WhatsApp keyword replies. Texts can use `{name}`, `{product}`, `{amount}`, `{link}` and `{pix}`.
+5. **Conexões**: optionally pick a [Pix provider](#pix-providers-automatic-confirmation), connect [WhatsApp](#whatsapp) and [Meta](#meta-conversions-api).
+
+Your sales page is at `/v/<product-slug>` and the checkout at `/c/<product-slug>`. Make a test purchase with your own e-mail, then release it in **Orders** to see the whole flow, including the access e-mail and the members area at `/m`.
+
+**Confirming payments.** Without a Pix provider, each Pix lands straight in your account and you confirm it yourself. Open your **bank statement** (never a screenshot sent by the buyer), find a Pix with the order amount and identifier, then click **Release** on the order in **Orders** and enter the amount received. The access e-mail goes out right away. **Refund** ends access and subtracts the sale from revenue. Send the money back through your bank app: the dashboard does not move money.
+
+## Manual install
+
+Without the installer, these steps replace [step 5](#5-run-the-installer). They build the store from the source code on the server.
+
+### Install Docker
 
 Open Oracle's server firewall for ports 80 and 443:
 
@@ -102,9 +242,9 @@ sudo usermod -aG docker $USER
 exit
 ```
 
-`exit` disconnects you. Connect again with the same `ssh` command from step 4 so the change takes effect.
+`exit` disconnects you. Connect again with the same `ssh` command from [step 4](#4-connect-to-the-server) so the change takes effect.
 
-## 6. Download LibreFunnel
+### Download LibreFunnel
 
 ```sh
 git clone https://github.com/ToledoSDL/librefunnel.git
@@ -114,7 +254,7 @@ cp .env.example .env
 
 The last line creates `.env`, your private settings file. It holds passwords: never share it or commit it.
 
-## 7. Fill in the settings file
+### Fill in the settings file
 
 First generate three random secrets. Run each command and copy what it prints:
 
@@ -148,7 +288,7 @@ POSTGRES_PASSWORD=<the output of openssl rand -hex 24>
 
 Leave the other lines as they are for now. Keep `nano` open for the next step, or save with `Ctrl+O`, `Enter`, and exit with `Ctrl+X`.
 
-## 8. Start the store
+### Start the store
 
 ```sh
 docker compose up -d --build
@@ -164,44 +304,11 @@ docker compose ps
 
 Open `https://yourstore.duckdns.org` in your browser. Caddy gets the HTTPS certificate on its own within a minute or two.
 
-## 9. Set up e-mail
-
-Buyers receive their access link by e-mail, so this step is required. Oracle blocks outbound port 25, so use port 587, which every provider below supports.
-
-Open `https://yourstore.duckdns.org/admin` and sign in with `ADMIN_PASSWORD`. In **Settings**, fill in your own e-mail first: the test message goes there. Then open **Conexões**.
-
-**Gmail (free)**
-
-1. Turn on [2-Step Verification](https://myaccount.google.com/signinoptions/two-step-verification) on your Google account.
-2. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create an app password named `LibreFunnel`, and copy the 16 letters it shows.
-3. In the **E-mail** card, choose **Gmail** under **Provedor**, put your Gmail address in **Usuário** and the 16 letters, without spaces, in **Senha**. Leave **Remetente** blank. Click **Salvar e-mail**.
-4. Click **Testar**. It signs in to Gmail and sends a message to your own e-mail. If it fails, the message says whether the password, the server or your e-mail in **Settings** is the problem.
-
-Your normal Gmail password does not work here: it must be the app password.
-
-**Alternatives**: [Brevo](https://www.brevo.com) and [Mailjet](https://www.mailjet.com) have free plans and are in the **Provedor** list. With Brevo, **Usuário** is the SMTP login and **Senha** is the SMTP key (not the API key). With Mailjet, they are the API Key and the Secret Key. For any other provider, choose **Outro** and fill in **Servidor SMTP** and **Porta** (587, or 465 only if the provider asks for it).
-
-Passwords and keys saved in **Conexões** are stored encrypted with a key derived from `SECRET` and are never shown again. To change one, type the new value; leave the field blank to keep the saved one. Changes apply to the next message, without a restart.
-
-## 10. Set up your store in the dashboard
-
-Everything below is saved instantly, with no restart.
-
-1. **Settings**: set your brand name, your own e-mail and WhatsApp (sale notices and test messages go there), your terms URL and how many hours a Pix order stays valid.
-2. **Products**: a demo product is already there. Open it and set the name, price, your **Pix key** with the account holder name and city, the sales video and the second the buy button appears, the offer deadline, guarantee days, FAQ and testimonials. Add an order bump if you want one.
-3. **Course content**: in the same product, add modules and lessons, reorder them, and upload each lesson's video and cover image.
-4. **Automations**: review the recovery steps (channel, delay and text) and the WhatsApp keyword replies. Texts can use `{name}`, `{product}`, `{amount}`, `{link}` and `{pix}`.
-5. **Conexões**: optionally pick a [Pix provider](#pix-providers-automatic-confirmation), connect [WhatsApp](#whatsapp) and [Meta](#meta-conversions-api).
-
-Your sales page is at `/v/<product-slug>` and the checkout at `/c/<product-slug>`. Make a test purchase with your own e-mail, then release it in **Orders** to see the whole flow, including the access e-mail and the members area at `/m`.
-
-**Confirming payments.** Without a Pix provider, each Pix lands straight in your account and you confirm it yourself. Open your **bank statement** (never a screenshot sent by the buyer), find a Pix with the order amount and identifier, then click **Release** on the order in **Orders** and enter the amount received. The access e-mail goes out right away. **Refund** ends access and subtracts the sale from revenue. Send the money back through your bank app: the dashboard does not move money.
-
 ## WhatsApp
 
 WhatsApp sends cart recovery, payment confirmations and keyword replies from your own number, through a self-hosted [Evolution API](https://github.com/EvolutionAPI/evolution-api). It connects the way WhatsApp Web does, so use a number dedicated to sales, or use the [official API](#official-whatsapp-meta-cloud-api) instead.
 
-Evolution runs on the same server as the store and starts with it: there is nothing to install or configure. It keeps its data in its own database on the store's PostgreSQL server and uses about 300 MB of memory.
+Evolution runs on the same server as the store, with nothing to install or configure. It stays off until the first **Conectar pelo QR Code**, which turns it on (the first time it downloads for a few minutes), and **Desconectar** turns it off again. It keeps its data in its own database on the store's PostgreSQL server and uses about 300 MB of memory while on.
 
 1. In `/admin`, open **Conexões** and click **Conectar pelo QR Code**. On the sales phone, open WhatsApp, go to **Settings > Linked devices > Link a device**, and scan the QR code. The page updates when it connects. If your WhatsApp number is set in **Settings**, you can also link with a pairing code instead of the camera.
 2. Click **Testar**: it checks the connection and sends a message to your own WhatsApp.
@@ -312,7 +419,7 @@ Add UTMs to every ad link (`utm_source`, `utm_medium`, `utm_campaign`, `utm_cont
 
 ## Video storage (Cloudflare R2 or S3)
 
-Without it, videos and images live in the `/data` volume and every view goes out through the server's bandwidth. With a bucket connected, uploads go straight from the browser to the bucket, viewers download from it, and files already on the server move there in the background (the local copy is deleted only after each upload succeeds). R2 is the recommended choice: it charges nothing for data going out. Amazon S3, Backblaze B2 and other S3-compatible services work too.
+Without it, videos and images live in the `/data` volume and every view goes out through the server's bandwidth. With a bucket connected, uploads go straight from the browser to the bucket, viewers download from it, and files already on the server move there in the background (the local copy is deleted only after each upload succeeds). R2 is the recommended choice: it charges nothing for data going out. Amazon S3, Backblaze B2 and other S3-compatible services work too. With [Cloudflare in the installer](#cloudflare), R2 is already connected.
 
 1. If R2 was never used on your Cloudflare account, open **R2** in the dashboard once and enable it (the free plan covers 10 GB).
 2. In `/admin` > **Conexões** > **Cloudflare R2**, click **Conectar**, then **Crie um token na Cloudflare**. The token form opens with the R2 edit permission filled in: create it and copy its value.
@@ -336,9 +443,9 @@ Updates come from the releases published on GitHub, as a ready-made image, so th
 
 In the dashboard, the version sits at the bottom of the sidebar. When a new release exists it turns into **Atualizar para vX.Y.Z**:
 
-- **Atualizar** shows what changed, backs up the database to `backups/antes-vX.Y.Z.sql`, downloads the new version and restarts the store. It is out for about a minute and the page reloads by itself.
+- **Atualizar** shows what changed, backs up the database to `backups/antes-vX.Y.Z.sql` (the last three are kept), downloads the new version and starts it next to the running one. The old one stops only after the new one answers, so the store stays online the whole time. If the new version does not start within 3 minutes it is removed and the store keeps running the previous one.
 - **Atualizar sozinha** picks an hour of the day for the same thing to happen automatically, always with a backup first.
-- **Reiniciar agora** restarts the store without changing the version.
+- **Reiniciar agora** swaps the store container the same way, without changing the version. It also picks up changes made to `.env`.
 
 This runs through the `updater` service in `compose.yaml`. It is the only part with access to Docker, it has no public port, it needs the same key as the store (`UPDATER_TOKEN`, which defaults to `POSTGRES_PASSWORD`) and it can only restart, update to a published version and back up.
 
@@ -350,7 +457,7 @@ docker compose up -d
 
 If the newer version had already changed the database, restore the backup made before the update (see [Backups and restore](#backups-and-restore)).
 
-Updating by hand from the terminal still works:
+Updating by hand from the terminal still works, and it is the only way on a store installed with `--no-updater`. On a store set up by the installer, set `LIBREFUNNEL_VERSION` in `/opt/librefunnel/.env` to the new version and run the installer again: it downloads that version's files and images and keeps everything else. On a manual install:
 
 ```sh
 cd librefunnel
@@ -359,15 +466,31 @@ git pull && docker compose pull app && docker compose up -d
 
 ### Publishing a release
 
-For maintainers: push a tag and the **Release** workflow checks the code, publishes the image to GitHub Packages (`ghcr.io/toledosdl/librefunnel`) and creates the release with its notes.
+For maintainers: push a tag and the **Release** workflow checks the code, publishes the store and updater images for x64 and arm64 to GitHub Packages (`ghcr.io/toledosdl/librefunnel` and `ghcr.io/toledosdl/librefunnel-updater`) and creates the release with its notes. The installer installs the latest release, so it refuses to run until the first one exists.
 
 ```sh
 git tag v0.3.0 && git push origin v0.3.0
 ```
 
-After the first release, open the package on GitHub (**Packages > librefunnel > Package settings**) and set its visibility to **Public**, so servers can download it without logging in.
+After the first release, open both packages on GitHub (**Packages > librefunnel > Package settings**, then the same for **librefunnel-updater**) and set their visibility to **Public**, so servers can download them without logging in.
 
 Coming from a version that kept e-mail, Mercado Pago, Meta or the payment webhook in `.env`? Those lines (`SMTP_`, `MP_`, `META_`, `WEBHOOK_SECRET`) are no longer read. Type the same values in **Conexões**, click **Testar** on each, then delete the lines from `.env`. The generic webhook gets a new secret: update it in the system that calls it.
+
+## Demo
+
+The public demo at `demo.librefunnel.com` is an install with `DEMO_MODE=1` in `.env`, built from the image's `demo` target. Never set it on a store that sells. The released image has no demo content: a fresh store starts with no products.
+
+- Every page shows a line saying it is a demonstration, with a link to install your own store.
+- The dashboard sign-in shows the `ADMIN_PASSWORD` already filled in, so use a password made only for the demo.
+- Nothing leaves the server: queued e-mails and WhatsApp messages are marked as sent without being delivered, Meta events are skipped, and no Pix provider is called. **Conexões** refuses to save, test or remove connections, and **Atualizar** and **Reiniciar** are refused too. Leave `AUTO_UPDATE_HOUR` empty.
+- The Pix page gets a **Simular pagamento** button that pays the order the same way a confirmed Pix does, so visitors can reach the members area.
+- The demo store (the `demo/` folder, which only the `demo` target copies into the image) is filled in: three products using every page option, automations, settings, and 30 days of example orders, visits and messages, all dated relative to when it was loaded. It loads on the first start with `DEMO_MODE=1`. Its video and images are served at `/demo/...` only in demo mode.
+- Every day at 04:00 (Sao Paulo time) the database goes back to the demo store: orders, buyers, messages, settings and edited products are erased and the seed runs again. Uploaded files stay in `data`.
+
+- Uploads are refused: the password is public and files would survive the reset.
+- Build and run it with the demo override, without the updater and without Evolution: `docker compose -f compose.yaml -f compose.demo.yaml up -d --build app db caddy`. Nothing in the demo needs Docker access or WhatsApp. Without the override the image has no `demo/` folder and the log says so.
+
+DNS: create an `A` record named `demo` pointing to the server's IP. With Cloudflare, keep the proxy on (orange cloud) to hide the server's IP, set SSL to **Full (strict)**, leave **Always Use HTTPS** off (Caddy redirects by itself and Let's Encrypt validates through Cloudflare), set `TRUSTED_PROXIES` to Cloudflare's ranges, and in the server's firewall open ports 80 and 443 only to those ranges. Then set `DOMAIN=demo.yourdomain.com` and `BASE_URL=https://demo.yourdomain.com`.
 
 ## Logs
 
@@ -382,7 +505,7 @@ Press `Ctrl+C` to stop following. For WhatsApp, run `docker compose logs -f evol
 
 The database (orders, buyers, products, messages) lives in the `postgres` volume. Your uploaded videos and images live in the `data` volume, mounted at `/data`.
 
-Once a day the `backup` service saves the whole database with `pg_dump` to `librefunnel-1.sql` (Monday) through `librefunnel-7.sql` (Sunday) in the `backups` volume, so the last 7 days are always kept. These copies live on the same server, so also keep a copy elsewhere.
+Once a day the `backup` service saves the whole database with `pg_dump` to `librefunnel-1.sql` (Monday) through `librefunnel-7.sql` (Sunday) in the `backups` volume, so the last 7 days are always kept. With [video storage](#video-storage-cloudflare-r2-or-s3) connected, the store also copies each new dump to the bucket under `backups/`, with the same 7 names, so losing the server does not lose the sales. Without a bucket the copies live only on this server: download one now and then as below.
 
 **Download a backup to your computer**
 
@@ -421,7 +544,7 @@ docker compose start app
 
 **Restore on a new server**
 
-Set the new server up through [step 9](#9-start-the-store). From your computer, upload the `backup` folder:
+Set the new server up with [the installer](#5-run-the-installer). From your computer, upload the `backup` folder:
 
 ```sh
 scp -r -i ~/Downloads/your-key.key backup ubuntu@203.0.113.10:librefunnel/
@@ -443,7 +566,7 @@ docker compose start app
 ### The site does not open
 
 1. Run `docker compose ps`. If `app` shows `Restarting`, run `docker compose logs app`: it names the missing or invalid setting. Fix it in `.env` and run `docker compose up -d`.
-2. Check that both ports 80 and 443 are open in the Oracle Security List ([step 2](#2-open-ports-80-and-443)) and that you ran the `iptables` command ([step 5](#5-install-docker)).
+2. Check that both ports 80 and 443 are open in the Oracle Security List ([step 2](#2-open-ports-80-and-443)) and, without the installer's firewall, that you ran the `iptables` command ([manual install](#install-docker)).
 3. Check that DuckDNS (or your `A` record) points to the server's current public IP.
 
 ### No HTTPS certificate

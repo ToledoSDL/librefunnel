@@ -4,7 +4,8 @@ import { getProduct, orderBump, settings } from "@/lib/catalog";
 import type { Product, Settings } from "@/lib/catalog";
 import { getPixOrder, offerOpen } from "@/lib/orders";
 import { Footer, StoreMark, Testimonials } from "@/app/buyer";
-import { DateTime, Money, Tracker } from "@/app/ui";
+import { DateTime, Money } from "@/app/format";
+import { Tracker } from "@/app/track";
 import { Countdown } from "./countdown";
 import styles from "./page.module.css";
 import { PixPage } from "./pix";
@@ -33,6 +34,7 @@ export async function generateMetadata({ params, searchParams }: Props) {
 
   return {
     title: paying ? `Pague com Pix | ${product.name}` : `Finalizar compra | ${product.name}`,
+    description: `Pagamento por Pix de ${product.name}, com acesso liberado assim que o Pix cai.`,
     robots: { index: false },
   };
 }

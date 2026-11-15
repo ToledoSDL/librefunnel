@@ -2,10 +2,11 @@ import "server-only";
 import { execFile } from "node:child_process";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { mkdir, open, readdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { setPriority } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { eq, inArray, or } from "drizzle-orm";
-import { credentials } from "./catalog";
+import { credentials, saveCredentials } from "./catalog";
 import { dataDir, db } from "./db";
 import { baseUrl, isAdmin, isObject, jsonObject, readBody } from "./guard";
 import { currentMember } from "./members";
@@ -458,7 +459,25 @@ export async function directUpload(request: Request): Promise<Response> {
 }
 
 // A lesson file is paid content: only the admin and current buyers of its product get it, so a refund or a shared link opens nothing.
+// A VSL plays as dozens of segment requests per viewer; remembering the public verdict for a minute keeps them off the database.
+// Only "public" is remembered, since the private answer depends on who asks. Capped so random names cannot grow it.
+const publicUntil = new Map<string, number>();
+const REMEMBERED = 2000;
+
 async function access(urls: string[]): Promise<Visibility | "denied"> {
+  const key = urls.join(" ");
+  if ((publicUntil.get(key) ?? 0) > Date.now()) return "public";
+  const visibility = await checkAccess(urls);
+
+  if (visibility === "public") {
+    if (publicUntil.size >= REMEMBERED) publicUntil.clear();
+    publicUntil.set(key, Date.now() + 60_000);
+  }
+
+  return visibility;
+}
+
+async function checkAccess(urls: string[]): Promise<Visibility | "denied"> {
   const [owners, shown] = await Promise.all([
     db()
       .selectDistinct({ product: module.product })
@@ -499,6 +518,9 @@ export async function streamFor(url: string): Promise<string | undefined> {
   return head?.ok ? master : undefined;
 }
 
+// A finished stream never changes (random names, master playlist uploaded last), so its playlists are kept in memory.
+const playlists = new Map<string, string>();
+
 // Playlists pass through here so their relative links come back to this route; every other file is a redirect to a signed link.
 async function serveRemote(file: string, mime: string, visibility: Visibility): Promise<Response> {
   const target = await bucket();
@@ -506,11 +528,17 @@ async function serveRemote(file: string, mime: string, visibility: Visibility): 
   const key = `${PREFIX}${file}`;
 
   if (file.endsWith(".m3u8")) {
-    const response = await fetch(presign(target, "GET", key, visibility), { signal: AbortSignal.timeout(20_000) });
-    if (!response.ok) return new Response(null, { status: 404 });
-    return new Response(await response.text(), {
-      headers: { "Content-Type": mime, "Cache-Control": LINKS[visibility].cache },
-    });
+    let text = playlists.get(file);
+
+    if (text === undefined) {
+      const response = await fetch(presign(target, "GET", key, visibility), { signal: AbortSignal.timeout(20_000) });
+      if (!response.ok) return new Response(null, { status: 404 });
+      text = await response.text();
+      if (playlists.size >= REMEMBERED) playlists.clear();
+      playlists.set(file, text);
+    }
+
+    return new Response(text, { headers: { "Content-Type": mime, "Cache-Control": LINKS[visibility].cache } });
   }
 
   return new Response(null, {
@@ -519,8 +547,7 @@ async function serveRemote(file: string, mime: string, visibility: Visibility): 
   });
 }
 
-// Safari only plays video that answers byte ranges with 206; names are random, so the files never change.
-// A stream file (`<id>/...`) inherits the access rules of its original video.
+// Names are random, so the files never change. A stream file (`<id>/...`) inherits the access rules of its original video.
 export async function serveMedia(request: Request, file: string): Promise<Response> {
   const mime = mimeOf(file);
   if (!mime) return new Response(null, { status: 404 });
@@ -530,14 +557,13 @@ export async function serveMedia(request: Request, file: string): Promise<Respon
   const path = join(mediaDir(), file);
   const info = await stat(path).catch(() => undefined);
   if (!info?.isFile()) return serveRemote(file, mime, visibility);
-  const size = info.size;
+  const cache = visibility === "public" ? "public, max-age=31536000, immutable" : "private, no-store";
+  return sendFile(request, path, info.size, mime, cache);
+}
 
-  const headers = {
-    "Content-Type": mime,
-    "Accept-Ranges": "bytes",
-    "Cache-Control": visibility === "public" ? "public, max-age=31536000, immutable" : "private, no-store",
-  };
-
+// Safari only plays video that answers byte ranges with 206.
+export async function sendFile(request: Request, path: string, size: number, mime: string, cache: string) {
+  const headers = { "Content-Type": mime, "Accept-Ranges": "bytes", "Cache-Control": cache };
   const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
   if (!range) {
     return new Response(await fileStream(path, 0, size - 1), {
@@ -630,6 +656,15 @@ export async function connectCloudflare(token: string): Promise<{ code: StorageC
   }
 }
 
+// Shared by the admin button and the installer's first boot, which passes the token once in the environment.
+export async function setUpR2(token: string): Promise<StorageCode | null> {
+  const connected = await connectCloudflare(token);
+  if ("code" in connected) return connected.code;
+  const { endpoint, name, region, accessKey, secret } = connected.target;
+  await saveCredentials("storage", { endpoint, bucket: name, region, accessKey }, { secret });
+  return null;
+}
+
 export async function testStorage(): Promise<StorageCode | null> {
   const target = await bucket();
   return target ? checkStorage(target) : "STORAGE_NO_BUCKET";
@@ -709,8 +744,9 @@ async function transcode(source: string, out: string): Promise<void> {
 
   await rm(temp, { recursive: true, force: true });
   await mkdir(temp, { recursive: true });
+
   // ffmpeg puts each init segment next to its playlist by the last "/", so output paths use "/" even on Windows.
-  await run(
+  const encoding = run(
     "ffmpeg",
     [
       ["-nostdin", "-v", "error", "-y", "-i", source, "-filter_complex", graph],
@@ -739,6 +775,10 @@ async function transcode(source: string, out: string): Promise<void> {
       [`${temp}/%v/index.m3u8`],
     ].flat(),
   );
+
+  // Lowest CPU priority: on a one-core server a long encode must not slow down the pages buyers are loading.
+  if (encoding.child.pid) setPriority(encoding.child.pid, 19);
+  await encoding;
   await rename(temp, out);
 }
 
@@ -829,6 +869,24 @@ export async function transcodeVideos(): Promise<void> {
       throw error;
     }),
   );
+}
+
+const DUMP = /^librefunnel-\d\.sql$/;
+let backupSentAt = 0;
+
+// The daily database dump also goes to the connected bucket, so losing the server does not lose the sales.
+// Named after the weekday like on disk, so the bucket keeps the same last 7 days.
+export async function sendBackup(): Promise<void> {
+  const dir = process.env.BACKUP_DIR;
+  if (!dir) return;
+  const names = (await readdir(dir).catch((): string[] => [])).filter((name) => DUMP.test(name));
+  const dumps = await Promise.all(names.map(async (name) => ({ name, at: (await stat(join(dir, name))).mtimeMs })));
+  const newest = dumps.sort((a, b) => b.at - a.at)[0];
+  if (!newest || newest.at <= backupSentAt) return;
+  const target = await bucket();
+  if (!target) return;
+  await putFile(target, `backups/${newest.name}`, join(dir, newest.name), "application/sql");
+  backupSentAt = newest.at;
 }
 
 // Once a bucket is connected, files already on disk move to it one by one; the local copy goes only after the upload succeeds.

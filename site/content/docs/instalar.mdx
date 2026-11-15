@@ -1,0 +1,97 @@
+---
+title: Instalar
+description: Um comando num servidor Linux instala o Docker, a loja, o banco de dados e o HTTPS.
+---
+
+## Do que você precisa
+
+- Um servidor Linux x64 ou arm64 com 2 GB de memória, IP público e as portas 80 e 443 abertas. O plano Always Free da Oracle Cloud (Ampere, Ubuntu 24.04) serve e não cobra.
+- Um domínio ou subdomínio para a loja, como `loja.seudominio.com.br`. Sem domínio, a loja abre em `<IP>.sslip.io`, que funciona sem configurar DNS.
+- Acesso ao servidor por SSH, como root ou com um usuário que pode usar `sudo`.
+
+## O comando
+
+Conectado ao servidor, rode:
+
+```sh
+curl -fsSL https://librefunnel.com/install | sh
+```
+
+Para ler o script antes de rodar, baixe e veja as opções:
+
+```sh
+curl -fsSLo install.sh https://librefunnel.com/install
+sh install.sh --help
+```
+
+`--plan` mostra tudo o que o instalador faria, sem fazer nada.
+
+## O que o instalador pergunta
+
+Cada etapa é uma pergunta própria, e Enter aceita o padrão:
+
+1. **Domínio da loja.** Enter usa o endereço `<IP>.sslip.io`, que funciona sem configurar DNS.
+2. **E-mail para o certificado HTTPS.** Opcional.
+3. **Senha do painel**, com 16 caracteres ou mais. Enter gera uma forte, que aparece no final, uma vez só.
+4. **O domínio está na Cloudflare?** Padrão: não. Se sim, cada parte é uma pergunta: DNS com proxy, SSL da zona, firewall e R2. Veja [Cloudflare](/docs/cloudflare/).
+5. **Ligar já o WhatsApp por QR Code?** Padrão: não, porque ele usa uns 300 MB de memória e dá para ligar depois no painel, em Conexões.
+6. **Atualizar e reiniciar a loja pelo painel?** Padrão: sim. Sem isso, o serviço que atualiza a loja não roda, e as atualizações são pelo terminal.
+7. **Proteger o servidor?** Padrão: sim numa instalação nova. Liga o firewall, as atualizações de segurança automáticas e o fail2ban, e deixa o SSH só por chave quando o seu usuário já tem uma. Só em Debian e Ubuntu.
+
+Antes de mudar qualquer coisa, ele mostra numa linha o resumo das escolhas e pergunta se pode continuar. Se o Docker não estiver no servidor, ele instala com o script oficial get.docker.com.
+
+Depois ele baixa só os três arquivos da loja (`compose.yaml`, `Caddyfile` e `evolution.sql`) da última versão para `/opt/librefunnel`, gera as chaves do arquivo `.env` (legível só pelo root), sobe a loja e espera o HTTPS responder. Se o domínio ainda não aponta para o servidor, ele mostra o registro `A` que você precisa criar.
+
+Rodar o comando de novo é seguro: o que já está no `.env` fica, só o que falta é preenchido, e as escolhas de antes também ficam (guardadas no `.env` como `INSTALL_*`). Para mudar uma escolha, rode de novo com a opção dela, como `--updater` ou `--no-cf-firewall`.
+
+### Sem perguntas
+
+Para automatizar, passe as respostas como opções e os segredos por variáveis de ambiente, que não ficam no histórico do terminal:
+
+```sh
+curl -fsSL https://librefunnel.com/install | sh -s -- --domain loja.seudominio.com.br --harden --yes
+```
+
+| Opção                               | O que faz                                                           |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `--domain`                          | Domínio da loja                                                     |
+| `--email`                           | E-mail do certificado HTTPS                                         |
+| `--cloudflare`, `--no-cloudflare`   | Usa ou não a Cloudflare (o token vai em `CLOUDFLARE_API_TOKEN`)     |
+| `--cf-dns`, `--no-cf-dns`           | Cria ou não o registro do domínio com proxy                         |
+| `--cf-ssl`, `--no-cf-ssl`           | Ajusta ou não o SSL e o TLS da zona                                 |
+| `--cf-firewall`, `--no-cf-firewall` | Fecha ou não as portas 80 e 443 para quem não vem pela Cloudflare   |
+| `--r2`, `--no-r2`                   | Liga ou não o R2 para vídeos e imagens                              |
+| `--whatsapp`, `--no-whatsapp`       | Liga já ou deixa para depois o WhatsApp por QR Code                 |
+| `--updater`, `--no-updater`         | Atualizações pelo painel ou só pelo terminal                        |
+| `--harden`, `--no-harden`           | Protege ou não o servidor                                           |
+| `--ssh-from`                        | Com o firewall, o SSH aceita só este IP                             |
+| `--dir`                             | Pasta da loja (padrão `/opt/librefunnel`)                           |
+| `--yes`                             | Não pergunta nada: usa as opções, as escolhas de antes e os padrões |
+| `--plan`                            | Mostra o que faria e não faz nada                                   |
+
+A senha do painel vai em `LIBREFUNNEL_ADMIN_PASSWORD`. Sem ela, uma forte é gerada.
+
+### Sem o atualizador
+
+Com `--no-updater`, o painel não atualiza nem reinicia a loja, e o WhatsApp por QR Code só liga rodando o instalador com `--whatsapp`. Para atualizar, troque `LIBREFUNNEL_VERSION` em `/opt/librefunnel/.env` pela versão nova e rode o comando de instalação de novo: ele baixa os arquivos e as imagens dessa versão e mantém todo o resto.
+
+## Depois de instalar
+
+1. Abra `https://seudominio/admin` e entre com a senha do painel.
+2. Em Configurações, preencha a marca e o seu e-mail e WhatsApp, para onde vão os avisos de venda e os testes.
+3. Em Conexões, ligue o e-mail primeiro. Sem ele, quem compra não recebe o acesso. Veja [Conexões](/docs/conexoes/).
+4. Em Produtos, crie o seu primeiro produto: nome, preço, chave Pix, vídeo, aulas e o segundo em que a oferta aparece.
+5. Faça uma compra de teste com o seu e-mail e libere o pedido para ver o fluxo inteiro, do Pix à área de membros.
+
+A página de vendas fica em `/v/nome-do-produto`, o checkout em `/c/nome-do-produto` e a área de membros em `/m`.
+
+## Instalação manual
+
+Se preferir fazer cada passo:
+
+1. Instale o Docker com `curl -fsSL https://get.docker.com | sudo sh`. Na Oracle Cloud, libere também as portas 80 e 443 no firewall do próprio servidor.
+2. Baixe o código com `git clone https://github.com/ToledoSDL/librefunnel.git` e copie `.env.example` para `.env`.
+3. No `.env`, preencha `BASE_URL`, `DOMAIN`, `ADMIN_PASSWORD`, `SECRET` e `POSTGRES_PASSWORD`. Gere as senhas com `openssl rand`.
+4. Suba tudo com `docker compose up -d`. Se a loja não abrir, `docker compose logs app` diz qual configuração falta.
+
+Cada clique, da criação do servidor na Oracle até a primeira venda, está no [guia de instalação no GitHub](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md) (em inglês).

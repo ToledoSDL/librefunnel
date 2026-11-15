@@ -101,7 +101,7 @@ const TEMPLATE = {
   name: "librefunnel_aviso",
   language: "pt_BR",
   text: "Aviso da sua compra: {{1}}. Responda esta mensagem se precisar de ajuda.",
-  example: "o pagamento do Método Demo foi confirmado e o acesso foi enviado para o seu e-mail",
+  example: "o pagamento do Bolo no Pote foi confirmado e o acesso foi enviado para o seu e-mail",
 };
 
 const TEMPLATE_STATES: Record<string, TemplateState> = {

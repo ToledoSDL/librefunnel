@@ -17,6 +17,7 @@ const BRANDS: Record<string, { icon?: string; src?: string; color: string; initi
   meta: { icon: "meta", color: "#0081fb" },
   webhook: { color: "#6b6e66", initials: "{ }" },
   cloudflare: { icon: "cloudflare", color: "#f38020" },
+  nfse: { color: "#6b6e66", initials: "NF" },
 };
 
 export type Brand = keyof typeof BRANDS;

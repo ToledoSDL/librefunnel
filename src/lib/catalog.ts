@@ -193,6 +193,10 @@ const INTEGRATIONS = {
   storage: { fields: ["endpoint", "bucket", "region", "accessKey"], secrets: ["secret"] },
   evolution: { fields: ["url"], secrets: ["key"] },
   whatsapp: { fields: ["phoneId", "wabaId", "number"], secrets: ["token", "appSecret"] },
+  nfse: {
+    fields: ["cnpj", "holder", "expiresAt", "city", "regime", "service", "registration", "taxRate", "issRate"],
+    secrets: ["key", "chain"],
+  },
 } as const satisfies Record<IntegrationKind, { fields: readonly string[]; secrets: readonly string[] }>;
 
 const PRODUCT_COLUMNS = {
@@ -638,7 +642,7 @@ export async function removeCredentials(kind: IntegrationKind) {
   await db().delete(integration).where(eq(integration.kind, kind));
 }
 
-function cpfValid(digits: string): boolean {
+export function cpfValid(digits: string): boolean {
   const check = (length: number) => {
     let sum = 0;
     for (let index = 0; index < length; index += 1) sum += Number(digits[index]) * (length + 1 - index);

@@ -1,19 +1,22 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { vi } from "vitest";
-import { saveCredentials } from "@/lib/catalog";
-import { db, migrate, seedDemo } from "@/lib/db";
+import { setSystemTime, vi } from "bun:test";
+import * as navigation from "next/navigation";
+import * as server from "next/server";
 import { WEBHOOK_SECRET } from "./fakes";
 
+// Next swaps server-only for an empty module on the server; the tests are server code too. It is mocked before the
+// store's modules load, so they are imported below, after the mocks.
+vi.mock("server-only", () => ({}));
+process.env.TZ = "America/Sao_Paulo";
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "librefunnel-test-"));
 process.env.BASE_URL = "https://shop.example";
 process.env.SECRET = "s".repeat(40);
 process.env.ADMIN_PASSWORD = "long-admin-password";
 process.env.TRUST_PROXY = "1";
 
-vi.useFakeTimers({ toFake: ["Date"] });
-vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
 
 vi.mock("next/headers", async () => {
   const fakes = await import("./fakes");
@@ -23,6 +26,7 @@ vi.mock("next/headers", async () => {
 vi.mock("next/navigation", async () => {
   const fakes = await import("./fakes");
   return {
+    ...navigation,
     redirect: (to: string) => {
       throw new fakes.RedirectSignal(to);
     },
@@ -31,7 +35,7 @@ vi.mock("next/navigation", async () => {
 
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
-vi.mock("next/server", () => ({ after: () => undefined }));
+vi.mock("next/server", () => ({ ...server, after: () => undefined }));
 
 vi.mock("nodemailer", async () => {
   const fakes = await import("./fakes");
@@ -56,6 +60,9 @@ vi.mock("nodemailer", async () => {
     },
   };
 });
+
+const { saveCredentials } = await import("@/lib/catalog");
+const { db, migrate, seedDemo } = await import("@/lib/db");
 
 await migrate();
 // The demo catalog is the fixture every suite buys from; the app itself loads it only in demo mode.

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Icon } from "@/components/media/icon";
 import { getProduct, orderBump, settings } from "@/lib/catalog";
 import type { Product, Settings } from "@/lib/catalog";
+import { invoicesOn } from "@/lib/invoices";
 import { getPixOrder, offerOpen } from "@/lib/orders";
 import { Footer, StoreHeader, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
@@ -108,7 +109,7 @@ export default async function Checkout({ params, searchParams }: Props) {
       ),
   ).toString();
 
-  const bump = await orderBump(product);
+  const [bump, invoices] = await Promise.all([orderBump(product), invoicesOn()]);
   const open = offerOpen(product);
   const lessons = lessonCount(product);
   const deadline = product.offerEndsAt;
@@ -165,6 +166,7 @@ export default async function Checkout({ params, searchParams }: Props) {
                   termsUrl={store.termsUrl}
                   guaranteeDays={product.guaranteeDays}
                   phone={store.checkoutPhone}
+                  document={invoices}
                   confirmEmail={store.confirmEmail}
                   button={store.checkoutButton}
                   trust={store.checkoutTrust}

@@ -12,6 +12,7 @@ import { Profile } from "../../messages/profile";
 import { contactLabel } from "../../messages/labels";
 import { href, OrderActions, Release, requireAdmin, STATUS_LABEL, STATUS_TONE } from "../../shared";
 import styles from "../orders.module.css";
+import { Invoice } from "./invoice";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -107,6 +108,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               <Fact label="E-mail">
                 <TextLink href={href("messages", { c: `email:${found.email}` })}>{found.email}</TextLink>
               </Fact>
+              {found.document ? (
+                <Fact label={found.document.length === 11 ? "CPF" : "CNPJ"}>
+                  <Text as="span" variant="body-sm" mono>
+                    {found.document}
+                  </Text>
+                </Fact>
+              ) : null}
               {found.phone ? (
                 <Fact label="WhatsApp">
                   <TextLink href={href("messages", { c: `whatsapp:${found.phone}` })}>
@@ -116,6 +124,14 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               ) : null}
             </dl>
           </Stack>
+          {found.invoicesOn || found.invoice ? (
+            <Stack gap={4}>
+              <Text variant="heading" as="h2">
+                Nota fiscal
+              </Text>
+              <Invoice orderId={found.id} paid={found.status === "paid"} invoice={found.invoice} />
+            </Stack>
+          ) : null}
         </Stack>
         <aside className={styles.side} aria-label="Comprador">
           <Profile thread={{ name: found.name, photo: null, address: found.email, profile: found.profile }} />

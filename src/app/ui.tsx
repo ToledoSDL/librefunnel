@@ -19,6 +19,7 @@ const FIELD_CODES: Partial<Record<Code, string>> = {
   INVALID_NAME: "name",
   INVALID_EMAIL: "email",
   INVALID_PHONE: "phone",
+  INVALID_DOCUMENT: "document",
 };
 
 const FormContext = createContext<FormView>({ code: null, ok: false, withBump: false });
@@ -68,8 +69,8 @@ const ERROR_TEXT: Record<Code, string> = {
     "O servidor de envio não respondeu. Confira em Conexões o servidor de e-mail e o endereço da Evolution; o envio é tentado de novo sozinho.",
   ALREADY_OWNED: "O comprador já tem este produto por outro pedido, então a mensagem não foi enviada.",
   INVALID_SLUG:
-    "O endereço do produto aceita só letras minúsculas sem acento, números e hífen, até 60 caracteres, como metodo-demo. Ou deixe em branco para gerar pelo nome.",
-  SLUG_TAKEN: "Já existe um produto com este endereço, mesmo arquivado. Escolha outro, como metodo-demo-2.",
+    "O endereço do produto aceita só letras minúsculas sem acento, números e hífen, até 60 caracteres, como bolo-no-pote. Ou deixe em branco para gerar pelo nome.",
+  SLUG_TAKEN: "Já existe um produto com este endereço, mesmo arquivado. Escolha outro, como bolo-no-pote-2.",
   INVALID_TITLE: "O nome precisa ter de 2 a 120 caracteres, numa linha só.",
   INVALID_PRICE: "Preço inválido. Use um valor entre R$ 1,00 e R$ 100.000,00 com até 2 casas decimais, como 97,00.",
   INVALID_PIX_KEY:
@@ -117,7 +118,8 @@ const ERROR_TEXT: Record<Code, string> = {
   INVALID_VERSION: "Versão inválida. Use uma versão publicada no GitHub, como v0.3.0.",
   INVALID_HOUR: "Escolha uma hora de 0 a 23, ou desligue a atualização automática.",
   INVALID_COLOR: "A cor precisa estar no formato #RRGGBB, como #254ccb. Use o seletor de cor ao lado do campo.",
-  INVALID_DOCUMENT: "O CPF precisa ter 11 números e o CNPJ 14. Pontos, barras e traços são opcionais.",
+  INVALID_DOCUMENT:
+    "CPF ou CNPJ inválido: o CPF tem 11 números e o CNPJ 14. Confira os números; pontos, barras e traços são opcionais.",
   INVALID_TEMPLATE:
     "A mensagem tem um campo entre chaves que não existe. Use só os campos mostrados acima do texto, escritos igual, como {name}.",
   INVALID_KEYWORDS:
@@ -179,6 +181,37 @@ const ERROR_TEXT: Record<Code, string> = {
   INVALID_WALLET:
     "Endereço de carteira inválido para a rede escolhida. Na Tron ele começa com T e tem 34 caracteres; nas outras redes começa com 0x e tem 42. Copie de novo da sua carteira.",
   UPLOAD_FAILED: "O envio foi interrompido. Confira a internet e tente de novo; vídeos grandes levam alguns minutos.",
+  INVALID_CITY:
+    "O código do município tem 7 números, como 3550308 (São Paulo). Procure a sua cidade no IBGE: cidades.ibge.gov.br.",
+  INVALID_SERVICE:
+    "O código de tributação nacional tem 6 números, como 080201. Seu contador sabe qual usar para cursos online.",
+  INVALID_RATE: "Alíquota inválida. Use um percentual com até 2 casas, como 6 ou 6,54.",
+  NFSE_NOT_CONFIGURED: "Nota fiscal não configurada. Envie o certificado A1 em Conexões > Nota fiscal.",
+  NFSE_UNREACHABLE: "O sistema da nota fiscal (gov.br) não respondeu. A emissão é tentada de novo sozinha.",
+  NFSE_REJECTED:
+    "A Receita recusou a nota. O código da recusa aparece ao lado: mostre ao seu contador, corrija em Conexões > Nota fiscal e emita de novo.",
+  NFSE_CITY_NOT_NATIONAL:
+    "Seu município não aceita a NFS-e Nacional por aplicativo para o seu regime. Confira o código do município; se estiver certo, a nota precisa sair pelo sistema da prefeitura.",
+  NFSE_CITY_MISMATCH:
+    "O município informado não é o do endereço do CNPJ. Use o código IBGE da cidade que está no cartão CNPJ.",
+  NFSE_MUNICIPAL_REGISTRATION:
+    "A inscrição municipal não confere com o cadastro da prefeitura. Preencha a inscrição se a empresa tiver uma, ou deixe em branco se não tiver.",
+  NFSE_SERVICE_INVALID:
+    "O código de tributação nacional não existe ou não é aceito pela prefeitura. Confirme o código com o seu contador.",
+  NFSE_REGIME_MISMATCH:
+    "O regime informado não confere com o do Simples Nacional na Receita. Escolha o regime atual da empresa (MEI, Simples ou outro).",
+  NFSE_TAX_RATE:
+    "A alíquota ou os tributos aproximados não combinam com o regime. Confira o regime e as alíquotas em Conexões > Nota fiscal.",
+  NFSE_CANCEL_DEADLINE:
+    "O prazo do município para cancelar esta nota acabou. Peça o cancelamento por análise fiscal no Emissor Nacional (nfse.gov.br).",
+  NFSE_CANCEL_FORBIDDEN:
+    "O município não deixa cancelar nota sem CPF ou CNPJ do comprador. Peça o cancelamento pelo Emissor Nacional (nfse.gov.br).",
+  CERTIFICATE_UNREADABLE:
+    "Não deu para abrir o certificado. Envie o arquivo .pfx ou .p12 do certificado A1 e confira a senha.",
+  CERTIFICATE_NOT_CNPJ: "Este certificado não é de CNPJ (e-CNPJ). Use o certificado A1 da empresa.",
+  CERTIFICATE_EXPIRED: "O certificado A1 venceu. Renove com a certificadora e envie o novo em Conexões > Nota fiscal.",
+  CERTIFICATE_REFUSED:
+    "O gov.br recusou o certificado (revogado, de outra empresa ou fora da ICP-Brasil). Envie o A1 atual da empresa.",
 };
 
 function formatPhone(value: string) {

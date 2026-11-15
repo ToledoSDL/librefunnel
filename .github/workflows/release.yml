@@ -95,25 +95,51 @@ jobs:
       - working-directory: site
         run: bunx wrangler@4.162.0 pages deploy out --project-name librefunnel --branch main
 
-  # The public demo follows every release, like the site: over SSH with a key the server pins to deploy/demo-deploy.sh.
+  # The public demo follows every release, like the site. Oracle Cloud's Run Command carries the deploy, so the demo
+  # server opens no port: its agent fetches the command, runs deploy/demo-deploy.sh and reports the output here.
   demo:
     needs: release
     runs-on: ubuntu-latest
     env:
-      DEMO_SSH_HOST: ${{ secrets.DEMO_SSH_HOST }}
-      DEMO_SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
-      DEMO_SSH_KNOWN_HOSTS: ${{ secrets.DEMO_SSH_KNOWN_HOSTS }}
+      OCI_USER: ${{ secrets.OCI_USER }}
+      OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+      OCI_KEY: ${{ secrets.OCI_KEY }}
+      OCI_REGION: ${{ secrets.OCI_REGION }}
+      SUPPRESS_LABEL_WARNING: "True"
+      DEMO_INSTANCE_ID: ${{ secrets.DEMO_INSTANCE_ID }}
+      DEMO_COMPARTMENT_ID: ${{ secrets.DEMO_COMPARTMENT_ID }}
     steps:
       - name: Demo secrets
         run: |
-          if [ -z "$DEMO_SSH_HOST" ] || [ -z "$DEMO_SSH_KEY" ] || [ -z "$DEMO_SSH_KNOWN_HOSTS" ]; then
-            echo "::error::Set the DEMO_SSH_HOST, DEMO_SSH_KEY and DEMO_SSH_KNOWN_HOSTS repository secrets to deploy the demo (README, Demo)."
-            exit 1
-          fi
+          for name in OCI_USER OCI_TENANCY OCI_FINGERPRINT OCI_KEY OCI_REGION DEMO_INSTANCE_ID DEMO_COMPARTMENT_ID; do
+            if [ -z "$(printenv "$name")" ]; then
+              echo "::error::Set the $name repository secret to deploy the demo (README, Demo)."
+              exit 1
+            fi
+          done
+      - name: Oracle Cloud CLI
+        run: |
+          pipx install oci-cli==3.90.2
+          install -m 700 -d ~/.oci
+          printf '%s\n' "$OCI_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=%s\nkey_file=%s\n' \
+            "$OCI_USER" "$OCI_FINGERPRINT" "$OCI_TENANCY" "$OCI_REGION" ~/.oci/key.pem > ~/.oci/config
+          chmod 600 ~/.oci/config
       - name: Deploy the demo
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEMO_SSH_KEY" > ~/.ssh/demo
-          chmod 600 ~/.ssh/demo
-          printf '%s\n' "$DEMO_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh -i ~/.ssh/demo -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEMO_SSH_HOST" "$GITHUB_REF_NAME"
+          content=$(jq -nc --arg text "sudo /opt/librefunnel/demo-deploy.sh $GITHUB_REF_NAME" \
+            '{source: {sourceType: "TEXT", text: $text}, output: {outputType: "TEXT"}}')
+          command=$(oci instance-agent command create --compartment-id "$DEMO_COMPARTMENT_ID" \
+            --target "{\"instanceId\": \"$DEMO_INSTANCE_ID\"}" --content "$content" --timeout-in-seconds 600 \
+            --display-name "deploy $GITHUB_REF_NAME" --query data.id --raw-output)
+          for _ in $(seq 1 80); do
+            state=$(oci instance-agent command-execution get --command-id "$command" --instance-id "$DEMO_INSTANCE_ID" \
+              --query 'data."lifecycle-state"' --raw-output)
+            case $state in SUCCEEDED|FAILED|TIMED_OUT|CANCELED) break ;; esac
+            sleep 10
+          done
+          oci instance-agent command-execution get --command-id "$command" --instance-id "$DEMO_INSTANCE_ID" \
+            --query data.content.text --raw-output
+          test "$state" = SUCCEEDED

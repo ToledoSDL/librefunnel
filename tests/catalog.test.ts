@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { prerender } from "react-dom/static";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
 import {
   archiveItem,
   completeLesson,
@@ -37,7 +37,7 @@ const PNG = Buffer.from("89504e470d0a1a0a", "hex");
 
 async function checkoutHtml(query: Record<string, string>) {
   const page = createElement(Checkout, {
-    params: Promise.resolve({ slug: "metodo-demo" }),
+    params: Promise.resolve({ slug: "bolo-no-pote" }),
     searchParams: Promise.resolve(query),
   });
 
@@ -45,8 +45,8 @@ async function checkoutHtml(query: Record<string, string>) {
 }
 
 const DEMO_FORM = {
-  slug: "metodo-demo",
-  name: "Método Demo: do zero à primeira venda",
+  slug: "bolo-no-pote",
+  name: "Bolo no Pote: da receita à primeira venda",
   price: "97,00",
   tagline: "O passo a passo.",
   pixKey: "demo@exemplo.com",
@@ -54,14 +54,14 @@ const DEMO_FORM = {
   pixCity: "Florianopolis",
   offerEndsAt: "2026-11-30T23:59",
   guaranteeDays: "7",
-  bumpProduct: "planilha-metas",
+  bumpProduct: "planilha-preco",
   bumpPrice: "19,90",
   bumpHeadline: "Leve junto",
   vslVideo: "/demo/vsl-demo.mp4",
   ctaSeconds: "8",
   ctaText: "Quero garantir minha vaga",
-  banner: "/demo/banner.svg",
-  cover: "/demo/cover.svg",
+  banner: "/demo/course-banner.webp",
+  cover: "/demo/course-cover.webp",
 };
 
 let ip = 0;
@@ -106,7 +106,7 @@ describe("products", () => {
     expect((await create({ price: "0,50" })).code).toBe("INVALID_PRICE");
     expect((await create({ price: "97,999" })).code).toBe("INVALID_PRICE");
     expect((await create({ price: "100000,01" })).code).toBe("INVALID_PRICE");
-    expect((await create({ slug: "metodo-demo" })).code).toBe("SLUG_TAKEN");
+    expect((await create({ slug: "bolo-no-pote" })).code).toBe("SLUG_TAKEN");
     expect(await redirected(create({}))).toBe("/admin?tab=products&product=curso-de-confeitaria");
     expect(await getProduct("curso-de-confeitaria")).toMatchObject({
       price: 123450,
@@ -154,7 +154,7 @@ describe("products", () => {
     expect((await save({ ctaSeconds: "1.5" })).code).toBe("INVALID_CTA_SECONDS");
     expect((await save({ offerEndsAt: "amanhã" })).code).toBe("INVALID_DATE");
     expect((await save({ guaranteeDays: "3" })).code).toBe("INVALID_GUARANTEE");
-    expect((await save({ bumpProduct: "metodo-demo" })).code).toBe("INVALID_BUMP");
+    expect((await save({ bumpProduct: "bolo-no-pote" })).code).toBe("INVALID_BUMP");
     expect((await save({ bumpProduct: "does-not-exist" })).code).toBe("INVALID_BUMP");
     expect((await save({ vslVideo: "/etc/passwd" })).code).toBe("INVALID_MEDIA");
     expect((await save({ banner: "javascript:alert(1)" })).code).toBe("INVALID_MEDIA");
@@ -177,11 +177,11 @@ describe("products", () => {
     fields.append("faq_q", "");
     fields.append("faq_a", "");
     expect(await saveProduct({ code: null }, fields)).toEqual({ code: null, ok: true });
-    expect(await getProduct("metodo-demo")).toMatchObject({
+    expect(await getProduct("bolo-no-pote")).toMatchObject({
       offerEndsAt: new Date("2026-12-24T18:00:00-03:00"),
       faq: [{ q: "Tem certificado?", a: "Sim." }],
       testimonials: [{ name: "Bia Lima", text: "Vendi no primeiro dia.", stars: 5 }],
-      orderBump: { product: "planilha-metas", price: 1990, headline: "Leve junto" },
+      orderBump: { product: "planilha-preco", price: 1990, headline: "Leve junto" },
     });
     expect(await save({})).toEqual({ code: null, ok: true });
   });
@@ -204,30 +204,30 @@ describe("products", () => {
     const paid = await buy({ email: "archived@example.com" });
     await pay(paid);
     await redirected(enterFromOrder());
-    expect(await archiveItem({ code: null }, form({ kind: "product", key: "metodo-demo", archived: "1" }))).toEqual({
+    expect(await archiveItem({ code: null }, form({ kind: "product", key: "bolo-no-pote", archived: "1" }))).toEqual({
       code: null,
       ok: true,
     });
-    expect((await archiveItem({ code: null }, form({ kind: "product", key: "metodo-demo", archived: "1" }))).code).toBe(
-      "INVALID_TRANSITION",
-    );
-    expect((await products()).map((entry) => entry.slug)).not.toContain("metodo-demo");
     expect(
-      (await createOrder({ code: null }, form({ slug: "metodo-demo", name: "Ana Souza", email: "late@example.com" })))
+      (await archiveItem({ code: null }, form({ kind: "product", key: "bolo-no-pote", archived: "1" }))).code,
+    ).toBe("INVALID_TRANSITION");
+    expect((await products()).map((entry) => entry.slug)).not.toContain("bolo-no-pote");
+    expect(
+      (await createOrder({ code: null }, form({ slug: "bolo-no-pote", name: "Ana Souza", email: "late@example.com" })))
         .code,
     ).toBe("PRODUCT_NOT_FOUND");
-    expect((await getPixOrder(paid, "metodo-demo"))?.status).toBe("paid");
+    expect((await getPixOrder(paid, "bolo-no-pote"))?.status).toBe("paid");
     const member = await currentMember();
-    expect(member && (await memberProducts(member)).map((entry) => entry.slug)).toEqual(["metodo-demo"]);
-    expect(await completeLesson({ code: null }, form({ product: "metodo-demo", lesson: "m2a1" }))).toEqual({
+    expect(member && (await memberProducts(member)).map((entry) => entry.slug)).toEqual(["bolo-no-pote"]);
+    expect(await completeLesson({ code: null }, form({ product: "bolo-no-pote", lesson: "m2a1" }))).toEqual({
       code: null,
       ok: true,
     });
-    expect(await archiveItem({ code: null }, form({ kind: "product", key: "metodo-demo", archived: "0" }))).toEqual({
+    expect(await archiveItem({ code: null }, form({ kind: "product", key: "bolo-no-pote", archived: "0" }))).toEqual({
       code: null,
       ok: true,
     });
-    expect((await products()).map((entry) => entry.slug)).toContain("metodo-demo");
+    expect((await products()).map((entry) => entry.slug)).toContain("bolo-no-pote");
   });
 
   test("lessons keep their progress key through reorder, rename and archive", async () => {
@@ -235,7 +235,7 @@ describe("products", () => {
     const bought = await buy({ email: "progress@example.com" });
     await pay(bought);
     await redirected(enterFromOrder());
-    await completeLesson({ code: null }, form({ product: "metodo-demo", lesson: "m1a1" }));
+    await completeLesson({ code: null }, form({ product: "bolo-no-pote", lesson: "m1a1" }));
     expect(await moveItem({ code: null }, form({ kind: "lesson", key: "m1a2", direction: "up" }))).toEqual({
       code: null,
       ok: true,
@@ -254,35 +254,39 @@ describe("products", () => {
       ok: true,
     });
     const member = await currentMember();
-    const modules = member ? (await memberProducts(member)).find((entry) => entry.slug === "metodo-demo")?.modules : [];
+
+    const modules = member
+      ? (await memberProducts(member)).find((entry) => entry.slug === "bolo-no-pote")?.modules
+      : [];
+
     expect(modules?.map((module) => module.lessons.map((lesson) => `${lesson.id}:${lesson.title}`))).toEqual([
-      ["m2a1:UTM em todo link"],
-      ["m1a2:Preço e garantia", "m1a1:Quem compra"],
+      ["m2a1:Brigadeiro de colher"],
+      ["m1a2:Montagem sem vazar", "m1a1:Quem compra"],
     ]);
-    expect(member && [...(await completedLessons(member))]).toContain("metodo-demo:m1a1");
+    expect(member && [...(await completedLessons(member))]).toContain("bolo-no-pote:m1a1");
     await archiveItem({ code: null }, form({ kind: "lesson", key: "m1a2", archived: "1" }));
-    expect((await getProduct("metodo-demo"))?.modules[1]?.lessons.map((lesson) => lesson.id)).toEqual(["m1a1"]);
+    expect((await getProduct("bolo-no-pote"))?.modules[1]?.lessons.map((lesson) => lesson.id)).toEqual(["m1a1"]);
     expect(
-      (await getProduct("metodo-demo", true))?.modules[1]?.lessons.map((lesson) => [lesson.id, lesson.archived]),
+      (await getProduct("bolo-no-pote", true))?.modules[1]?.lessons.map((lesson) => [lesson.id, lesson.archived]),
     ).toEqual([
       ["m1a2", true],
       ["m1a1", false],
     ]);
-    expect((await completeLesson({ code: null }, form({ product: "metodo-demo", lesson: "m1a2" }))).code).toBe(
+    expect((await completeLesson({ code: null }, form({ product: "bolo-no-pote", lesson: "m1a2" }))).code).toBe(
       "LESSON_NOT_FOUND",
     );
   });
 
   test("modules and lessons are added at the end with a stable random lesson id", async () => {
     await signInAsAdmin();
-    expect(await saveModule({ code: null }, form({ product: "planilha-metas", title: "Bônus", cover: "" }))).toEqual({
+    expect(await saveModule({ code: null }, form({ product: "planilha-preco", title: "Bônus", cover: "" }))).toEqual({
       code: null,
       ok: true,
     });
     expect(
-      (await saveModule({ code: null }, form({ product: "planilha-metas", title: "Capa", cover: "/media/../x" }))).code,
+      (await saveModule({ code: null }, form({ product: "planilha-preco", title: "Capa", cover: "/media/../x" }))).code,
     ).toBe("INVALID_MEDIA");
-    const bonus = (await getProduct("planilha-metas"))?.modules.at(-1);
+    const bonus = (await getProduct("planilha-preco"))?.modules.at(-1);
     expect(bonus?.title).toBe("Bônus");
     expect(
       await saveLesson(
@@ -290,11 +294,11 @@ describe("products", () => {
         form({ module: String(bonus?.id), title: "Planilha extra", video: "", text: "" }),
       ),
     ).toEqual({ code: null, ok: true });
-    const lesson = (await getProduct("planilha-metas"))?.modules.at(-1)?.lessons[0];
+    const lesson = (await getProduct("planilha-preco"))?.modules.at(-1)?.lessons[0];
     expect(lesson?.id).toMatch(/^[a-z0-9]{10}$/);
     expect(lesson?.title).toBe("Planilha extra");
     freshBrowser();
-    expect((await saveModule({ code: null }, form({ product: "planilha-metas", title: "Outro" }))).code).toBe(
+    expect((await saveModule({ code: null }, form({ product: "planilha-preco", title: "Outro" }))).code).toBe(
       "NOT_SIGNED_IN",
     );
   });
@@ -361,9 +365,9 @@ describe("automations and settings", () => {
     expect((await saveRecoveryStep({ code: null }, form({ ...step, channel: "sms" }))).code).toBe("INVALID_PAYLOAD");
     expect(await saveRecoveryStep({ code: null }, form(step))).toEqual({ code: null, ok: true });
     const pending = await buy({ email: "new-recovery@example.com" });
-    vi.setSystemTime(new Date("2026-11-14T12:16:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:16:00-03:00"));
     await queueRecovery();
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     expect(
       one(
         await db()
@@ -371,7 +375,7 @@ describe("automations and settings", () => {
           .from(message)
           .where(and(eq(message.orderId, pending), eq(message.kind, "recovery"))),
       ).body,
-    ).toContain(`Novo lembrete, Ana: https://shop.example/c/metodo-demo?order=${pending}`);
+    ).toContain(`Novo lembrete, Ana: https://shop.example/c/bolo-no-pote?order=${pending}`);
   });
 
   test("settings are validated and apply to the next order", async () => {
@@ -415,7 +419,7 @@ describe("automations and settings", () => {
     expect(await settings()).toMatchObject({ brand: "Doces da Ana", accent: "#254ccb", checkoutPhone: "required" });
 
     const noPhone = form({
-      slug: "metodo-demo",
+      slug: "bolo-no-pote",
       name: "Ana Souza",
       email: "nophone@example.com",
       phone: "",
@@ -451,7 +455,7 @@ describe("automations and settings", () => {
         offerEndsAt: new Date("2026-12-01T00:00:00-03:00"),
         testimonials: [{ name: "Bruna Lima", text: "Vendi na primeira semana.", stars: 5 }],
       })
-      .where(eq(product.slug, "metodo-demo"));
+      .where(eq(product.slug, "bolo-no-pote"));
 
     const standard = await checkoutHtml({
       name: "Ana Souza",
@@ -498,7 +502,7 @@ describe("automations and settings", () => {
     expect(auto).toContain("Garantia de 7 dias");
 
     const id = await buy({ email: "thanks@example.com" });
-    await pay(id, (await getPixOrder(id, "metodo-demo"))?.amount);
+    await pay(id, (await getPixOrder(id, "bolo-no-pote"))?.amount);
     expect(await checkoutHtml({ order: id })).not.toContain("Entrar no grupo da turma");
     const thanks = { thanksUrl: "https://chat.whatsapp.com/turma", thanksLabel: "Entrar no grupo da turma" };
     expect((await save(thanks)).ok).toBe(true);
@@ -507,7 +511,7 @@ describe("automations and settings", () => {
     expect(paid).toContain("Entrar no grupo da turma");
 
     await save({ checkoutTheme: "light", checkoutCountdown: "1", checkoutGuarantee: "1", checkoutTestimonials: "1" });
-    await db().update(product).set({ offerEndsAt: null, testimonials: [] }).where(eq(product.slug, "metodo-demo"));
+    await db().update(product).set({ offerEndsAt: null, testimonials: [] }).where(eq(product.slug, "bolo-no-pote"));
   });
 });
 

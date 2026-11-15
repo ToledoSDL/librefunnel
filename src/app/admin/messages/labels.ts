@@ -31,6 +31,7 @@ export const KIND_LABEL: Record<string, string> = {
   login: "Link de login",
   reply: "Resposta automática",
   owner: "Aviso de venda",
+  invoice: "Nota fiscal",
 };
 
 export function contactLabel(address: string): string {

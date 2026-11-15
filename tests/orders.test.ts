@@ -1,5 +1,5 @@
 import { createHmac, createSign, generateKeyPairSync } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { createOrder, releaseOrder, rotateWebhookSecret, saveWooviCrypto } from "@/lib/actions";
 import { credentials, pixKey, removeCredentials, saveCredentials } from "@/lib/catalog";
@@ -15,7 +15,7 @@ import {
 } from "@/lib/orders";
 import { conversion, customer, message, order, payment, product } from "@/lib/schema";
 import { POST as paymentWebhook } from "@/app/api/webhooks/payment/route";
-import { fakeServer, form, freshBrowser, WEBHOOK_SECRET } from "./fakes";
+import { fakeServer, form, freshBrowser, redirectFetch, WEBHOOK_SECRET } from "./fakes";
 import { buy, pay, signInAsAdmin, webhook } from "./flows";
 
 // Published on AbacatePay's webhook security page.
@@ -69,13 +69,13 @@ describe("BR Code", () => {
 
   test("order code carries amount, ascii name and the order id as txid", async () => {
     const id = await buy();
-    const pix = await getPixOrder(id, "metodo-demo");
+    const pix = await getPixOrder(id, "bolo-no-pote");
     expect(pix?.pixCode).toContain("540597.00");
     expect(pix?.pixCode).toContain(`0520${id}`);
     expect(pix?.txid).toBe(id);
     expect(pix?.maskedEmail).toBe("a***@example.com");
-    expect(await getPixOrder(id, "planilha-metas")).toBeUndefined();
-    expect(await getPixOrder("../etc", "metodo-demo")).toBeUndefined();
+    expect(await getPixOrder(id, "planilha-preco")).toBeUndefined();
+    expect(await getPixOrder("../etc", "bolo-no-pote")).toBeUndefined();
   });
 
   test("keys are normalized to the DICT formats", () => {
@@ -91,7 +91,7 @@ describe("BR Code", () => {
 describe("createOrder", () => {
   test("prices come from the catalog, never from the form", async () => {
     const id = await buy({ price: "1", amount: "1", bump_price: "1", bump: "1" });
-    expect(await stored(id)).toMatchObject({ productAmount: 9700, bump: "planilha-metas", amount: 9700 + 1990 });
+    expect(await stored(id)).toMatchObject({ productAmount: 9700, bump: "planilha-preco", amount: 9700 + 1990 });
   });
 
   test("identical resubmit reuses the order, a changed bump cancels the old one", async () => {
@@ -115,17 +115,17 @@ describe("createOrder", () => {
 
   test("checkout closes when the offer ends", async () => {
     const setOfferEnd = (at: Date | null) =>
-      db().update(product).set({ offerEndsAt: at }).where(eq(product.slug, "metodo-demo"));
+      db().update(product).set({ offerEndsAt: at }).where(eq(product.slug, "bolo-no-pote"));
 
     await setOfferEnd(new Date("2026-11-30T23:59:00-03:00"));
-    vi.setSystemTime(new Date("2026-12-01T00:00:00-03:00"));
+    setSystemTime(new Date("2026-12-01T00:00:00-03:00"));
 
     const result = await createOrder(
       { code: null },
-      form({ slug: "metodo-demo", name: "Ana Souza", email: "closed@example.com" }),
+      form({ slug: "bolo-no-pote", name: "Ana Souza", email: "closed@example.com" }),
     );
 
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     await setOfferEnd(null);
     expect(result.code).toBe("OFFER_ENDED");
   });
@@ -139,19 +139,19 @@ describe("createOrder", () => {
       "no-at-sign",
       "a@x.com\r\nBcc: c@z.com",
     ]) {
-      expect((await createOrder({ code: null }, form({ slug: "metodo-demo", name: "Ana", email }))).code).toBe(
+      expect((await createOrder({ code: null }, form({ slug: "bolo-no-pote", name: "Ana", email }))).code).toBe(
         "INVALID_EMAIL",
       );
     }
     expect(
-      (await createOrder({ code: null }, form({ slug: "metodo-demo", name: "Ana", email: "a@x.com", phone: "123" })))
+      (await createOrder({ code: null }, form({ slug: "bolo-no-pote", name: "Ana", email: "a@x.com", phone: "123" })))
         .code,
     ).toBe("INVALID_PHONE");
     expect(
       (
         await createOrder(
           { code: null },
-          form({ slug: "metodo-demo", name: "https://scam.example/pix Silva", email: "a@x.com" }),
+          form({ slug: "bolo-no-pote", name: "https://scam.example/pix Silva", email: "a@x.com" }),
         )
       ).code,
     ).toBe("INVALID_NAME");
@@ -166,7 +166,7 @@ describe("createOrder", () => {
 
     const result = await createOrder(
       { code: null },
-      form({ slug: "metodo-demo", name: "Ana Souza", email: "batch99@example.com" }),
+      form({ slug: "bolo-no-pote", name: "Ana Souza", email: "batch99@example.com" }),
     );
 
     expect(result.code).toBe("RATE_LIMITED");
@@ -255,12 +255,12 @@ describe("payment webhook", () => {
 
   test("orders expire, and a late payment of an expired or canceled order still releases", async () => {
     const id = await buy({ email: "late@example.com" });
-    vi.setSystemTime(new Date("2026-11-17T13:00:00-03:00"));
+    setSystemTime(new Date("2026-11-17T13:00:00-03:00"));
     await expireOrders();
     expect((await stored(id)).status).toBe("expired");
-    expect((await getPixOrder(id, "metodo-demo"))?.status).toBe("expired");
+    expect((await getPixOrder(id, "bolo-no-pote"))?.status).toBe("expired");
     await pay(id);
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     expect((await stored(id)).status).toBe("paid");
   });
 
@@ -304,7 +304,6 @@ describe("payment webhook", () => {
 
 describe("Pix providers", () => {
   let server: Awaited<ReturnType<typeof fakeServer>>;
-  const realFetch = globalThis.fetch;
   const woovi = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const forger = generateKeyPairSync("rsa", { modulusLength: 2048 });
 
@@ -315,19 +314,14 @@ describe("Pix providers", () => {
       .set({ status: "canceled" })
       .where(and(eq(order.status, "pending"), isNull(order.psp)));
     server = await fakeServer({});
-    vi.stubGlobal("fetch", (input: string, init?: RequestInit) =>
-      realFetch(
-        input.replace(
-          /^https:\/\/(api\.(mercadopago|woovi|abacatepay)\.com|depix\.eulen\.app|checkout\.noxpay\.io)/,
-          server.url,
-        ),
-        init,
-      ),
+    redirectFetch(
+      /^https:\/\/(api\.(mercadopago|woovi|abacatepay)\.com|depix\.eulen\.app|checkout\.noxpay\.io)/,
+      server.url,
     );
   });
 
   afterEach(async () => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     for (const kind of ["mercadopago", "woovi", "abacatepay", "depix", "noxpay"] as const)
       await removeCredentials(kind);
     await saveCredentials("pix", { provider: "static" });
@@ -1163,21 +1157,21 @@ describe("Pix providers", () => {
       .where(eq(order.id, id));
     abacateState("pix_lost", "PAID");
     try {
-      vi.setSystemTime(new Date(start.getTime() + 301_000));
+      setSystemTime(new Date(start.getTime() + 301_000));
       await checkCharges();
       const paid = await stored(id);
       expect(paid.status).toBe("paid");
       expect(paid.pspCheckAt).toEqual(new Date(start.getTime() + 86_400_000));
 
       abacateState("pix_lost", "REFUNDED");
-      vi.setSystemTime(new Date(start.getTime() + 86_401_000));
+      setSystemTime(new Date(start.getTime() + 86_401_000));
       await checkCharges();
       const revoked = await stored(id);
       expect(revoked.status).toBe("refunded");
       expect(revoked.pspCheckAt).toBeNull();
       expect(await accessMessages(id)).toBe(1);
     } finally {
-      vi.setSystemTime(start);
+      setSystemTime(start);
     }
   });
 

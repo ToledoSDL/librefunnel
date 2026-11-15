@@ -5,14 +5,15 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "bun --bun next dev",
     "start": "docker compose up -d --build",
-    "check": "tsc --noEmit && eslint . && knip && prettier --check --ignore-unknown . && bun run test",
-    "fix": "eslint --fix . && prettier --write --ignore-unknown .",
-    "test": "vitest run --config tests/vitest.config.ts",
-    "migration": "NODE_OPTIONS=--conditions=react-server drizzle-kit generate --dialect postgresql --schema src/lib/schema.ts --out src/lib/migrations",
+    "check": "bun --bun tsc --noEmit && bun --bun eslint . && bun --bun knip && bun --bun prettier --check --ignore-unknown . && bun run test",
+    "fix": "bun --bun eslint --fix . && bun --bun prettier --write --ignore-unknown .",
+    "test": "bun test --parallel",
+    "migration": "bun --conditions=react-server node_modules/drizzle-kit/bin.cjs generate --dialect postgresql --schema src/lib/schema.ts --out src/lib/migrations",
     "release": "bun deploy/release.ts",
-    "brand": "bun docs/brand.ts"
+    "brand": "bun docs/brand.ts",
+    "demo-art": "bun demo/art.ts"
   },
   "overrides": {
     "esbuild": "0.28.2",
@@ -24,6 +25,10 @@
     ],
     "ignore": [
       "site/**"
+    ],
+    "ignoreBinaries": [
+      "rsvg-convert",
+      "ffmpeg"
     ]
   },
   "prettier": {
@@ -39,7 +44,18 @@
     "bracketSameLine": false,
     "arrowParens": "always",
     "endOfLine": "lf",
-    "proseWrap": "preserve"
+    "proseWrap": "preserve",
+    "overrides": [
+      {
+        "files": [
+          "*.md",
+          "*.mdx"
+        ],
+        "options": {
+          "proseWrap": "always"
+        }
+      }
+    ]
   },
   "dependencies": {
     "@ariakit/react": "0.4.43",
@@ -49,8 +65,8 @@
     "drizzle-orm": "0.45.4",
     "hls.js": "1.7.4",
     "next": "16.4.6",
+    "node-forge": "1.4.2",
     "nodemailer": "10.5.0",
-    "postgres": "4.1.1",
     "qrcode": "1.5.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -58,7 +74,8 @@
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "6.0.0",
-    "@types/node": "26.6.6",
+    "@types/bun": "1.4.4",
+    "@types/node-forge": "1.3.14",
     "@types/nodemailer": "8.0.2",
     "@types/qrcode": "1.5.6",
     "@types/react": "19.3.0",
@@ -69,7 +86,6 @@
     "knip": "6.45.1",
     "prettier": "3.10.1",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.72.2",
-    "vitest": "5.1.0"
+    "typescript-eslint": "8.72.2"
   }
 }

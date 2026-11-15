@@ -1,12 +1,15 @@
 ---
 title: Cloudflare
-description: Com o domínio na Cloudflare, o instalador aponta o DNS, ajusta o HTTPS, fecha o servidor para quem não vem pela Cloudflare e liga o R2 para os vídeos, com um token só.
+description:
+  Com o domínio na Cloudflare, o instalador aponta o DNS, ajusta o HTTPS, fecha o servidor para quem não vem pela
+  Cloudflare e liga o R2 para os vídeos, com um token só.
 ---
 
 ## Antes de começar
 
 - O domínio precisa estar ativo na Cloudflare, com os nameservers dela no registro do domínio.
-- Se nunca usou o R2, abra R2 no painel da Cloudflare uma vez e ative. O plano grátis cobre 10 GB e não cobra pelo tráfego de saída.
+- Se nunca usou o R2, abra R2 no painel da Cloudflare uma vez e ative. O plano grátis cobre 10 GB e não cobra pelo
+  tráfego de saída.
 
 ## Cada parte é opcional
 
@@ -19,13 +22,17 @@ Depois de responder que o domínio está na Cloudflare, o instalador pergunta ca
 | Portas 80 e 443 só para a Cloudflare | `--no-cf-firewall` |
 | R2 para vídeos e imagens             | `--no-r2`          |
 
-O firewall só fecha quando o próprio instalador liga o proxy: sem a nuvem laranja, os visitantes chegam direto ao servidor e a loja ficaria fora do ar. As faixas de IP da Cloudflare vão para `TRUSTED_PROXIES` sempre que a Cloudflare está ligada, porque isso não precisa do token.
+O firewall só fecha quando o próprio instalador liga o proxy: sem a nuvem laranja, os visitantes chegam direto ao
+servidor e a loja ficaria fora do ar. As faixas de IP da Cloudflare vão para `TRUSTED_PROXIES` sempre que a Cloudflare
+está ligada, porque isso não precisa do token.
 
-As escolhas ficam no `.env` (`INSTALL_CF_DNS`, `INSTALL_CF_SSL`, `INSTALL_CF_FIREWALL`, `INSTALL_R2`), então rodar de novo não muda nada sem você pedir. Para mudar uma, rode de novo com `--cf-dns`, `--no-cf-ssl` e assim por diante.
+As escolhas ficam no `.env` (`INSTALL_CF_DNS`, `INSTALL_CF_SSL`, `INSTALL_CF_FIREWALL`, `INSTALL_R2`), então rodar de
+novo não muda nada sem você pedir. Para mudar uma, rode de novo com `--cf-dns`, `--no-cf-ssl` e assim por diante.
 
 ## O token
 
-O token só é usado pelo DNS, pelo SSL e pelo R2. Quando alguma dessas partes está ligada, o instalador mostra um link que abre o formulário de token já com estas permissões:
+O token só é usado pelo DNS, pelo SSL e pelo R2. Quando alguma dessas partes está ligada, o instalador mostra um link
+que abre o formulário de token já com estas permissões:
 
 | Tipo  | Permissão                                     | Para quê                          |
 | ----- | --------------------------------------------- | --------------------------------- |
@@ -34,25 +41,39 @@ O token só é usado pelo DNS, pelo SSL e pelo R2. Quando alguma dessas partes e
 | Zona  | Configurações da zona: Editar                 | SSL Full (strict) e TLS 1.2       |
 | Conta | Armazenamento R2 (Workers R2 Storage): Editar | Criar o bucket dos vídeos         |
 
-Em Recursos da zona, escolha só o seu domínio. Crie o token, copie o valor e cole quando o instalador pedir. Se você pular o token com Enter, DNS, SSL e R2 ficam como estão, e o resto segue. Para rodar sem perguntas, passe o token em `CLOUDFLARE_API_TOKEN` junto com `--cloudflare`.
+Em Recursos da zona, escolha só o seu domínio. Crie o token, copie o valor e cole quando o instalador pedir. Se você
+pular o token com Enter, DNS, SSL e R2 ficam como estão, e o resto segue. Para rodar sem perguntas, passe o token em
+`CLOUDFLARE_API_TOKEN` junto com `--cloudflare`.
 
 ## O que o instalador faz
 
-1. Cria ou atualiza o registro `A` do domínio (e o `AAAA`, se o servidor tiver IPv6) apontando para o servidor, com o proxy ligado (nuvem laranja). O IP do servidor fica escondido.
-2. Muda o SSL para **Full (strict)**, o TLS mínimo para 1.2 e deixa **Always Use HTTPS** desligado. A loja já redireciona para HTTPS, e o certificado dela é validado pela porta 80 através da Cloudflare. Essas três opções valem para a zona inteira.
-3. Preenche `TRUSTED_PROXIES` no `.env` com as faixas de IP atuais da Cloudflare, para a loja ver o IP real de cada visitante.
-4. As portas 80 e 443 passam a aceitar só as faixas da Cloudflare, no ufw e na regra do Docker (`DOCKER-USER`), porque as portas publicadas pelo Docker passam por fora das regras comuns do ufw.
-5. Na primeira partida, a loja usa o token para criar um bucket privado com o nome dela, liberar o envio a partir do seu endereço e testar o acesso. Depois a loja reinicia sem o token, que não fica no `.env`. As chaves do R2 são derivadas do token, então não apague o token: sem ele, o R2 para até você conectar de novo em Conexões.
+1. Cria ou atualiza o registro `A` do domínio (e o `AAAA`, se o servidor tiver IPv6) apontando para o servidor, com o
+   proxy ligado (nuvem laranja). O IP do servidor fica escondido.
+2. Muda o SSL para **Full (strict)**, o TLS mínimo para 1.2 e deixa **Always Use HTTPS** desligado. A loja já
+   redireciona para HTTPS, e o certificado dela é validado pela porta 80 através da Cloudflare. Essas três opções valem
+   para a zona inteira.
+3. Preenche `TRUSTED_PROXIES` no `.env` com as faixas de IP atuais da Cloudflare, para a loja ver o IP real de cada
+   visitante.
+4. As portas 80 e 443 passam a aceitar só as faixas da Cloudflare, no ufw e na regra do Docker (`DOCKER-USER`), porque
+   as portas publicadas pelo Docker passam por fora das regras comuns do ufw.
+5. Na primeira partida, a loja usa o token para criar um bucket privado com o nome dela, liberar o envio a partir do seu
+   endereço e testar o acesso. Depois a loja reinicia sem o token, que não fica no `.env`. As chaves do R2 são derivadas
+   do token, então não apague o token: sem ele, o R2 para até você conectar de novo em Conexões.
 
-Se o R2 não conectar, o instalador diz o motivo (R2 desativado na conta ou permissão faltando) e a loja continua funcionando com os vídeos no servidor.
+Se o R2 não conectar, o instalador diz o motivo (R2 desativado na conta ou permissão faltando) e a loja continua
+funcionando com os vídeos no servidor.
 
 ## Conectar o R2 depois
 
 Se você instalou sem a Cloudflare, ou o R2 não conectou:
 
-1. No painel da loja, em Conexões, clique em Conectar no cartão Cloudflare R2 e depois em **Crie um token na Cloudflare**. O formulário abre com a permissão **Workers R2 Storage: Edit** já marcada.
+1. No painel da loja, em Conexões, clique em Conectar no cartão Cloudflare R2 e depois em **Crie um token na
+   Cloudflare**. O formulário abre com a permissão **Workers R2 Storage: Edit** já marcada.
 2. Cole o token e clique em Conectar. A loja faz o mesmo que na instalação, e o token também não fica guardado.
 
-Os arquivos que já estavam no servidor vão para o bucket em segundo plano, e a cópia local só é apagada depois que cada envio dá certo. Mantenha o bucket privado: os vídeos das aulas abrem por links que expiram em 15 minutos, conferidos contra o acesso do comprador. O backup diário cobre só o banco de dados, não os arquivos do bucket.
+Os arquivos que já estavam no servidor vão para o bucket em segundo plano, e a cópia local só é apagada depois que cada
+envio dá certo. Mantenha o bucket privado: os vídeos das aulas abrem por links que expiram em 15 minutos, conferidos
+contra o acesso do comprador. O backup diário cobre só o banco de dados, não os arquivos do bucket.
 
-Amazon S3, Backblaze B2 e outros serviços compatíveis com S3 também funcionam, pela opção **Usar Amazon S3, Backblaze ou outro serviço S3** no mesmo cartão.
+Amazon S3, Backblaze B2 e outros serviços compatíveis com S3 também funcionam, pela opção **Usar Amazon S3, Backblaze ou
+outro serviço S3** no mesmo cartão.

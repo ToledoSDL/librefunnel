@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
 import { completeLesson, confirmLogin, enterFromOrder, refundOrder, requestLogin, signOut } from "@/lib/actions";
 import { and, eq } from "drizzle-orm";
 import { db, one } from "@/lib/db";
@@ -38,20 +38,20 @@ describe("members area", () => {
     const member = await currentMember();
     expect(member).toMatchObject({ email: "student@example.com", name: "Ana Souza", scope: "full" });
     expect(member && (await memberProducts(member)).map((product) => product.slug)).toEqual([
-      "metodo-demo",
-      "planilha-metas",
+      "bolo-no-pote",
+      "planilha-preco",
     ]);
-    expect(await completeLesson({ code: null }, form({ product: "metodo-demo", lesson: "m1a1" }))).toEqual({
+    expect(await completeLesson({ code: null }, form({ product: "bolo-no-pote", lesson: "m1a1" }))).toEqual({
       code: null,
       ok: true,
     });
-    expect((await completeLesson({ code: null }, form({ product: "planilha-metas", lesson: "m1a1" }))).code).toBe(
+    expect((await completeLesson({ code: null }, form({ product: "planilha-preco", lesson: "m1a1" }))).code).toBe(
       "LESSON_NOT_FOUND",
     );
-    expect((await completeLesson({ code: null }, form({ product: "metodo-demo", lesson: "made-up" }))).code).toBe(
+    expect((await completeLesson({ code: null }, form({ product: "bolo-no-pote", lesson: "made-up" }))).code).toBe(
       "LESSON_NOT_FOUND",
     );
-    expect(member && [...(await completedLessons(member))]).toEqual(["metodo-demo:m1a1"]);
+    expect(member && [...(await completedLessons(member))]).toEqual(["bolo-no-pote:m1a1"]);
   });
 
   test("signing out ends the session on every device, including one that copied the cookies", async () => {
@@ -60,7 +60,7 @@ describe("members area", () => {
     freshBrowser();
     await redirected(confirmLogin({ code: null }, form({ token: await loginToken("copied@example.com") })));
     const copied = new Map(cookieStore);
-    vi.setSystemTime(new Date(Date.now() + 2000));
+    setSystemTime(new Date(Date.now() + 2000));
     await redirected(signOut());
     expect(await currentMember()).toBeUndefined();
     freshBrowser();
@@ -86,14 +86,14 @@ describe("members area", () => {
     freshBrowser();
     expect((await confirmLogin({ code: null }, form({ token }))).code).toBe("LINK_INVALID");
     const expiring = await loginToken("once@example.com", 60);
-    vi.setSystemTime(new Date("2026-11-14T12:02:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:02:00-03:00"));
     expect((await confirmLogin({ code: null }, form({ token: expiring }))).code).toBe("LINK_INVALID");
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     expect((await confirmLogin({ code: null }, form({ token: "x' OR 1=1 --" }))).code).toBe("LINK_INVALID");
   });
 
   test("the paying browser gets a session scoped to that order only", async () => {
-    const first = await buy({ email: "victim@example.com", slug: "planilha-metas" });
+    const first = await buy({ email: "victim@example.com", slug: "planilha-preco" });
     await pay(first, 4700, `v1-${first}`);
     freshBrowser();
     const attack = await buy({ email: "victim@example.com" });
@@ -102,7 +102,7 @@ describe("members area", () => {
     expect(await redirected(enterFromOrder())).toBe("/m");
     const member = await currentMember();
     expect(member?.scope).toBe("order");
-    expect(member && (await memberProducts(member)).map((product) => product.slug)).toEqual(["metodo-demo"]);
+    expect(member && (await memberProducts(member)).map((product) => product.slug)).toEqual(["bolo-no-pote"]);
     freshBrowser();
     expect((await enterFromOrder()).code).toBe("NOT_SIGNED_IN");
   });
@@ -120,7 +120,7 @@ describe("members area", () => {
     const order = await buy({ email: "refund@example.com" });
     await pay(order);
     await redirected(enterFromOrder());
-    expect((await currentMember())?.owned).toEqual(["metodo-demo"]);
+    expect((await currentMember())?.owned).toEqual(["bolo-no-pote"]);
     const memberCookies = new Map(cookieStore);
     await signInAsAdmin();
     expect(await refundOrder({ code: null }, form({ orderId: order }))).toEqual({ code: null, ok: true });
@@ -166,9 +166,9 @@ describe("admin session and signatures", () => {
     cookieStore.set("lf_admin", `${token.slice(0, -2)}xx`);
     expect(await isAdmin()).toBe(false);
     cookieStore.set("lf_admin", token);
-    vi.setSystemTime(new Date("2026-11-15T01:00:00-03:00"));
+    setSystemTime(new Date("2026-11-15T01:00:00-03:00"));
     expect(await isAdmin()).toBe(false);
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     const saved = process.env.ADMIN_PASSWORD;
     process.env.ADMIN_PASSWORD = "another-long-password";
     expect(await isAdmin()).toBe(false);

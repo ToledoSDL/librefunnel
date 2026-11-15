@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { asc, eq } from "drizzle-orm";
 import { archive, createProduct } from "@/lib/catalog";
 import { db } from "@/lib/db";

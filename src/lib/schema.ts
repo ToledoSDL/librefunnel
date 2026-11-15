@@ -45,7 +45,8 @@ const EVENT_NAMES = literals(
 );
 
 const CHANNELS = literals("email", "whatsapp");
-const MESSAGE_KINDS = literals("access", "paid", "recovery", "login", "reply", "owner", "inbound", "manual");
+const MESSAGE_KINDS = literals("access", "paid", "recovery", "login", "reply", "owner", "inbound", "manual", "invoice");
+const INVOICE_STATUSES = literals("queued", "issued", "failed", "canceled", "cancel_failed");
 const MESSAGE_STATUSES = literals("queued", "sending", "sent", "delivered", "read", "failed", "skipped", "received");
 const CONVERSION_NAMES = literals("InitiateCheckout", "AddPaymentInfo", "Purchase");
 const SIGNAL_NAMES = literals("ViewContent", "InitiateCheckout");
@@ -96,6 +97,7 @@ const INTEGRATION_KINDS = literals(
   "evolution",
   "whatsapp",
   "storage",
+  "nfse",
 );
 
 function timestamptz(name: string) {
@@ -130,6 +132,8 @@ export const order = pgTable(
       .generatedAlwaysAs(sql`product_amount + COALESCE(bump_amount, 0)`),
     name: text("name").notNull(),
     phone: text("phone"),
+    // The buyer's CPF or CNPJ, digits only, asked at checkout only while invoices are on.
+    document: text("document"),
     status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending"),
     txid: text("txid").notNull().unique(),
     pixCode: text("pix_code").notNull(),
@@ -188,6 +192,32 @@ export const payment = pgTable(
     check("payment_source", oneOf(table.source, PAYMENT_SOURCES)),
     index("payment_order").on(table.orderId),
     index("payment_created").on(table.createdAt),
+  ],
+);
+
+// One NFS-e per paid order. number is the DPS number: with the store's CNPJ, city and series it identifies the note,
+// so a retry after a lost answer finds the note instead of issuing a second one.
+export const invoice = pgTable(
+  "invoice",
+  {
+    orderId: text("order_id")
+      .primaryKey()
+      .references(() => order.id),
+    status: text("status", { enum: INVOICE_STATUSES }).notNull().default("queued"),
+    number: text("number").unique(),
+    key: text("key").unique(),
+    error: text("error"),
+    rejection: text("rejection"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAt: timestamptz("next_at"),
+    createdAt: timestamptz("created_at").notNull(),
+    issuedAt: timestamptz("issued_at"),
+  },
+  (table) => [
+    check("invoice_status", oneOf(table.status, INVOICE_STATUSES)),
+    index("invoice_due")
+      .on(table.nextAt)
+      .where(sql`${table.nextAt} IS NOT NULL`),
   ],
 );
 

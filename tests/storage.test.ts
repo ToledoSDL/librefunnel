@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
 import { enterFromOrder, saveLesson } from "@/lib/actions";
 import { removeCredentials, saveCredentials } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import { connectCloudflare, directUpload, serveMedia, sign, sweepMedia } from "@/lib/media";
 import { order, product } from "@/lib/schema";
-import { fakeServer, form, freshBrowser, redirected } from "./fakes";
+import { fakeFetch, fakeServer, form, freshBrowser, redirected } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
 
 // The examples from the AWS Signature Version 4 documentation for S3, with their published signatures.
@@ -33,7 +33,7 @@ describe("unused uploads", () => {
     await db()
       .update(product)
       .set({ cover: `/media/${used}.jpg` })
-      .where(eq(product.slug, "metodo-demo"));
+      .where(eq(product.slug, "bolo-no-pote"));
     for (const name of [`${used}.jpg`, `${unused}.mp4`, `${unused}/master.m3u8`, `${recent}.png`])
       await writeFile(join(dir, name), "x");
     const longAgo = new Date(Date.now() - 31 * 86_400_000);
@@ -79,8 +79,7 @@ describe("one-token Cloudflare setup", () => {
     bucketExists = false;
     r2Enabled = true;
 
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
+    fakeFetch(async (url, init) => {
       const method = init?.method ?? "GET";
       calls.push({ method, url, body: typeof init?.body === "string" ? init.body : "" });
       const ok = (result: object) => Response.json({ success: true, errors: [], result });
@@ -155,11 +154,11 @@ describe("files in a bucket", () => {
   test("an object nothing mentions goes after 30 days; used, recent and non-media objects stay", async () => {
     const used = "4".repeat(32);
     const unused = "5".repeat(32);
-    vi.setSystemTime(new Date(Date.now() + 2 * 86_400_000));
+    setSystemTime(new Date(Date.now() + 2 * 86_400_000));
     await db()
       .update(product)
       .set({ cover: `/media/${used}.jpg` })
-      .where(eq(product.slug, "metodo-demo"));
+      .where(eq(product.slug, "bolo-no-pote"));
     const old = new Date(Date.now() - 31 * 86_400_000).toISOString();
 
     const objects = [
@@ -245,7 +244,7 @@ describe("files in a bucket", () => {
     await db()
       .update(product)
       .set({ vslVideo: `/media/${ID}.mp4` })
-      .where(eq(product.slug, "metodo-demo"));
+      .where(eq(product.slug, "bolo-no-pote"));
     freshBrowser("192.0.2.100");
     const [first, second] = await Promise.all([get(`${ID}.mp4`), get(`${ID}.mp4`)]);
     expect(first.status).toBe(302);

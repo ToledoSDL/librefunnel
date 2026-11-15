@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { and, asc, eq } from "drizzle-orm";
 import { saveMeta, testConnection } from "@/lib/actions";
 import { removeCredentials, saveCredentials } from "@/lib/catalog";
@@ -8,7 +8,7 @@ import { sources } from "@/lib/dashboard";
 import { conversion, customer, event, order, signal, touch } from "@/lib/schema";
 import { sendConversions } from "@/lib/tracking";
 import { POST as trackRoute } from "@/app/t/route";
-import { cookieOptions, cookieStore, fakeServer, form, freshBrowser } from "./fakes";
+import { cookieOptions, cookieStore, fakeServer, form, freshBrowser, redirectFetch } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
 
 let ip = 0;
@@ -16,7 +16,7 @@ let ip = 0;
 beforeEach(() => {
   ip += 1;
   freshBrowser(`203.0.113.${ip}`);
-  vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+  setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
 });
 
 function hit(body: object | string) {
@@ -43,7 +43,7 @@ function conversionOf(id: string) {
 }
 
 function view(search: string, referrer = "") {
-  return hit({ e: "page_view", p: "metodo-demo", q: search, r: referrer, l: "/v/metodo-demo" });
+  return hit({ e: "page_view", p: "bolo-no-pote", q: search, r: referrer, l: "/v/bolo-no-pote" });
 }
 
 describe("/t", () => {
@@ -52,17 +52,17 @@ describe("/t", () => {
     const visitor = cookieStore.get("lf_vid") ?? "";
     expect(visitor).toMatch(/^[a-z0-9]{20}$/);
     expect(cookieOptions.get("lf_vid")).toMatchObject({ httpOnly: true, sameSite: "lax", maxAge: 400 * 86400 });
-    await hit({ e: "cta_click", p: "metodo-demo" });
-    await hit({ e: "cta_click", p: "metodo-demo" });
+    await hit({ e: "cta_click", p: "bolo-no-pote" });
+    await hit({ e: "cta_click", p: "bolo-no-pote" });
     expect(await db().$count(event, eq(event.visitorId, visitor))).toBe(2);
   });
 
   test("adds each visitor's watched seconds, replays included, and the page cannot set them directly", async () => {
     await view("");
     const visitor = cookieStore.get("lf_vid") ?? "";
-    await hit({ e: "retention", p: "metodo-demo", s: [0, 1, 2, 2, 3] });
-    await hit({ e: "retention", p: "metodo-demo", s: [0, 1] });
-    expect((await hit({ e: "video_watch", p: "metodo-demo" })).status).toBe(400);
+    await hit({ e: "retention", p: "bolo-no-pote", s: [0, 1, 2, 2, 3] });
+    await hit({ e: "retention", p: "bolo-no-pote", s: [0, 1] });
+    expect((await hit({ e: "video_watch", p: "bolo-no-pote" })).status).toBe(400);
 
     const [watched] = await db()
       .select({ value: event.value })
@@ -88,7 +88,7 @@ describe("/t", () => {
   test("requests that keep dropping the cookie stop creating visitors", async () => {
     for (let index = 0; index < 600; index += 1) {
       freshBrowser(`203.0.113.${ip}`);
-      vi.setSystemTime(new Date(Date.UTC(2026, 10, 14, 15, 0, index)));
+      setSystemTime(new Date(Date.UTC(2026, 10, 14, 15, 0, index)));
       await view("");
     }
     const before = await db().$count(event);
@@ -108,13 +108,13 @@ describe("/t", () => {
 
 describe("attribution", () => {
   test("first and last touch, repeated ad clicks only move last_seen, touches after the order are ignored", async () => {
-    vi.setSystemTime(new Date("2026-11-14T10:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T10:00:00-03:00"));
     await view("?utm_source=facebook&utm_campaign=a&fbclid=ClickA");
-    vi.setSystemTime(new Date("2026-11-14T10:30:00-03:00"));
+    setSystemTime(new Date("2026-11-14T10:30:00-03:00"));
     await view("?utm_source=facebook&utm_campaign=a&fbclid=ClickA");
-    vi.setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
     await view("?utm_source=google&utm_campaign=b", "https://www.google.com/search?q=x");
-    await view("", "https://shop.example/v/metodo-demo");
+    await view("", "https://shop.example/v/bolo-no-pote");
     const visitor = cookieStore.get("lf_vid") ?? "";
 
     const touches = await db()
@@ -135,10 +135,10 @@ describe("attribution", () => {
         lastSeenAt: new Date("2026-11-14T11:00:00-03:00"),
       },
     ]);
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     const order = await buy({ email: "attribution@example.com" });
     await pay(order);
-    vi.setSystemTime(new Date("2026-11-14T13:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T13:00:00-03:00"));
     await view("?utm_source=tiktok&utm_campaign=c");
     const last = await sources(7, "last");
     expect(last).toContainEqual({ source: "google", campaign: "b", orders: 1, revenue: 9700 });
@@ -164,30 +164,27 @@ describe("attribution", () => {
 
 describe("Meta Conversions API", () => {
   let server: Awaited<ReturnType<typeof fakeServer>>;
-  const realFetch = globalThis.fetch;
 
   beforeEach(async () => {
     server = await fakeServer({
       "POST /v27.0/123/events": { status: 200, body: { events_received: 2, messages: [], fbtrace_id: "t" } },
     });
     await saveCredentials("meta", { pixelId: "123", testEventCode: "" }, { token: "token-meta" });
-    vi.stubGlobal("fetch", (input: string, init?: RequestInit) =>
-      realFetch(input.replace("https://graph.facebook.com", server.url), init),
-    );
+    redirectFetch("https://graph.facebook.com", server.url);
     await db().update(conversion).set({ status: "skipped" }).where(eq(conversion.status, "queued"));
     await db().update(signal).set({ status: "skipped" }).where(eq(signal.status, "queued"));
   });
 
   afterEach(async () => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     await removeCredentials("meta");
     await server.close();
   });
 
   test("sends hashed identity, order IP/UA and fbc from the last fbclid click, deduplicated by event id", async () => {
-    vi.setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
     await view("?utm_source=facebook&fbclid=AbC123");
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     cookieStore.set("_fbp", "fb.1.1731600000000.123456789");
     const order = await buy({ email: "capi@example.com", name: "Maria José da Silva", bump: "1" });
     await pay(order, 9700 + 1990);
@@ -209,7 +206,7 @@ describe("Meta Conversions API", () => {
     expect(purchase.custom_data).toMatchObject({
       currency: "BRL",
       value: 116.9,
-      content_ids: ["metodo-demo", "planilha-metas"],
+      content_ids: ["bolo-no-pote", "planilha-preco"],
       num_items: 2,
       order_id: order,
     });
@@ -226,13 +223,13 @@ describe("Meta Conversions API", () => {
   });
 
   test("the sales page and the checkout send ViewContent and InitiateCheckout once per visitor", async () => {
-    vi.setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T11:00:00-03:00"));
     await view("?fbclid=SignalClick");
     const visitor = cookieStore.get("lf_vid") ?? "";
-    vi.setSystemTime(new Date("2026-11-14T11:05:00-03:00"));
+    setSystemTime(new Date("2026-11-14T11:05:00-03:00"));
     await view("");
-    await hit({ e: "checkout_view", p: "metodo-demo" });
-    await hit({ e: "checkout_view", p: "metodo-demo" });
+    await hit({ e: "checkout_view", p: "bolo-no-pote" });
+    await hit({ e: "checkout_view", p: "bolo-no-pote" });
     await sendConversions();
     const sent = JSON.parse(server.to("POST", "/v27.0/123/events").at(-1)?.body ?? "{}").data;
     expect(sent.map((item: { event_name: string }) => item.event_name).sort()).toEqual([
@@ -241,15 +238,15 @@ describe("Meta Conversions API", () => {
     ]);
     const viewed = sent.find((item: { event_name: string }) => item.event_name === "ViewContent");
     expect(viewed).toMatchObject({
-      event_id: `${visitor}:metodo-demo:ViewContent`,
+      event_id: `${visitor}:bolo-no-pote:ViewContent`,
       event_time: Date.parse("2026-11-14T11:00:00-03:00") / 1000,
-      event_source_url: "https://shop.example/v/metodo-demo",
+      event_source_url: "https://shop.example/v/bolo-no-pote",
       user_data: {
         external_id: [createHash("sha256").update(visitor).digest("hex")],
         client_ip_address: `203.0.113.${ip}`,
         fbc: `fb.1.${Date.parse("2026-11-14T11:00:00-03:00")}.SignalClick`,
       },
-      custom_data: { currency: "BRL", value: 97, content_ids: ["metodo-demo"] },
+      custom_data: { currency: "BRL", value: 97, content_ids: ["bolo-no-pote"] },
     });
   });
 

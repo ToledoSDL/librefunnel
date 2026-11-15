@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { spyOn } from "bun:test";
 
 type CookieOptions = { httpOnly?: boolean; secure?: boolean; sameSite?: string; maxAge?: number };
 type Recorded = { method: string; path: string; headers: Record<string, string | string[] | undefined>; body: string };
@@ -34,6 +35,21 @@ export function freshBrowser(ip = "203.0.113.10") {
   for (const name of [...requestHeaders.keys()]) requestHeaders.delete(name);
   requestHeaders.set("x-forwarded-for", ip);
   requestHeaders.set("user-agent", "Mozilla/5.0 (test)");
+}
+
+// Bun's fetch type carries preconnect, so the replacement keeps the real one; restored by vi.restoreAllMocks.
+export function fakeFetch(handler: (url: string, init: RequestInit | undefined) => Promise<Response>) {
+  const real = globalThis.fetch;
+  return spyOn(globalThis, "fetch").mockImplementation(
+    Object.assign((input: URL | RequestInfo, init?: RequestInit) => handler(String(input), init), {
+      preconnect: real.preconnect,
+    }),
+  );
+}
+
+export function redirectFetch(from: string | RegExp, to: string) {
+  const real = globalThis.fetch;
+  return fakeFetch((url, init) => real(url.replace(from, to), init));
 }
 
 export async function fakeServer(routes: Record<string, Reply>) {

@@ -5,7 +5,7 @@ import { form, freshBrowser, redirected, WEBHOOK_SECRET } from "./fakes";
 
 export async function buy(fields: Record<string, string> = {}): Promise<string> {
   const base = {
-    slug: "metodo-demo",
+    slug: "bolo-no-pote",
     name: "Ana Souza",
     email: "ana@example.com",
     phone: "(48) 99999-0000",

@@ -21,6 +21,7 @@ import { QueryBuilder } from "drizzle-orm/pg-core";
 import { credentials, productNames, storePix } from "./catalog";
 import { addSeconds, db, one } from "./db";
 import { baseUrl } from "./guard";
+import { invoiceCode, publicLink, regime } from "./invoices";
 import { cloudOf, cloudStatus, evolutionOf, messageCode, replyOpen, SMTP_PRESETS, whatsappState } from "./messages";
 import { conversionError, cryptoMode, PIX_PROVIDERS, pixProvider, pspConfigured, pspKeys } from "./orders";
 import type { OrderStatus } from "./orders";
@@ -28,6 +29,8 @@ import {
   contact,
   customer,
   event,
+  integration,
+  invoice,
   lesson,
   login,
   module as courseModule,
@@ -334,13 +337,34 @@ export async function orderDetail(id: string) {
       received: RECEIVED,
       paidAt: sql<Date | null>`(SELECT MIN(${payment.createdAt}) FROM ${payment}
         WHERE ${payment.orderId} = ${order.id} AND ${payment.amount} > 0)`.mapWith(order.createdAt),
+      document: order.document,
+      invoice: {
+        status: invoice.status,
+        key: invoice.key,
+        error: invoice.error,
+        rejection: invoice.rejection,
+        issuedAt: invoice.issuedAt,
+        pending: sql<boolean>`${invoice.nextAt} IS NOT NULL`.mapWith(Boolean),
+      },
+      invoicesOn: sql<boolean>`EXISTS (SELECT 1 FROM ${integration} WHERE ${integration.kind} = 'nfse')`.mapWith(
+        Boolean,
+      ),
     })
     .from(order)
     .innerJoin(customer, eq(customer.id, order.customerId))
+    .leftJoin(invoice, eq(invoice.orderId, order.id))
     .where(eq(order.id, id));
 
   if (!found) return null;
-  return { ...found, profile: await buyer({ channel: "email", address: found.email }) };
+  return {
+    ...found,
+    invoice: found.invoice && {
+      ...found.invoice,
+      error: invoiceCode(found.invoice.error),
+      link: found.invoice.key ? publicLink(found.invoice.key) : null,
+    },
+    profile: await buyer({ channel: "email", address: found.email }),
+  };
 }
 
 // One conversation per channel and address: everything sent to a buyer and everything they answered.
@@ -581,6 +605,7 @@ export async function integrations() {
       "evolution",
       "whatsapp",
       "storage",
+      "nfse",
     ),
     db().$count(message, eq(message.status, "failed")),
   ]);
@@ -675,6 +700,18 @@ export async function integrations() {
       number: cloud("number"),
       template: live?.template ?? null,
       numbers: live?.numbers ?? [],
+    },
+    nfse: {
+      configured: stored("nfse")("chain") !== "",
+      cnpj: stored("nfse")("cnpj"),
+      holder: stored("nfse")("holder"),
+      expiresAt: stored("nfse")("expiresAt") ? new Date(stored("nfse")("expiresAt")) : null,
+      city: stored("nfse")("city"),
+      regime: regime(stored("nfse")("regime")) ?? "simples",
+      service: stored("nfse")("service") || "080201",
+      registration: stored("nfse")("registration"),
+      taxRate: stored("nfse")("taxRate"),
+      issRate: stored("nfse")("issRate"),
     },
     failedMessages,
   };

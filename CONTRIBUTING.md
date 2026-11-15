@@ -44,4 +44,5 @@ bun run check
 
 ## Security
 
-Report vulnerabilities privately through [GitHub security advisories](https://github.com/ToledoSDL/librefunnel/security/advisories/new), never in a public issue.
+Report vulnerabilities privately through
+[GitHub security advisories](https://github.com/ToledoSDL/librefunnel/security/advisories/new), never in a public issue.

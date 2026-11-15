@@ -8,12 +8,17 @@ import { sendFile } from "@/lib/media";
 const FILES = new Map([
   ["vsl-demo.mp4", "video/mp4"],
   ["vsl-demo.vtt", "text/vtt"],
-  ["banner.svg", "image/svg+xml"],
-  ["cover.svg", "image/svg+xml"],
-  ["module-1.svg", "image/svg+xml"],
-  ["module-2.svg", "image/svg+xml"],
-  ["mentoria.svg", "image/svg+xml"],
-  ["spreadsheet.svg", "image/svg+xml"],
+  ["course-banner.webp", "image/webp"],
+  ["course-cover.webp", "image/webp"],
+  ["course-module-1.webp", "image/webp"],
+  ["course-module-2.webp", "image/webp"],
+  ["course-module-3.webp", "image/webp"],
+  ["sheet-cover.webp", "image/webp"],
+  ["sheet-module.webp", "image/webp"],
+  ["mentoring-cover.webp", "image/webp"],
+  ["mentoring-meeting-1.webp", "image/webp"],
+  ["mentoring-meeting-2.webp", "image/webp"],
+  ["mentoring-meeting-3.webp", "image/webp"],
 ]);
 
 export async function GET(request: Request, { params }: { params: Promise<{ file: string }> }) {

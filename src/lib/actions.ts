@@ -19,6 +19,8 @@ import {
   signOutAdmin,
 } from "./guard";
 import type { GuardCode } from "./guard";
+import * as invoices from "./invoices";
+import type { InvoiceCode } from "./invoices";
 import { connectStorage, setUpR2, testStorage } from "./media";
 import type { MediaCode, StorageCode } from "./media";
 import * as members from "./members";
@@ -43,7 +45,8 @@ export type Code =
   | CatalogCode
   | AutomationCode
   | MediaCode
-  | StorageCode;
+  | StorageCode
+  | InvoiceCode;
 // secret is set only by rotateWebhookSecret: the one time the generated value reaches the browser.
 export type ActionState = { code: Code | null; ok?: boolean; secret?: string };
 export type WhatsAppState = ActionState & { qr?: string; pairingCode?: string };
@@ -70,8 +73,10 @@ const REMOVABLE = [
   "evolution",
   "whatsapp",
   "storage",
+  "nfse",
 ] as const;
 
+const CERTIFICATE_LIMIT = 64 * 1024;
 const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
 // AWS and Backblaze put the region in the host (s3.us-east-2.amazonaws.com); R2 and most others take "auto".
 const REGION = /^s3[.-]([a-z]{2}-[a-z]+-\d{1,3})\.(?:amazonaws\.com|backblazeb2\.com)$/;
@@ -264,6 +269,8 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
   if (!rawPhone && checkoutPhone === "required") return { code: "INVALID_PHONE" };
   const phone = rawPhone ? cleanPhone(rawPhone) : null;
   if (phone === undefined) return { code: "INVALID_PHONE" };
+  const document = (await invoices.invoicesOn()) ? invoices.buyerDocument(field(form, "document")) : null;
+  if (document === undefined) return { code: "INVALID_DOCUMENT" };
   const requestHeaders = await headers();
   const ip = clientIp(requestHeaders);
   if (limited("order", ip, 20, 600)) return { code: "RATE_LIMITED" };
@@ -276,6 +283,7 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
     name,
     email,
     phone,
+    document,
     bump: field(form, "bump") === "1",
     ownOrder: await members.orderFromCookie(),
     visitorId,
@@ -397,7 +405,7 @@ export async function testConnection(...[, form]: FormArgs): Promise<ActionState
   if (demoMode()) return { code: "DEMO_BLOCKED" };
   const kind = field(form, "kind");
   const psp = orders.pixProvider(kind);
-  const known = ["smtp", "meta", "evolution", "whatsapp", "storage"].includes(kind);
+  const known = ["smtp", "meta", "evolution", "whatsapp", "storage", "nfse"].includes(kind);
   if (!known && (!psp || psp === "static")) return { code: "INVALID_PAYLOAD" };
   if (limited("test", kind, 10, 600)) return { code: "RATE_LIMITED" };
   if (kind === "storage") return done(await testStorage());
@@ -405,6 +413,7 @@ export async function testConnection(...[, form]: FormArgs): Promise<ActionState
   if (kind === "evolution") return done(await messages.testWhatsApp());
   if (kind === "whatsapp") return done(await messages.testCloud());
   if (kind === "meta") return done(await sendMetaTest());
+  if (kind === "nfse") return done(await invoices.testNfse());
   return done(psp && psp !== "static" ? await orders.testPsp(psp) : "INVALID_PAYLOAD");
 }
 
@@ -595,6 +604,60 @@ export async function saveCloud(...[, form]: FormArgs): Promise<ActionState> {
   if (pin && !/^\d{6}$/.test(pin)) return { code: "CLOUD_PIN_INVALID" };
   if (limited("cloud", "connect", 10, 600)) return { code: "RATE_LIMITED" };
   return done(await messages.connectCloud({ token, appSecret, phoneId, pin }));
+}
+
+// The certificate is read once here: only its key and chain are kept, sealed; the file and its password are not.
+export async function saveNfse(...[, form]: FormArgs): Promise<ActionState> {
+  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
+  const city = field(form, "city").trim();
+  if (!/^\d{7}$/.test(city)) return { code: "INVALID_CITY" };
+  const regime = invoices.regime(field(form, "regime"));
+  if (!regime) return { code: "INVALID_PAYLOAD" };
+  const service = field(form, "service").replace(/\D/g, "");
+  if (!/^\d{6}$/.test(service)) return { code: "INVALID_SERVICE" };
+  const registration = field(form, "registration").trim();
+  if (registration && !/^[A-Za-z0-9.\-/]{1,15}$/.test(registration)) return { code: "INVALID_PAYLOAD" };
+  const taxRate = regime === "mei" ? "" : invoices.rate(field(form, "taxRate"));
+  const issRate = regime === "normal" ? invoices.rate(field(form, "issRate")) : "";
+  if (taxRate === undefined || issRate === undefined) return { code: "INVALID_RATE" };
+
+  const file = form.get("certificate");
+  const fresh = file instanceof File && file.size > 0;
+  if (fresh && file.size > CERTIFICATE_LIMIT) return { code: "CERTIFICATE_UNREADABLE" };
+  if (!fresh && !(await invoices.invoicesOn())) return { code: "CERTIFICATE_UNREADABLE" };
+  if (limited("test", "nfse", 10, 600)) return { code: "RATE_LIMITED" };
+
+  const certificate = fresh
+    ? invoices.readCertificate(Buffer.from(await file.arrayBuffer()), field(form, "password"))
+    : undefined;
+
+  if (typeof certificate === "string") return { code: certificate };
+
+  await catalog.saveCredentials(
+    "nfse",
+    {
+      city,
+      regime,
+      service,
+      registration,
+      taxRate,
+      issRate,
+      ...(certificate
+        ? { cnpj: certificate.cnpj, holder: certificate.holder, expiresAt: certificate.expiresAt.toISOString() }
+        : {}),
+    },
+    certificate ? { key: certificate.key, chain: certificate.chain } : {},
+  );
+  return done(await invoices.testNfse());
+}
+
+export async function retryInvoice(...[, form]: FormArgs): Promise<ActionState> {
+  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
+  const orderId = field(form, "orderId");
+  if (!ORDER_ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
+  return done(await invoices.retryInvoice(orderId));
 }
 
 export async function rotateWebhookSecret(): Promise<ActionState> {

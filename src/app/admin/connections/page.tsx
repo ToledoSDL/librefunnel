@@ -4,6 +4,7 @@ import { requireAdmin } from "../shared";
 import { Email, Meta, Webhook, WhatsApp } from "./channels";
 import { WhatsAppCloud } from "./cloud";
 import styles from "./connections.module.css";
+import { Nfse } from "./nfse";
 import { Section } from "./parts";
 import { PixProviders } from "./pix";
 import { Storage } from "./storage";
@@ -25,6 +26,9 @@ export default async function ConnectionsPage() {
               woovi={links.pix.providers.some((provider) => provider.id === "woovi" && provider.configured)}
             />
           </PixProviders>
+        </Section>
+        <Section title="Nota fiscal">
+          <Nfse nfse={links.nfse} />
         </Section>
         <Section title="Entrega e mensagens">
           <Email email={links.email} />

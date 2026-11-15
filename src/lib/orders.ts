@@ -9,6 +9,7 @@ import { addSeconds, db, newId, one } from "./db";
 import type { Database } from "./db";
 import { baseUrl, demoMode, firstName, hmacHex, isObject, jsonObject, maskEmail, readBody, safeEqual } from "./guard";
 import type { GuardCode, Json, JsonObject } from "./guard";
+import { cancelInvoice, queueInvoice, reais } from "./invoices";
 import { enqueueSale, recoverySteps } from "./messages";
 import { customer, order, payment } from "./schema";
 import { orderStep } from "./tracking";
@@ -52,6 +53,7 @@ export type OrderInput = {
   name: string;
   email: string;
   phone: string | null;
+  document: string | null;
   bump: boolean;
   ownOrder: string | undefined;
   visitorId: string;
@@ -293,7 +295,14 @@ export async function placeOrder(input: OrderInput): Promise<{ id: string } | { 
     );
 
     const [open] = await tx
-      .select({ id: order.id, bump: order.bump, name: order.name, phone: order.phone, expiresAt: order.expiresAt })
+      .select({
+        id: order.id,
+        bump: order.bump,
+        name: order.name,
+        phone: order.phone,
+        document: order.document,
+        expiresAt: order.expiresAt,
+      })
       .from(order)
       .where(and(eq(order.customerId, customerId), eq(order.product, input.product.slug), eq(order.status, "pending")));
 
@@ -303,7 +312,8 @@ export async function placeOrder(input: OrderInput): Promise<{ id: string } | { 
         open.id === input.ownOrder &&
         open.bump === (bump?.slug ?? null) &&
         open.name === input.name &&
-        open.phone === input.phone;
+        open.phone === input.phone &&
+        open.document === input.document;
 
       if (same && open.expiresAt > t) return { id: open.id };
       await tx
@@ -322,6 +332,7 @@ export async function placeOrder(input: OrderInput): Promise<{ id: string } | { 
       bumpAmount: bump?.bumpPrice ?? null,
       name: input.name,
       phone: input.phone,
+      document: input.document,
       txid: id,
       pixCode: brCode(input.product.pix, amount, id),
       expiresAt: addSeconds(t, store.orderHours * 3600),
@@ -407,6 +418,7 @@ async function markPaid(tx: Database, found: StoredOrder): Promise<OrderCode | n
   if (changed.length !== 1) return "INVALID_TRANSITION";
   await orderStep(tx, found.id, "paid");
   await enqueueSale(tx, found);
+  await queueInvoice(tx, found.id);
   return null;
 }
 
@@ -429,6 +441,7 @@ function recordPayment(
         .update(order)
         .set({ status: "refunded" })
         .where(and(eq(order.id, found.id), eq(order.status, "paid")));
+      await cancelInvoice(tx, found.id);
       return null;
     }
     if (settled) return null;
@@ -480,6 +493,7 @@ export function refundOrder(orderId: string): Promise<OrderCode | null> {
       .update(order)
       .set({ status: "refunded" })
       .where(and(eq(order.id, orderId), eq(order.status, "paid")));
+    await cancelInvoice(tx, orderId);
     return null;
   });
 }
@@ -626,10 +640,6 @@ function mismatch(psp: Psp, orderId: string, status: number): Fetched {
 function credentialsReply(response: PspResponse): OrderCode | null {
   if (response.status < 300) return null;
   return response.status === 401 || response.status === 403 ? "PSP_REJECTED" : "PSP_UNREACHABLE";
-}
-
-function reais(cents: number): string {
-  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 }
 
 function firstPayment(charge: JsonObject | undefined): JsonObject | undefined {

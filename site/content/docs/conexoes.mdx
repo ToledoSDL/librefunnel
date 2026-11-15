@@ -1,15 +1,20 @@
 ---
 title: Conexões
-description: Tudo o que a loja usa de fora fica em Conexões, no painel. Cada cartão tem um botão Testar, e as mudanças valem na hora, sem reiniciar.
+description:
+  Tudo o que a loja usa de fora fica em Conexões, no painel. Cada cartão tem um botão Testar, e as mudanças valem na
+  hora, sem reiniciar.
 ---
 
-Senhas e chaves salvas ali ficam criptografadas e não aparecem de novo. Para trocar, digite o valor novo; para manter, deixe o campo em branco.
+Senhas e chaves salvas ali ficam criptografadas e não aparecem de novo. Para trocar, digite o valor novo; para manter,
+deixe o campo em branco.
 
 ## E-mail
 
 Obrigatório: é por e-mail que o comprador recebe o link de acesso.
 
-- **Gmail**, sem custo: ligue a verificação em duas etapas na conta Google, crie uma senha de app em [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) e cole as 16 letras em Senha. A senha normal do Gmail não funciona.
+- **Gmail**, sem custo: ligue a verificação em duas etapas na conta Google, crie uma senha de app em
+  [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) e cole as 16 letras em Senha. A senha
+  normal do Gmail não funciona.
 - **Brevo** ou **Mailjet**, com planos grátis, já estão na lista de provedores.
 - **Outro**: qualquer servidor SMTP, na porta 587 (ou 465, se o provedor pedir). A Oracle bloqueia a porta 25.
 
@@ -17,9 +22,11 @@ Antes de testar, preencha o seu e-mail em Configurações: o teste vai para ele.
 
 ## Recebimento do Pix
 
-Sem provedor, cada Pix cai direto na chave do produto, sem tarifa, e você libera o pedido depois de conferir o extrato do banco. Nunca libere com base em comprovante enviado pelo comprador: é fácil de falsificar.
+Sem provedor, cada Pix cai direto na chave do produto, sem tarifa, e você libera o pedido depois de conferir o extrato
+do banco. Nunca libere com base em comprovante enviado pelo comprador: é fácil de falsificar.
 
-Com um provedor, cada pedido ganha o seu próprio Pix e o acesso é liberado sozinho quando o provedor confirma que o valor inteiro chegou. Reembolso, estorno e MED perdido tiram o acesso.
+Com um provedor, cada pedido ganha o seu próprio Pix e o acesso é liberado sozinho quando o provedor confirma que o
+valor inteiro chegou. Reembolso, estorno e MED perdido tiram o acesso.
 
 | Provedor                | Tarifa (novembro de 2026)                                                           | Conta              |
 | ----------------------- | ----------------------------------------------------------------------------------- | ------------------ |
@@ -28,30 +35,68 @@ Com um provedor, cada pedido ganha o seu próprio Pix e o acesso é liberado soz
 | Woovi                   | 0,80% por Pix (mínimo R$ 0,50, máximo R$ 5,00) ou R$ 0,85 por Pix, conforme o plano | CNPJ (MEI serve)   |
 | AbacatePay              | R$ 0,80 por Pix                                                                     | CNPJ (MEI serve)   |
 
-No cartão Recebimento do Pix, cole as chaves do provedor, clique em **Salvar e usar este provedor** e cadastre no painel do provedor o endereço de webhook que a loja mostra. O webhook só avisa a loja, que então pergunta ao provedor quanto foi pago. Trocar de provedor muda só os pedidos novos.
+No cartão Recebimento do Pix, cole as chaves do provedor, clique em **Salvar e usar este provedor** e cadastre no painel
+do provedor o endereço de webhook que a loja mostra. O webhook só avisa a loja, que então pergunta ao provedor quanto
+foi pago. Trocar de provedor muda só os pedidos novos.
 
-Para outro gateway ou automação própria, existe o **Webhook genérico de pagamento**, assinado com HMAC-SHA256. O formato está no [guia no GitHub](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#other-payment-providers).
+Para outro gateway ou automação própria, existe o **Webhook genérico de pagamento**, assinado com HMAC-SHA256. O formato
+está no [guia no GitHub](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#other-payment-providers).
+
+## Nota fiscal
+
+Opcional. A loja emite a NFS-e de cada venda paga direto no Emissor Nacional (gov.br), sem intermediário e sem tarifa, e
+cancela a nota quando o pedido é reembolsado. Com a nota ligada, o checkout ganha o campo CPF ou CNPJ, opcional; sem
+ele, a nota sai sem tomador e o nome do comprador vai nas informações complementares.
+
+Precisa de:
+
+- **Certificado A1 da empresa** (e-CNPJ, arquivo .pfx ou .p12) e a senha. A loja guarda só a chave e o certificado,
+  criptografados; o arquivo e a senha não ficam salvos.
+- **Código IBGE do município** do CNPJ, em [cidades.ibge.gov.br](https://cidades.ibge.gov.br).
+- **Código de tributação nacional** do serviço. Para curso online costuma ser 080201; confirme com o seu contador.
+- **Tributos aproximados**: no Simples, a alíquota efetiva do DAS; no Lucro Presumido ou Real, os tributos federais e o
+  ISS. MEI deixa em branco.
+
+Funciona para MEI e Simples Nacional em qualquer município, e para Lucro Presumido ou Real nos municípios que usam o
+Emissor Nacional. O botão Testar confere o município e o certificado sem emitir nota.
+
+Quando a Receita recusa uma nota, o pedido mostra o motivo e o código da recusa, com o botão **Emitir de novo**. Se o
+município não permitir cancelar (prazo vencido ou nota sem CPF), peça o cancelamento pelo
+[Emissor Nacional](https://www.nfse.gov.br/EmissorNacional).
 
 ## WhatsApp
 
-O WhatsApp manda a recuperação de carrinho, o aviso de pagamento e as respostas por palavra-chave. Há dois jeitos de conectar:
+O WhatsApp manda a recuperação de carrinho, o aviso de pagamento e as respostas por palavra-chave. Há dois jeitos de
+conectar:
 
-|              | Pelo QR Code                                                               | Oficial (Meta)                                                                                                                           |
-| ------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Como conecta | Escaneia o QR Code em Aparelhos conectados, como no WhatsApp Web           | Token de um usuário do sistema no Business Manager e o segredo do app                                                                    |
-| Custo        | Nenhum. A Evolution API roda no mesmo servidor e usa uns 300 MB de memória | A Meta cobra por mensagem de modelo, pelo preço dela                                                                                     |
-| Mensagens    | Texto livre                                                                | Texto livre só até 24 horas depois da última mensagem do comprador; o resto vai dentro do modelo `librefunnel_aviso`, aprovado pela Meta |
-| Número       | Use um número só para vendas                                               | Número da sua conta WhatsApp Business na Meta                                                                                            |
+### Pelo QR Code
 
-Nos dois casos: quem responde SAIR ou PARAR deixa de receber mensagens automáticas, nada sai entre 21h e 9h (horário de Brasília), o limite é de 2 mensagens de recuperação por pessoa por dia e 300 mensagens automáticas por dia, e a recuperação para assim que o pedido é pago.
+- Como conecta: escaneia o QR Code em Aparelhos conectados, como no WhatsApp Web.
+- Custo: nenhum. A Evolution API roda no mesmo servidor e usa uns 300 MB de memória.
+- Mensagens: texto livre.
+- Número: use um número só para vendas.
+
+### Oficial (Meta)
+
+- Como conecta: token de um usuário do sistema no Business Manager e o segredo do app.
+- Custo: a Meta cobra por mensagem de modelo, pelo preço dela.
+- Mensagens: texto livre só até 24 horas depois da última mensagem do comprador; o resto vai dentro do modelo
+  `librefunnel_aviso`, aprovado pela Meta.
+- Número: número da sua conta WhatsApp Business na Meta.
+
+Nos dois casos: quem responde SAIR ou PARAR deixa de receber mensagens automáticas, nada sai entre 21h e 9h (horário de
+Brasília), o limite é de 2 mensagens de recuperação por pessoa por dia e 300 mensagens automáticas por dia, e a
+recuperação para assim que o pedido é pago.
 
 ## Meta (API de Conversões)
 
-A loja envia para a Meta, pelo servidor, o checkout iniciado (quando o Pix é gerado) e a compra (quando é paga). Assim os anúncios otimizam para venda, não para clique. A Meta recebe nome, e-mail e telefone só em hash.
+A loja envia para a Meta, pelo servidor, o checkout iniciado (quando o Pix é gerado) e a compra (quando é paga). Assim
+os anúncios otimizam para venda, não para clique. A Meta recebe nome, e-mail e telefone só em hash.
 
 1. No Gerenciador de Eventos, copie o ID do pixel e gere um token da API de Conversões nas configurações dele.
 2. Em Conexões, cole os dois e, para conferir, o código de teste da aba Eventos de teste. Clique em Testar.
-3. Depois que o evento aparecer, apague o código de teste e salve de novo. Enquanto ele estiver lá, as vendas não contam para as campanhas.
+3. Depois que o evento aparecer, apague o código de teste e salve de novo. Enquanto ele estiver lá, as vendas não contam
+   para as campanhas.
 
 Coloque UTMs em todo link de anúncio para o painel saber qual anúncio vendeu.
 

@@ -1,5 +1,6 @@
 import { leadJobs, migrate, nightlyDemoReset } from "./lib/db";
 import * as guard from "./lib/guard";
+import * as invoices from "./lib/invoices";
 import * as media from "./lib/media";
 import * as messages from "./lib/messages";
 import * as orders from "./lib/orders";
@@ -49,6 +50,7 @@ export async function start() {
     messages.sendMessages,
     messages.refreshPhotos,
     tracking.sendConversions,
+    invoices.issueInvoices,
     media.transcodeVideos,
     media.sweepMedia,
     media.sendBackup,

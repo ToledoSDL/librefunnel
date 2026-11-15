@@ -25,6 +25,7 @@ export function Purchase({
   termsUrl,
   guaranteeDays,
   phone,
+  document,
   confirmEmail,
   button,
   trust,
@@ -39,6 +40,7 @@ export function Purchase({
   termsUrl?: string;
   guaranteeDays: number;
   phone: "optional" | "required" | "hidden";
+  document: boolean;
   confirmEmail: boolean;
   button: string;
   trust: boolean;
@@ -118,6 +120,20 @@ export function Purchase({
             )}
           </Field>
         )}
+        {document ? (
+          <Field label="CPF ou CNPJ para a nota fiscal (opcional)" hint={<FieldMessage code="INVALID_DOCUMENT" />}>
+            {(control) => (
+              <Input
+                {...control}
+                name="document"
+                inputMode="numeric"
+                maxLength={18}
+                autoComplete="off"
+                placeholder="000.000.000-00"
+              />
+            )}
+          </Field>
+        ) : null}
       </div>
 
       <div className={styles.panel}>

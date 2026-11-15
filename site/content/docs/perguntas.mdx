@@ -5,7 +5,8 @@ description: Custos, segurança, LGPD e onde ficam os dados.
 
 ## Quanto custa?
 
-O LibreFunnel não cobra nada: o código é aberto, sob licença MIT, e não há taxa por venda. Os custos possíveis são de terceiros:
+O LibreFunnel não cobra nada: o código é aberto, sob licença MIT, e não há taxa por venda. Os custos possíveis são de
+terceiros:
 
 - Servidor: o plano Always Free da Oracle Cloud basta. Em outro provedor, um servidor de 2 GB de memória.
 - Domínio: grátis pelo DuckDNS, ou o preço do seu registro.
@@ -16,14 +17,17 @@ O LibreFunnel não cobra nada: o código é aberto, sob licença MIT, e não há
 
 ## Quem hospeda a minha loja?
 
-Você. A loja roda no seu servidor e os dados ficam no banco PostgreSQL dele. O projeto não tem servidor central: nenhum pedido, comprador ou senha passa por librefunnel.com.
+Você. A loja roda no seu servidor e os dados ficam no banco PostgreSQL dele. O projeto não tem servidor central: nenhum
+pedido, comprador ou senha passa por librefunnel.com.
 
 ## É seguro?
 
 - O HTTPS é emitido e renovado sozinho.
 - Senhas e chaves salvas em Conexões ficam criptografadas com a chave do seu `.env`.
-- Com provedor de Pix, a loja não acredita no webhook: pergunta ao provedor quanto foi pago e só libera se o valor cobre o pedido. Reembolso tira o acesso.
-- O comprador entra na área de membros por um link de uso único enviado por e-mail, que expira. Não há senha de comprador para vazar.
+- Com provedor de Pix, a loja não acredita no webhook: pergunta ao provedor quanto foi pago e só libera se o valor cobre
+  o pedido. Reembolso tira o acesso.
+- O comprador entra na área de membros por um link de uso único enviado por e-mail, que expira. Não há senha de
+  comprador para vazar.
 - Os vídeos das aulas abrem por links que expiram e são conferidos contra o acesso de cada comprador.
 
 O código está todo no [GitHub](https://github.com/ToledoSDL/librefunnel) para quem quiser revisar.
@@ -49,11 +53,13 @@ Não. Você precisa conectar no servidor por SSH e colar um comando. Depois diss
 
 ## Posso usar o meu domínio?
 
-Sim. Aponte um registro `A` para o IP do servidor. Se o domínio está na Cloudflare, veja [Cloudflare](/docs/cloudflare/).
+Sim. Aponte um registro `A` para o IP do servidor. Se o domínio está na Cloudflare, veja
+[Cloudflare](/docs/cloudflare/).
 
 ## Como mudo de servidor?
 
-Baixe o backup do banco e a pasta de arquivos, instale a loja no servidor novo e restaure. Os comandos estão no [guia](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#backups-and-restore).
+Baixe o backup do banco e a pasta de arquivos, instale a loja no servidor novo e restaure. Os comandos estão no
+[guia](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#backups-and-restore).
 
 ## Posso modificar o código ou vender lojas para clientes?
 

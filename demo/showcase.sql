@@ -1,7 +1,7 @@
 -- Public demo only (DEMO_MODE=1): runs after store.sql on a truncated database. Every date is relative to now(),
 -- so each reset opens a store with a live offer and the last 30 days of activity. Buyers and numbers are demo data.
 INSERT INTO setting (key, value) VALUES
-  ('brand', 'Loja Demo LibreFunnel'),
+  ('brand', 'Confeitaria da Lia'),
   ('owner_email', 'demo@librefunnel.com'),
   ('owner_whatsapp', ''),
   ('terms_url', 'https://librefunnel.com/docs/termos'),
@@ -9,14 +9,14 @@ INSERT INTO setting (key, value) VALUES
   ('order_hours', '72'),
   ('logo', ''),
   ('icon', ''),
-  ('accent', '#1f7a4d'),
+  ('accent', '#a8324a'),
   ('support_email', 'suporte@librefunnel.com'),
   ('support_whatsapp', ''),
   ('legal_name', 'LibreFunnel Demo'),
   ('document', ''),
   ('privacy_url', 'https://librefunnel.com/docs/privacidade'),
   ('powered_by', '1'),
-  ('description', 'Loja de demonstração do LibreFunnel. Produtos, compradores e números são dados de exemplo.'),
+  ('description', 'Loja de demonstração do LibreFunnel: uma confeitaria fictícia. Produtos, compradores e números são dados de exemplo.'),
   ('share_image', ''),
   ('home', ''),
   ('checkout_phone', 'optional'),
@@ -44,17 +44,17 @@ UPDATE product SET
   player_button = true,
   player_speed = true,
   triggers = jsonb_build_array(
-    jsonb_build_object('at', 9, 'until', 12, 'text', 'Dois módulos com acesso na hora', 'button', false),
+    jsonb_build_object('at', 9, 'until', 12, 'text', 'Três módulos com acesso na hora', 'button', false),
     jsonb_build_object('at', 20, 'until', 24, 'text', 'Quero garantir minha vaga', 'button', true)
   ),
   bar_text = 'Demonstração: preço de lançamento por tempo limitado',
-  bar_color = '#1f7a4d',
+  bar_color = '#a8324a',
   testimonials = jsonb_build_array(
-    jsonb_build_object('name', 'Exemplo de depoimento 1', 'text', 'Texto de exemplo: aqui entra o relato de um aluno real, com o resultado que ele teve depois do curso.', 'stars', 5),
-    jsonb_build_object('name', 'Exemplo de depoimento 2', 'text', 'Texto de exemplo: publique depoimentos só com a autorização de quem escreveu.', 'stars', 5),
-    jsonb_build_object('name', 'Exemplo de depoimento 3', 'text', 'Texto de exemplo: as estrelas vão de 1 a 5 e aparecem também no checkout.', 'stars', 4)
+    jsonb_build_object('name', 'Depoimento de exemplo', 'text', 'Eu vendia a R$ 8 sem saber o custo. Refiz a conta na aula de preço e hoje vendo a R$ 12 na mesma rua.', 'stars', 5),
+    jsonb_build_object('name', 'Depoimento de exemplo', 'text', 'A massa da aula 1 não resseca mesmo depois de três dias na geladeira. Era o que me fazia perder pote.', 'stars', 5),
+    jsonb_build_object('name', 'Depoimento de exemplo', 'text', 'Bom para quem está começando. Queria mais sabores de recheio.', 'stars', 4)
   )
-WHERE slug = 'metodo-demo';
+WHERE slug = 'bolo-no-pote';
 --> statement-breakpoint
 UPDATE product SET
   faq = jsonb_build_array(
@@ -62,49 +62,51 @@ UPDATE product SET
     jsonb_build_object('q', 'Como recebo a planilha?', 'a', 'O link fica na área de membros assim que o Pix é confirmado.')
   ),
   testimonials = jsonb_build_array(
-    jsonb_build_object('name', 'Exemplo de depoimento', 'text', 'Texto de exemplo: um comprador conta como usou a planilha para definir a meta do mês.', 'stars', 5)
+    jsonb_build_object('name', 'Depoimento de exemplo', 'text', 'Descobri que o pote de ninho me custava mais que o de brigadeiro. Mudei o preço no mesmo dia.', 'stars', 5)
   )
-WHERE slug = 'planilha-metas';
+WHERE slug = 'planilha-preco';
 --> statement-breakpoint
 INSERT INTO product (slug, name, price_cents, tagline, pix_key, pix_name, pix_city, offer_ends_at, guarantee_days,
   bump_product, bump_price_cents, bump_headline, cover, faq, testimonials, position) VALUES (
-  'mentoria-demo', 'Mentoria Demo: revisão da sua oferta', 29700,
-  'Três encontros gravados em que uma oferta de exemplo é revisada, do título da página ao checkout.',
+  'mentoria-cardapio', 'Mentoria: revisão do seu cardápio', 29700,
+  'Três encontros gravados em que o cardápio de uma confeiteira é revisado: preço de cada sabor, o que sai do cardápio e como chega o pedido.',
   'demo@librefunnel.com', 'LibreFunnel Demo', 'Florianopolis', now() + interval '36 hours', 30,
-  'planilha-metas', 2490, 'Adicionar a Planilha de Metas por R$ 24,90',
-  '/demo/mentoria.svg',
+  'planilha-preco', 2490, 'Adicionar a Planilha de Preço por R$ 24,90',
+  '/demo/mentoring-cover.webp',
   jsonb_build_array(
     jsonb_build_object('q', 'Os encontros são ao vivo?', 'a', 'Não. Os encontros ficam gravados na área de membros e você assiste quando quiser.'),
     jsonb_build_object('q', 'Qual é a garantia?', 'a', '30 dias. Peça o reembolso pelo e-mail de suporte, sem precisar explicar o motivo.')
   ),
   jsonb_build_array(
-    jsonb_build_object('name', 'Exemplo de depoimento', 'text', 'Texto de exemplo: o relato de quem fez a mentoria e o que mudou na oferta.', 'stars', 5)
+    jsonb_build_object('name', 'Depoimento de exemplo', 'text', 'Tirei dois sabores que quase não vendiam e passei a fechar as encomendas na quinta. Sobra muito menos bolo.', 'stars', 5)
   ),
   3
 );
 --> statement-breakpoint
 INSERT INTO module (product, title, cover, position) VALUES
-  ('metodo-demo', 'Bônus: recuperação de vendas', '/demo/cover.svg', 3),
-  ('mentoria-demo', 'Encontro 1: diagnóstico', '/demo/module-1.svg', 1),
-  ('mentoria-demo', 'Encontro 2: ajustes no checkout', '/demo/module-2.svg', 2);
+  ('bolo-no-pote', 'Bônus: vender pelo WhatsApp', '/demo/course-module-3.webp', 3),
+  ('mentoria-cardapio', 'Encontro 1: diagnóstico', '/demo/mentoring-meeting-1.webp', 1),
+  ('mentoria-cardapio', 'Encontro 2: preços', '/demo/mentoring-meeting-2.webp', 2),
+  ('mentoria-cardapio', 'Encontro 3: pedidos da semana', '/demo/mentoring-meeting-3.webp', 3);
 --> statement-breakpoint
 INSERT INTO lesson (module_id, slug, title, video, text, position)
 SELECT module.id, seed.slug, seed.title, seed.video, seed.text, seed.position
 FROM (VALUES
-  ('metodo-demo', 1, 'm1a0', 'Boas-vindas', '/demo/vsl-demo.mp4', 'Assista ao vídeo e anote em uma linha o que você quer vender.', 0),
-  ('metodo-demo', 2, 'm2a2', 'Pixel e API de Conversões', '', 'Conecte o pixel da Meta nas configurações. Os dados do comprador saem só com hash.', 2),
-  ('metodo-demo', 2, 'm2a3', 'Lendo o painel de vendas', '/demo/vsl-demo.mp4', 'Compare vendas por origem e por campanha antes de aumentar o orçamento de um anúncio.', 3),
-  ('metodo-demo', 3, 'm3a1', 'Mensagens de recuperação', '', 'Três lembretes bastam: 15 minutos, 4 horas e 24 horas depois do pedido.', 1),
-  ('metodo-demo', 3, 'm3a2', 'Respostas automáticas no WhatsApp', '', 'Cadastre as perguntas que mais chegam e responda com o link certo.', 2),
-  ('planilha-metas', 1, 'pl2', 'Exemplo preenchido', '/demo/vsl-demo.mp4', 'Uma meta de exemplo preenchida do começo ao fim.', 2),
-  ('mentoria-demo', 1, 'mt1a1', 'A promessa da oferta', '/demo/vsl-demo.mp4', 'A oferta de exemplo antes da revisão.', 1),
-  ('mentoria-demo', 1, 'mt1a2', 'Lista de ajustes', '', 'Título, preço, garantia e prova: o que mudar primeiro.', 2),
-  ('mentoria-demo', 2, 'mt2a1', 'Checkout em uma etapa', '/demo/vsl-demo.mp4', 'Menos campos, Pix na hora e order bump com uma frase.', 1)
+  ('bolo-no-pote', 1, 'm1a0', 'Boas-vindas', '/demo/vsl-demo.mp4', 'Assista ao vídeo e separe potes de 250 ml com tampa antes da próxima aula.', 0),
+  ('bolo-no-pote', 2, 'm2a2', 'Ninho com morango', '', 'Leite em pó, creme de leite e leite condensado batidos a frio. O morango entra picado na hora de montar, nunca antes: a fruta solta água.', 2),
+  ('bolo-no-pote', 2, 'm2a3', 'O ponto do recheio', '/demo/vsl-demo.mp4', 'Na colher, o recheio escorre devagar. Mole demais vaza da camada; firme demais fica seco na geladeira.', 3),
+  ('bolo-no-pote', 3, 'm3a1', 'Cardápio em uma imagem', '', 'Foto do pote aberto, três sabores e o preço. Mais sabores atrasam a decisão.', 1),
+  ('bolo-no-pote', 3, 'm3a2', 'Encomendas da semana', '', 'Feche os pedidos na quinta e produza na sexta: sobra menos e o bolo chega fresco.', 2),
+  ('planilha-preco', 1, 'pl2', 'Exemplo preenchido', '/demo/vsl-demo.mp4', 'O pote de brigadeiro de 250 ml do começo ao fim: custo de R$ 4,50, venda a R$ 12,00.', 2),
+  ('mentoria-cardapio', 1, 'mt1a1', 'O cardápio como chegou', '/demo/vsl-demo.mp4', 'Três sabores a R$ 8 e R$ 9, encomendas pelo direct e nenhuma foto do pote aberto.', 1),
+  ('mentoria-cardapio', 1, 'mt1a2', 'O que mudar primeiro', '', 'Preço abaixo do custo, sabor que não vende e pedido sem link. Nessa ordem.', 2),
+  ('mentoria-cardapio', 2, 'mt2a1', 'Refazendo os preços', '/demo/vsl-demo.mp4', 'Com a planilha aberta, cada sabor ganha o preço que cobre ingredientes, embalagem e o seu tempo.', 1),
+  ('mentoria-cardapio', 3, 'mt3a1', 'Um dia para fechar pedidos', '', 'Um link de WhatsApp com a mensagem pronta e um horário fixo para fechar as encomendas da semana.', 1)
 ) AS seed (product, module_position, slug, title, video, text, position)
 JOIN module ON module.product = seed.product AND module.position = seed.module_position;
 --> statement-breakpoint
 INSERT INTO reply (keywords, text) VALUES
-  (ARRAY['preço', 'valor', 'quanto custa'], 'O Método Demo sai por R$ 97 no Pix, com 7 dias de garantia: {base}/v/metodo-demo');
+  (ARRAY['preço', 'valor', 'quanto custa'], 'O curso Bolo no Pote sai por R$ 97 no Pix, com 7 dias de garantia: {base}/v/bolo-no-pote');
 --> statement-breakpoint
 -- 48 buyers, one order each, one every 15 hours. The Pix code is the same static BR Code orders.brCode builds,
 -- CRC16-CCITT included, so a pending demo order can still be paid by QR or copy and paste.
@@ -117,7 +119,7 @@ WITH RECURSIVE buyer AS (
     (ARRAY['ana', 'bruno', 'carla', 'diego', 'elisa', 'felipe', 'gabriela', 'henrique', 'isabela', 'joao', 'larissa', 'marcos', 'natalia', 'otavio', 'paula', 'rafael'])[n % 16 + 1]
       || '.' || (ARRAY['souza', 'lima', 'pereira', 'costa', 'almeida', 'ribeiro', 'carvalho', 'gomes', 'martins', 'rocha', 'barbosa', 'teixeira'])[n % 12 + 1]
       || n || '@example.com' AS email,
-    CASE n % 6 WHEN 4 THEN 'planilha-metas' WHEN 5 THEN 'mentoria-demo' ELSE 'metodo-demo' END AS product,
+    CASE n % 6 WHEN 4 THEN 'planilha-preco' WHEN 5 THEN 'mentoria-cardapio' ELSE 'bolo-no-pote' END AS product,
     n % 3 = 0 OR n % 12 = 5 AS with_bump,
     CASE WHEN n <= 3 THEN 'pending' WHEN n % 13 = 0 THEN 'refunded' WHEN n % 10 = 7 THEN 'expired' ELSE 'paid' END AS status,
     now() - n * interval '15 hours' - (n * 37 % 60) * interval '1 minute' AS created_at
@@ -239,7 +241,7 @@ SELECT 'whatsapp', orders.phone, chat.kind, chat.body, chat.status, chat.externa
   CASE WHEN chat.kind = 'reply' THEN orders.created_at + chat.minutes * interval '1 minute' + interval '3 seconds' END
 FROM (VALUES
   (1, 'inbound', 'Oi, quero o link', 'received', 'demo-seed-inbound-1', 30),
-  (1, 'reply', 'Que bom! Aqui está o link: https://demo.librefunnel.com/v/metodo-demo', 'read', 'demo', 30),
+  (1, 'reply', 'Que bom! Aqui está o link: https://demo.librefunnel.com/v/bolo-no-pote', 'read', 'demo', 30),
   (5, 'inbound', 'Não achei o acesso no meu e-mail', 'received', 'demo-seed-inbound-5', 90),
   (5, 'reply', 'Seu acesso chega no e-mail da compra. Não achou? Peça um link novo em https://demo.librefunnel.com/m com o e-mail que você usou.', 'read', 'demo', 90),
   (6, 'inbound', 'Vocês emitem nota fiscal?', 'received', 'demo-seed-inbound-6', 200)
@@ -261,7 +263,7 @@ WHERE orders.status = 'paid';
 WITH visit AS (
   SELECT visitor_id, product, 0 AS k, right(id, 16)::integer AS slot, created_at - interval '40 minutes' AS seen_at FROM orders
   UNION ALL
-  SELECT 'demo-visit-' || v, CASE v % 10 WHEN 8 THEN 'planilha-metas' WHEN 9 THEN 'mentoria-demo' ELSE 'metodo-demo' END,
+  SELECT 'demo-visit-' || v, CASE v % 10 WHEN 8 THEN 'planilha-preco' WHEN 9 THEN 'mentoria-cardapio' ELSE 'bolo-no-pote' END,
     v % 20, v, now() - v * interval '72 minutes'
   FROM generate_series(1, 600) AS v
 ),
@@ -269,12 +271,12 @@ touches AS (
   INSERT INTO touch (visitor_id, source, medium, campaign, content, click_kind, click_id, referrer_host, landing, first_seen_at, last_seen_at)
   SELECT visit.visitor_id, origin.source, origin.medium, origin.campaign, origin.content, origin.click_kind,
     CASE WHEN origin.click_kind = '' THEN '' ELSE 'demo-' || visit.visitor_id END, origin.referrer_host,
-    CASE visit.product WHEN 'metodo-demo' THEN '/v/metodo-demo' ELSE '/c/' || visit.product END,
+    CASE visit.product WHEN 'bolo-no-pote' THEN '/v/bolo-no-pote' ELSE '/c/' || visit.product END,
     visit.seen_at, visit.seen_at + interval '35 minutes'
   FROM visit
   JOIN (VALUES
     (0, 'instagram', 'social', 'perfil', 'bio', '', ''),
-    (1, 'facebook', 'cpc', 'lancamento-demo', 'video-curto', 'fbclid', ''),
+    (1, 'facebook', 'cpc', 'bolo-no-pote', 'video-curto', 'fbclid', ''),
     (2, 'google', 'cpc', 'marca', '', 'gclid', ''),
     (3, '', '', '', '', '', ''),
     (4, 'instagram', 'social', 'stories', 'oferta', '', ''),
@@ -298,7 +300,7 @@ JOIN (VALUES
   ('video_watch', 14, 30),
   ('cta_click', 3, 40)
 ) AS milestone (name, reach, second) ON visit.k < milestone.reach
-WHERE visit.product = 'metodo-demo' OR milestone.name = 'page_view';
+WHERE visit.product = 'bolo-no-pote' OR milestone.name = 'page_view';
 --> statement-breakpoint
 -- An earlier Instagram visit for every third buyer, so first-touch and last-touch attribution differ.
 INSERT INTO touch (visitor_id, source, medium, campaign, content, landing, first_seen_at, last_seen_at)
@@ -306,5 +308,5 @@ SELECT visitor_id, 'instagram', 'social', 'perfil', 'link-na-bio', '/', created_
 FROM orders WHERE right(id, 16)::integer % 3 = 0;
 --> statement-breakpoint
 INSERT INTO retention (product, second, views)
-SELECT 'metodo-demo', second, 372 - second * 8 - CASE WHEN second >= 9 THEN 30 ELSE 0 END
+SELECT 'bolo-no-pote', second, 372 - second * 8 - CASE WHEN second >= 9 THEN 30 ELSE 0 END
 FROM generate_series(0, 24) AS second;

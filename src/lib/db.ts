@@ -9,9 +9,10 @@ import { PgTable } from "drizzle-orm/pg-core";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle as pglite } from "drizzle-orm/pglite";
 import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
-import { drizzle as postgresJs } from "drizzle-orm/postgres-js";
-import { migrate as migratePostgres } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
+import { SQL } from "bun";
+import type { ReservedSQL } from "bun";
+import { drizzle as bunSql } from "drizzle-orm/bun-sql";
+import { migrate as migrateBunSql } from "drizzle-orm/bun-sql/migrator";
 import { demoMode } from "./guard";
 import * as schema from "./schema";
 
@@ -28,7 +29,7 @@ const MIGRATIONS = { migrationsFolder: join(process.cwd(), "src", "lib", "migrat
 // Seeds and media of the public demo; only the image's demo target has this folder.
 export const DEMO_DIR = join(process.cwd(), "demo");
 // A product only showcase.sql creates: without it the demo store has not been loaded.
-const DEMO_MARKER = "mentoria-demo";
+const DEMO_MARKER = "mentoria-cardapio";
 const DEMO_RESET_HOUR = "04";
 const JOBS_LOCK = 1_769_235;
 
@@ -65,9 +66,9 @@ export function addSeconds(date: Date, seconds: number): Date {
 function connect(): Connection {
   const url = process.env.DATABASE_URL;
   if (url) {
-    const client = postgres(url);
-    const database = postgresJs(client);
-    let leader: postgres.ReservedSql | undefined;
+    const client = new SQL(url);
+    const database = bunSql({ client });
+    let leader: ReservedSQL | undefined;
 
     // During an update two app containers run side by side; only the one holding this session lock runs the jobs.
     // The lock dies with its connection, so the holder checks the connection on every tick.
@@ -84,8 +85,8 @@ function connect(): Connection {
       leader = undefined;
       const reserved = await client.reserve();
 
-      const locked = await reserved<{ locked: boolean }[]>`SELECT pg_try_advisory_lock(${JOBS_LOCK}) AS locked`.then(
-        ([row]) => row?.locked === true,
+      const locked = await reserved`SELECT pg_try_advisory_lock(${JOBS_LOCK}) AS locked`.then(
+        (rows: { locked: boolean }[]) => rows[0]?.locked === true,
         () => false,
       );
 
@@ -94,7 +95,7 @@ function connect(): Connection {
       return locked;
     };
 
-    return { database, migrate: () => migratePostgres(database, MIGRATIONS), lead };
+    return { database, migrate: () => migrateBunSql(database, MIGRATIONS), lead };
   }
   const dir = process.env.NODE_ENV === "test" ? undefined : join(dataDir(), "pglite");
   if (dir) mkdirSync(dir, { recursive: true });

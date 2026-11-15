@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { createHmac } from "node:crypto";
 import { and, asc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import {
@@ -20,7 +20,7 @@ import { cloudVerify, cloudWebhook, optOutLink, queueRecovery, refreshPhotos, se
 import { contact, message, order } from "@/lib/schema";
 import { GRAPH } from "@/lib/tracking";
 import { POST as botWebhook } from "@/app/api/webhooks/whatsapp/route";
-import { fakeServer, form, freshBrowser, mailFailures, mailTransports, sentMail } from "./fakes";
+import { fakeServer, form, freshBrowser, mailFailures, mailTransports, redirectFetch, sentMail } from "./fakes";
 import { buy, pay, signInAsAdmin, webhook } from "./flows";
 
 let evolution: Awaited<ReturnType<typeof fakeServer>>;
@@ -42,7 +42,7 @@ afterAll(() => evolution.close());
 beforeEach(() => {
   ip += 1;
   freshBrowser(`203.0.113.${ip}`);
-  vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+  setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
   evolution.requests.length = 0;
   sentMail.length = 0;
   for (const route of Object.keys(evolution.routes)) delete evolution.routes[route];
@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 function at(time: string) {
-  vi.setSystemTime(new Date(`2026-11-14T${time}:00-03:00`));
+  setSystemTime(new Date(`2026-11-14T${time}:00-03:00`));
 }
 
 function messagesOf(id: string) {
@@ -109,15 +109,15 @@ describe("recovery", () => {
     expect(sends[0]?.headers["apikey"]).toBe("evolution-key");
     const sent = JSON.parse(sends[0]?.body ?? "{}");
     expect(sent.number).toBe("5548999990000");
-    expect(sent.text).toContain(`https://shop.example/c/metodo-demo?order=${order}`);
+    expect(sent.text).toContain(`https://shop.example/c/bolo-no-pote?order=${order}`);
     expect(sent.text).toContain("Oi Ana!");
     at("16:01");
     await queueRecovery();
     await sendMessages();
-    expect(sentMail[0]?.subject).toBe("Seu acesso ao Método Demo: do zero à primeira venda está reservado");
+    expect(sentMail[0]?.subject).toBe("Seu acesso ao Bolo no Pote: da receita à primeira venda está reservado");
     expect(sentMail[0]?.text).toContain("https://shop.example/m?unsubscribe=");
     await pay(order);
-    vi.setSystemTime(new Date("2026-11-15T12:30:00-03:00"));
+    setSystemTime(new Date("2026-11-15T12:30:00-03:00"));
     await queueRecovery();
     expect((await messagesOf(order)).filter((row) => row.kind === "recovery").map((row) => row.step)).toEqual([0, 1]);
   });
@@ -135,7 +135,7 @@ describe("recovery", () => {
     expect(forOrder().length).toBe(0);
     const [row] = await messagesOf(order);
     expect(row).toMatchObject({ status: "queued", attempts: 0, nextAt: new Date("2026-11-15T09:00:00-03:00") });
-    vi.setSystemTime(new Date("2026-11-15T09:00:30-03:00"));
+    setSystemTime(new Date("2026-11-15T09:00:30-03:00"));
     await sendMessages();
     expect(forOrder().length).toBe(1);
   });
@@ -296,7 +296,7 @@ describe("bot", () => {
       .orderBy(asc(message.id));
 
     expect(rows.map((row) => row.kind)).toEqual(["inbound", "reply", "inbound", "inbound"]);
-    expect(rows[1]?.body).toBe("Que bom! Aqui está o link: https://shop.example/v/metodo-demo");
+    expect(rows[1]?.body).toBe("Que bom! Aqui está o link: https://shop.example/v/bolo-no-pote");
   });
 
   test("a stranger gets their WhatsApp name, and only WhatsApp's own image hosts are fetched for the photo", async () => {
@@ -528,7 +528,6 @@ describe("connections in the panel", () => {
 });
 
 describe("official WhatsApp", () => {
-  const realFetch = globalThis.fetch;
   const APP_SECRET = "0123456789abcdef0123456789abcdef";
   const TOKEN = "EAAG-system-user-token";
   let graph: Awaited<ReturnType<typeof fakeServer>>;
@@ -536,13 +535,11 @@ describe("official WhatsApp", () => {
 
   beforeAll(async () => {
     graph = await fakeServer({});
-    vi.stubGlobal("fetch", (input: string, init?: RequestInit) =>
-      realFetch(input.replace("https://graph.facebook.com", graph.url), init),
-    );
+    redirectFetch("https://graph.facebook.com", graph.url);
   });
 
   afterAll(async () => {
-    vi.stubGlobal("fetch", realFetch);
+    vi.restoreAllMocks();
     await removeCredentials("whatsapp");
     await graph.close();
   });
@@ -675,7 +672,7 @@ describe("official WhatsApp", () => {
     expect(body).toMatchObject({ messaging_product: "whatsapp", to: "5511977778888", type: "template" });
     expect(body.template).toMatchObject({ name: "librefunnel_aviso", language: { code: "pt_BR" } });
     const parameter: string = body.template.components[0].parameters[0].text;
-    expect(parameter).toContain(`https://shop.example/c/metodo-demo?order=${order}`);
+    expect(parameter).toContain(`https://shop.example/c/bolo-no-pote?order=${order}`);
     expect(parameter).not.toMatch(/\n/);
     expect((await messagesOf(order))[0]).toMatchObject({ status: "sent" });
   });
@@ -773,7 +770,7 @@ describe("official WhatsApp", () => {
     );
 
     expect(reply).toMatchObject({ to: "5521955556666", type: "text" });
-    expect(reply.text.body).toBe("Que bom! Aqui está o link: https://shop.example/v/metodo-demo");
+    expect(reply.text.body).toBe("Que bom! Aqui está o link: https://shop.example/v/bolo-no-pote");
     await cloudHook(change({ statuses: [{ id: "wamid.OUT1", status: "failed", recipient_id: "5521955556666" }] }));
 
     const [row] = await db()
@@ -825,7 +822,7 @@ describe("official WhatsApp", () => {
     );
 
     expect(sent).toMatchObject({ type: "text", text: { body: "Pode falar!" } });
-    vi.setSystemTime(new Date("2026-11-15T12:01:00-03:00"));
+    setSystemTime(new Date("2026-11-15T12:01:00-03:00"));
     await signInAsAdmin();
     expect((await inbox("all", open)).thread?.canReply).toBe(false);
     expect((await sendReply({ code: null }, form({ address: open.address, text: "Ainda aí?" }))).code).toBe(

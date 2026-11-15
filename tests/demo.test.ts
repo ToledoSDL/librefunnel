@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, setSystemTime } from "bun:test";
 import { count, eq, sql } from "drizzle-orm";
 import { drizzle as pglite } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
@@ -32,7 +32,7 @@ afterAll(() => evolution.close());
 beforeEach(() => {
   ip += 1;
   freshBrowser(`192.0.2.${ip}`);
-  vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+  setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
   process.env.DEMO_MODE = "1";
 });
 
@@ -169,25 +169,25 @@ describe("nightly reset", () => {
   test("outside demo mode the store is left alone; demo mode loads the full store once, then resets only at 04:00 in Sao Paulo", async () => {
     delete process.env.DEMO_MODE;
     await nightlyDemoReset();
-    expect(await slugs()).toEqual(["metodo-demo", "planilha-metas"]);
+    expect(await slugs()).toEqual(["bolo-no-pote", "planilha-preco"]);
 
     process.env.DEMO_MODE = "1";
     await nightlyDemoReset();
-    expect(await slugs()).toEqual(["mentoria-demo", "metodo-demo", "planilha-metas"]);
-    expect(await brand()).toBe("Loja Demo LibreFunnel");
+    expect(await slugs()).toEqual(["bolo-no-pote", "mentoria-cardapio", "planilha-preco"]);
+    expect(await brand()).toBe("Confeitaria da Lia");
 
     await db().update(setting).set({ value: "Loja Mexida" }).where(eq(setting.key, "brand"));
     await nightlyDemoReset();
     expect(await brand()).toBe("Loja Mexida");
 
-    vi.setSystemTime(new Date("2026-11-15T04:10:00-03:00"));
+    setSystemTime(new Date("2026-11-15T04:10:00-03:00"));
     delete process.env.DEMO_MODE;
     await nightlyDemoReset();
     expect(await brand()).toBe("Loja Mexida");
 
     process.env.DEMO_MODE = "1";
     await nightlyDemoReset();
-    expect(await brand()).toBe("Loja Demo LibreFunnel");
+    expect(await brand()).toBe("Confeitaria da Lia");
 
     await db().update(setting).set({ value: "Loja Mexida" }).where(eq(setting.key, "brand"));
     await nightlyDemoReset();
@@ -196,7 +196,7 @@ describe("nightly reset", () => {
 
   test("restores the full demo store with consistent money and empties connections", async () => {
     await buy({ email: "before-reset@example.com" });
-    await db().update(product).set({ name: "Produto editado" }).where(eq(product.slug, "metodo-demo"));
+    await db().update(product).set({ name: "Produto editado" }).where(eq(product.slug, "bolo-no-pote"));
     await resetDemo();
 
     const products = await db()
@@ -232,13 +232,15 @@ describe("nightly reset", () => {
       db().select({ total: count() }).from(message).where(eq(message.status, "failed")).then(one),
     ]);
 
-    const metodo = products.find((row) => row.slug === "metodo-demo");
+    const course = products.find((row) => row.slug === "bolo-no-pote");
     const webhook = (await credentials("webhook"))("webhook")("secret");
 
-    expect(products.map((row) => row.slug).sort()).toEqual(["mentoria-demo", "metodo-demo", "planilha-metas"]);
-    expect(metodo?.name).toBe("Método Demo: do zero à primeira venda");
-    expect(metodo?.offerOpen).toBe(true);
-    expect(products.flatMap((row) => row.testimonials).every((entry) => entry.name.startsWith("Exemplo"))).toBe(true);
+    expect(products.map((row) => row.slug).sort()).toEqual(["bolo-no-pote", "mentoria-cardapio", "planilha-preco"]);
+    expect(course?.name).toBe("Bolo no Pote: da receita à primeira venda");
+    expect(course?.offerOpen).toBe(true);
+    expect(products.flatMap((row) => row.testimonials).every((entry) => entry.name === "Depoimento de exemplo")).toBe(
+      true,
+    );
     expect(orders).toHaveLength(48);
     expect(orders.every((row) => row.id.startsWith("demo"))).toBe(true);
 
@@ -255,9 +257,9 @@ describe("nightly reset", () => {
     expect(
       [messages.total, touches.total, events.total, progresses.total, failed.total].every((total) => total > 0),
     ).toBe(true);
-    expect(lessons.total).toBe(13);
+    expect(lessons.total).toBe(14);
     expect(webhook).toBe("");
-    expect(await brand()).toBe("Loja Demo LibreFunnel");
+    expect(await brand()).toBe("Confeitaria da Lia");
   });
 
   test("a pending demo order pays through the simulated Pix", async () => {

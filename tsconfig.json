@@ -37,6 +37,7 @@
     "tests",
     "next.config.ts",
     "docs/brand.ts",
+    "demo/art.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],

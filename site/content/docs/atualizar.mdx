@@ -1,17 +1,24 @@
 ---
 title: Atualizar
-description: A versão instalada aparece no rodapé da barra lateral do painel. Quando sai uma versão nova, ela vira o botão Atualizar para vX.Y.Z.
+description:
+  A versão instalada aparece no rodapé da barra lateral do painel. Quando sai uma versão nova, ela vira o botão
+  Atualizar para vX.Y.Z.
 ---
 
 ## Pelo painel
 
-- **Atualizar** mostra o que mudou, faz o backup do banco em `backups/antes-vX.Y.Z.sql` (guarda os três últimos), baixa a versão nova e sobe ao lado da que está rodando. A antiga só para depois que a nova responde, então a loja não sai do ar. Se a nova não subir em 3 minutos, ela é removida e a loja continua na anterior.
+- **Atualizar** mostra o que mudou, faz o backup do banco em `backups/antes-vX.Y.Z.sql` (guarda os três últimos), baixa
+  a versão nova e sobe ao lado da que está rodando. A antiga só para depois que a nova responde, então a loja não sai do
+  ar. Se a nova não subir em 3 minutos, ela é removida e a loja continua na anterior.
 - **Atualizar sozinha** escolhe uma hora do dia para fazer o mesmo automaticamente, sempre com backup antes.
-- **Reiniciar agora** troca o contêiner da loja do mesmo jeito, sem mudar a versão. Serve para aplicar mudanças no `.env`.
+- **Reiniciar agora** troca o contêiner da loja do mesmo jeito, sem mudar a versão. Serve para aplicar mudanças no
+  `.env`.
 
-Produtos, pedidos, compradores, configurações, arquivos enviados e a sessão do WhatsApp continuam onde estão. A loja aplica as mudanças do banco sozinha ao subir.
+Produtos, pedidos, compradores, configurações, arquivos enviados e a sessão do WhatsApp continuam onde estão. A loja
+aplica as mudanças do banco sozinha ao subir.
 
-As versões vêm das releases publicadas no GitHub, como imagem pronta: o servidor não compila nada. A loja só consulta o GitHub para saber se há versão nova.
+As versões vêm das releases publicadas no GitHub, como imagem pronta: o servidor não compila nada. A loja só consulta o
+GitHub para saber se há versão nova.
 
 ## Voltar para uma versão anterior
 
@@ -21,7 +28,8 @@ A versão fica fixada no `.env`, em `LIBREFUNNEL_VERSION`. Troque pelo número d
 docker compose up -d
 ```
 
-Se a versão nova já tinha mudado o banco, restaure também o backup feito antes da atualização. Os comandos estão em [Backups and restore](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#backups-and-restore), no guia.
+Se a versão nova já tinha mudado o banco, restaure também o backup feito antes da atualização. Os comandos estão em
+[Backups and restore](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#backups-and-restore), no guia.
 
 ## Pelo terminal
 
@@ -32,4 +40,6 @@ git pull && docker compose pull app && docker compose up -d
 
 ## Backups
 
-Além do backup antes de cada atualização, o banco é salvo todo dia, e os últimos 7 dias ficam guardados. Essas cópias ficam no mesmo servidor: baixe uma para outro lugar de vez em quando. Os comandos para baixar e restaurar estão no [guia](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#backups-and-restore).
+Além do backup antes de cada atualização, o banco é salvo todo dia, e os últimos 7 dias ficam guardados. Essas cópias
+ficam no mesmo servidor: baixe uma para outro lugar de vez em quando. Os comandos para baixar e restaurar estão no
+[guia](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#backups-and-restore).

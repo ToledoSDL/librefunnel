@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
 import { removeConnection, saveEvolution, saveMeta, savePix, saveSmtp } from "@/lib/actions";
 import { credentials } from "@/lib/catalog";
@@ -17,15 +17,15 @@ let ip = 0;
 beforeEach(() => {
   ip += 1;
   freshBrowser(`203.0.113.${ip}`);
-  vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+  setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
 });
 
 describe("dashboard", () => {
   test("revenue is net of refunds and bucketed by Sao Paulo day", async () => {
-    vi.setSystemTime(new Date("2026-11-13T22:00:00-03:00"));
+    setSystemTime(new Date("2026-11-13T22:00:00-03:00"));
     const late = await buy({ email: "night@example.com" });
     await pay(late);
-    vi.setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
     const refunded = await buy({ email: "refunded@example.com" });
     await pay(refunded);
     await webhook({ order: refunded, status: "refunded", amount: 9700, id: "refund-1" });
@@ -66,19 +66,19 @@ describe("dashboard", () => {
     await trackRoute(
       new Request("https://shop.example/t", {
         method: "POST",
-        body: JSON.stringify({ e: "page_view", p: "planilha-metas", q: "", r: "", l: "/v/planilha-metas" }),
+        body: JSON.stringify({ e: "page_view", p: "planilha-preco", q: "", r: "", l: "/v/planilha-preco" }),
       }),
     );
     await trackRoute(
       new Request("https://shop.example/t", {
         method: "POST",
-        body: JSON.stringify({ e: "cta_click", p: "planilha-metas" }),
+        body: JSON.stringify({ e: "cta_click", p: "planilha-preco" }),
       }),
     );
-    const order = await buy({ email: "funnel@example.com", slug: "planilha-metas" });
+    const order = await buy({ email: "funnel@example.com", slug: "planilha-preco" });
     await pay(order, 4700);
-    expect((await funnel(7)).find((row) => row.product === "planilha-metas")).toEqual({
-      product: "planilha-metas",
+    expect((await funnel(7)).find((row) => row.product === "planilha-preco")).toEqual({
+      product: "planilha-preco",
       visitors: 1,
       played: 0,
       offer: 0,
@@ -108,7 +108,7 @@ describe("dashboard", () => {
     const paid = await buy({ email: "filters@example.com", bump: "1" });
     await pay(paid, 9700 + 1990);
     await buy({ email: "filters@example.com", name: "Outra Pessoa" });
-    const result = await orders({ ...all, product: "planilha-metas" });
+    const result = await orders({ ...all, product: "planilha-preco" });
     expect(result.rows.map((row) => row.id)).toEqual([paid]);
     expect(result.counts).toEqual(new Map([["paid", 1]]));
     expect((await orders({ ...all, status: "pending" })).counts).toEqual(
@@ -237,7 +237,7 @@ describe("integration settings", () => {
     expect(
       await saveSmtp({ code: null }, form({ preset: "brevo", user: "login@smtp-brevo.com", password: "" })),
     ).toEqual({ code: null, ok: true });
-    expect((await credentials("smtp"))("smtp")("password")).toBe(smtpPass);
+    expect((await credentials("smtp"))("smtp")("password")).toBe(smtpPass ?? "");
     expect(await removeConnection({ code: null }, form({ kind: "abacatepay" }))).toEqual({ code: null, ok: true });
     expect((await integrations()).pix.provider).toBe("static");
     for (const kind of ["smtp", "meta", "mercadopago", "evolution"])

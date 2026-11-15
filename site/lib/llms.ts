@@ -65,7 +65,9 @@ export async function docMarkdown(name: string) {
 }
 
 export function llms() {
-  const docs = pages().map((page) => `- [${page.data.title}](${SITE}/md/${slug(page.slugs)}.md): ${page.data.description}`);
+  const docs = pages().map(
+    (page) => `- [${page.data.title}](${SITE}/md/${slug(page.slugs)}.md): ${page.data.description}`,
+  );
 
   return [
     INTRO,

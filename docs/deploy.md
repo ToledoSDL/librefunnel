@@ -493,9 +493,11 @@ In the dashboard, the version sits at the bottom of the sidebar. When a new rele
 - **Atualizar sozinha** picks an hour of the day for the same thing to happen automatically, always with a backup first.
 - **Reiniciar agora** swaps the store container the same way, without changing the version. It also picks up changes made to `.env`.
 
-This runs through the `updater` service in `compose.yaml`. It is the only part with access to Docker, it has no public port, it needs the same key as the store (`UPDATER_TOKEN`, which defaults to `POSTGRES_PASSWORD`) and it can only restart, update to a published version and back up.
+This runs through the `updater` service in `compose.yaml`. It is the only part with access to Docker, it has no public port, it needs the same key as the store (`UPDATER_TOKEN`, which the installer sets and which falls back to `POSTGRES_PASSWORD` when empty) and it can only restart, update to a published version and back up.
 
-The installed version is pinned in `.env` as `LIBREFUNNEL_VERSION`. To go back to an earlier one, set it there and run:
+Each release lists the digest of its store image in `images.txt`. The dashboard and the installer save it in `.env` as `LIBREFUNNEL_DIGEST`, and Docker then refuses an image that was changed in the registry after the release. The dashboard does not install a release without `images.txt` (the ones published before it existed); the installer installs those by tag.
+
+The installed version is pinned in `.env` as `LIBREFUNNEL_VERSION`. To go back to an earlier one, set it there, empty `LIBREFUNNEL_DIGEST` (with a digest set, Docker pulls that exact image whatever the version says) and run:
 
 ```sh
 docker compose up -d
@@ -510,9 +512,11 @@ cd librefunnel
 git pull && docker compose pull app && docker compose up -d
 ```
 
+On a manual install that pins `LIBREFUNNEL_DIGEST`, set it to the `app=` line of the new release's `images.txt` first.
+
 ### Publishing a release
 
-For maintainers: push a tag and the **Release** workflow checks the code, publishes the store and updater images for x64 and arm64 to GitHub Packages (`ghcr.io/toledosdl/librefunnel` and `ghcr.io/toledosdl/librefunnel-updater`) and creates the release with its notes. The installer installs the latest release, so it refuses to run until the first one exists.
+For maintainers: push a tag and the **Release** workflow checks the code, publishes the store and updater images for x64 and arm64 to GitHub Packages (`ghcr.io/toledosdl/librefunnel` and `ghcr.io/toledosdl/librefunnel-updater`) and creates the release with its notes and `images.txt`, the digests of those images. The installer installs the latest release, so it refuses to run until the first one exists.
 
 ```sh
 git tag v0.3.0 && git push origin v0.3.0

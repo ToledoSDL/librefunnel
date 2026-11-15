@@ -48,6 +48,9 @@ const MAX_EVENT_AGE = 7 * 86400 - 3600;
 const MAX_ATTEMPTS = 5;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,59}$/;
 const RETENTION_BATCH = 120;
+// High because mobile carriers put many buyers behind one address.
+const NEW_VISITORS_PER_HOUR = 600;
+const TOUCHES_PER_DAY = 20;
 
 export async function visitor(): Promise<string> {
   const current = (await cookies()).get(VISITOR_COOKIE)?.value;
@@ -80,7 +83,8 @@ export async function recordTouch(visitorId: string, search: string, referrer: s
     referrerHost: referrerHost(referrer),
   };
 
-  if (Object.values(fields).every((part) => part === "")) return;
+  // Each new mix of UTM values is a new row, so one visitor cycling them would grow the table without end.
+  if (Object.values(fields).every((part) => part === "") || limited("touch", visitorId, TOUCHES_PER_DAY, 86400)) return;
   const t = new Date();
   await db()
     .insert(touch)
@@ -141,10 +145,13 @@ async function track(body: JsonObject, visitorId: string): Promise<TrackCode | n
 }
 
 export async function trackRequest(request: Request): Promise<Response> {
-  if (limited("track", clientIp(request.headers), 240, 60))
-    return Response.json({ code: "RATE_LIMITED" }, { status: 429 });
+  const ip = clientIp(request.headers);
+  if (limited("track", ip, 240, 60)) return Response.json({ code: "RATE_LIMITED" }, { status: 429 });
   const raw = await readBody(request, 2048);
   if (raw === undefined) return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413 });
+  // Every request without the cookie is a new visitor and new rows: a script dropping it must not fill the disk.
+  const known = VISITOR.test((await cookies()).get(VISITOR_COOKIE)?.value ?? "");
+  if (!known && limited("visitor", ip, NEW_VISITORS_PER_HOUR, 3600)) return new Response(null, { status: 204 });
   const body = jsonObject(raw);
   let code: TrackCode | null = "INVALID_EVENT";
   if (body)
@@ -335,9 +342,8 @@ export async function sendConversions() {
     .innerJoin(customer, eq(customer.id, order.customerId))
     .where(keyed(claimed));
 
-  const events: object[] = [];
+  const pending: { key: ConversionKey; event: object }[] = [];
   const stale: ConversionKey[] = [];
-  const batch: ConversionKey[] = [];
   const oldest = addSeconds(t, -MAX_EVENT_AGE);
   for (const row of rows) {
     const key = { orderId: row.orderId, name: row.name };
@@ -349,60 +355,71 @@ export async function sendConversions() {
     const parts = nameParts(row.buyer);
     const contents = [{ id: row.product, quantity: 1, item_price: row.productAmount / 100 }];
     if (row.bump && row.bumpAmount) contents.push({ id: row.bump, quantity: 1, item_price: row.bumpAmount / 100 });
-    batch.push(key);
-    events.push({
-      event_name: row.name,
-      event_time: Math.floor(eventTime.getTime() / 1000),
-      event_id: `${row.orderId}:${row.name}`,
-      action_source: "website",
-      event_source_url: `${baseUrl()}/c/${row.product}`,
-      user_data: {
-        em: [sha256(row.email)],
-        ...(row.phone ? { ph: [sha256(row.phone)] } : {}),
-        ...(parts[0] ? { fn: [sha256(parts[0])] } : {}),
-        ...(parts.length > 1 ? { ln: [sha256(parts[parts.length - 1] ?? "")] } : {}),
-        country: [sha256("br")],
-        external_id: [sha256(row.customerId)],
-        ...(isIP(row.ip) ? { client_ip_address: row.ip } : {}),
-        client_user_agent: row.userAgent,
-        ...(row.fbp ? { fbp: row.fbp } : {}),
-        ...(row.fbc ? { fbc: row.fbc } : {}),
-      },
-      custom_data: {
-        currency: "BRL",
-        value: row.amount / 100,
-        content_ids: contents.map((item) => item.id),
-        contents,
-        content_type: "product",
-        num_items: contents.length,
-        order_id: row.orderId,
+    pending.push({
+      key,
+      event: {
+        event_name: row.name,
+        event_time: Math.floor(eventTime.getTime() / 1000),
+        event_id: `${row.orderId}:${row.name}`,
+        action_source: "website",
+        event_source_url: `${baseUrl()}/c/${row.product}`,
+        user_data: {
+          em: [sha256(row.email)],
+          ...(row.phone ? { ph: [sha256(row.phone)] } : {}),
+          ...(parts[0] ? { fn: [sha256(parts[0])] } : {}),
+          ...(parts.length > 1 ? { ln: [sha256(parts[parts.length - 1] ?? "")] } : {}),
+          country: [sha256("br")],
+          external_id: [sha256(row.customerId)],
+          ...(isIP(row.ip) ? { client_ip_address: row.ip } : {}),
+          client_user_agent: row.userAgent,
+          ...(row.fbp ? { fbp: row.fbp } : {}),
+          ...(row.fbc ? { fbc: row.fbc } : {}),
+        },
+        custom_data: {
+          currency: "BRL",
+          value: row.amount / 100,
+          content_ids: contents.map((item) => item.id),
+          contents,
+          content_type: "product",
+          num_items: contents.length,
+          order_id: row.orderId,
+        },
       },
     });
   }
 
   if (stale.length)
     await db().update(conversion).set({ status: "failed", error: "META_REJECTED", nextAt: t }).where(keyed(stale));
-  if (events.length === 0) return;
-  const code = await meta(config, events);
-  if (code === null) {
-    await db()
-      .update(conversion)
-      .set({ status: "sent", error: null, sentAt: new Date(), nextAt: t })
-      .where(keyed(batch));
-    return;
-  }
-  if (code === "META_REJECTED") {
-    await db().update(conversion).set({ status: "failed", error: code, nextAt: t }).where(keyed(batch));
-    return;
-  }
-  await db()
-    .update(conversion)
-    .set({
-      status: sql`CASE WHEN ${conversion.attempts} >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'queued' END`,
-      error: code,
-      nextAt: sql`${t.toISOString()}::timestamptz + interval '1 minute' * (1 << ${conversion.attempts})`,
-    })
-    .where(keyed(batch));
+  if (pending.length === 0) return;
+
+  const settle = async (keys: ConversionKey[], code: ConversionCode | null) => {
+    const update = db().update(conversion);
+    if (code === null)
+      await update.set({ status: "sent", error: null, sentAt: new Date(), nextAt: t }).where(keyed(keys));
+    else if (code === "META_REJECTED")
+      await update.set({ status: "failed", error: code, nextAt: t }).where(keyed(keys));
+    else
+      await update
+        .set({
+          status: sql`CASE WHEN ${conversion.attempts} >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'queued' END`,
+          error: code,
+          nextAt: sql`${t.toISOString()}::timestamptz + interval '1 minute' * (1 << ${conversion.attempts})`,
+        })
+        .where(keyed(keys));
+  };
+
+  const code = await meta(
+    config,
+    pending.map((entry) => entry.event),
+  );
+
+  if (code !== "META_REJECTED" || pending.length === 1)
+    return settle(
+      pending.map((entry) => entry.key),
+      code,
+    );
+  // Meta rejects the whole batch for one malformed event: sent alone, each event gets its own answer.
+  for (const entry of pending) await settle([entry.key], await meta(config, [entry.event]));
 }
 
 export async function sendMetaTest(): Promise<ConversionCode | null> {

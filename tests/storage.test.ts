@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
+import { mkdir, readdir, utimes, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { enterFromOrder, saveLesson } from "@/lib/actions";
 import { removeCredentials, saveCredentials } from "@/lib/catalog";
 import { db } from "@/lib/db";
-import { connectCloudflare, directUpload, serveMedia, sign } from "@/lib/media";
+import { connectCloudflare, directUpload, serveMedia, sign, sweepMedia } from "@/lib/media";
 import { order, product } from "@/lib/schema";
 import { fakeServer, form, freshBrowser, redirected } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
@@ -19,6 +21,30 @@ const EXAMPLE = {
 
 const AT = new Date("2013-05-24T00:00:00Z");
 const ID = "b".repeat(32);
+
+describe("unused uploads", () => {
+  test("a file nothing mentions goes after 30 days, with its stream; used and recent files stay", async () => {
+    await removeCredentials("storage");
+    const dir = join(process.env.DATA_DIR ?? "", "media");
+    const used = "1".repeat(32);
+    const unused = "2".repeat(32);
+    const recent = "3".repeat(32);
+    await mkdir(join(dir, unused), { recursive: true });
+    await db()
+      .update(product)
+      .set({ cover: `/media/${used}.jpg` })
+      .where(eq(product.slug, "metodo-demo"));
+    for (const name of [`${used}.jpg`, `${unused}.mp4`, `${unused}/master.m3u8`, `${recent}.png`])
+      await writeFile(join(dir, name), "x");
+    const longAgo = new Date(Date.now() - 31 * 86_400_000);
+    for (const name of [`${used}.jpg`, `${unused}.mp4`, unused]) await utimes(join(dir, name), longAgo, longAgo);
+
+    await sweepMedia();
+
+    const left = (await readdir(dir)).filter((name) => [used, unused, recent].some((id) => name.startsWith(id)));
+    expect(left.sort()).toEqual([`${used}.jpg`, `${recent}.png`]);
+  });
+});
 
 describe("S3 signature", () => {
   test("a presigned GET matches the documented signature", () => {
@@ -125,6 +151,36 @@ describe("files in a bucket", () => {
   function get(file: string) {
     return serveMedia(new Request(`https://shop.example/media/${file}`), file);
   }
+
+  test("an object nothing mentions goes after 30 days; used, recent and non-media objects stay", async () => {
+    const used = "4".repeat(32);
+    const unused = "5".repeat(32);
+    vi.setSystemTime(new Date(Date.now() + 2 * 86_400_000));
+    await db()
+      .update(product)
+      .set({ cover: `/media/${used}.jpg` })
+      .where(eq(product.slug, "metodo-demo"));
+    const old = new Date(Date.now() - 31 * 86_400_000).toISOString();
+
+    const objects = [
+      [`media/${used}.jpg`, old],
+      [`media/${unused}/360/0.m4s`, old],
+      [`media/${unused}.mp4`, new Date().toISOString()],
+      ["backups/librefunnel-1.sql", old],
+    ].map(([key, modified]) => `<Contents><Key>${key}</Key><LastModified>${modified}</LastModified></Contents>`);
+
+    bucket.routes["GET /loja"] = {
+      status: 200,
+      body: `<ListBucketResult><IsTruncated>false</IsTruncated>${objects.join("")}</ListBucketResult>`,
+    };
+    bucket.routes["DELETE *"] = { status: 204, body: "" };
+
+    await sweepMedia();
+
+    expect(bucket.requests.filter((request) => request.method === "DELETE").map((request) => request.path)).toEqual([
+      `/loja/media/${unused}/360/0.m4s`,
+    ]);
+  });
 
   test("a lesson file opens only for current buyers, through short signed links", async () => {
     await signInAsAdmin();

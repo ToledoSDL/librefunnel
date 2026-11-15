@@ -8,7 +8,8 @@ x-logging: &logging
 services:
   app:
     # Updates swap this image; everything the store saved lives in the volumes below and in .env.
-    image: ghcr.io/toledosdl/librefunnel:${LIBREFUNNEL_VERSION:-latest}
+    # With LIBREFUNNEL_DIGEST (images.txt of the release) Docker refuses an image changed in the registry after publishing.
+    image: ghcr.io/toledosdl/librefunnel:${LIBREFUNNEL_VERSION:-latest}${LIBREFUNNEL_DIGEST:+@}${LIBREFUNNEL_DIGEST:-}
     build:
       context: .
       dockerfile: deploy/Dockerfile
@@ -56,6 +57,8 @@ services:
       POSTGRES_USER: librefunnel
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: librefunnel
+      # Read by deploy/evolution.sql when the database is first created.
+      EVOLUTION_DB_PASSWORD: ${EVOLUTION_DB_PASSWORD:-}
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./deploy/evolution.sql:/docker-entrypoint-initdb.d/evolution.sql:ro
@@ -108,11 +111,12 @@ services:
     restart: unless-stopped
     environment:
       SERVER_URL: http://evolution:8080
-      # Reachable only inside this network, so the database password doubles as the key when none is set.
+      # The installer sets its own key; stores installed before that use the database password.
       AUTHENTICATION_API_KEY: ${EVOLUTION_KEY:-${POSTGRES_PASSWORD}}
       AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
       DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://librefunnel:${POSTGRES_PASSWORD}@db:5432/evolution
+      # Its own user on stores installed with EVOLUTION_DB_PASSWORD; older stores keep the store's user.
+      DATABASE_CONNECTION_URI: postgresql://${EVOLUTION_DB_PASSWORD:+evolution:}${EVOLUTION_DB_PASSWORD:-librefunnel:${POSTGRES_PASSWORD}}@db:5432/evolution
       DATABASE_CONNECTION_CLIENT_NAME: librefunnel
       CACHE_REDIS_ENABLED: "false"
       CACHE_LOCAL_ENABLED: "true"
@@ -142,6 +146,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/srv/librefunnel
+
+# Without IPv6 here Docker relays IPv6 visitors through its own proxy and all of them reach Caddy from one private
+# address. The installer turns it on where the server has IPv6 and Docker 27 or later, which picks the subnet itself.
+networks:
+  default:
+    enable_ipv6: ${INSTALL_IPV6:-false}
 
 volumes:
   data:

@@ -754,7 +754,21 @@ fetch_files() {
   run mkdir -p "$DIR/deploy"
   run chmod 755 "$DIR"
   for f in $FILES; do run cp "$WORK/files/$f" "$DIR/$f"; done
+  # The image digest published with the release: Docker then refuses an image changed in the registry after it.
+  # Releases published before images.txt existed have none, and those keep pulling by tag.
+  DIGEST=''
+  if [ "$PLAN" = 0 ]; then
+    DIGEST=$(curl -fsSL --proto =https --max-time 15 "https://github.com/$REPO/releases/download/$TAG/images.txt" 2>/dev/null |
+      sed -n 's/^app=\(sha256:[0-9a-f]\{64\}\)$/\1/p' | head -n 1) || DIGEST=''
+  fi
   ok "Versão $TAG em $DIR"
+}
+
+# Without IPv6 on the compose network, Docker relays IPv6 visitors through its own proxy and they all reach Caddy from one
+# private address, so every per-visitor limit would count them as one person. Docker 27 and later picks the subnet itself.
+ipv6_network() {
+  [ "$LOCAL" != 1 ] && command -v ip >/dev/null 2>&1 && [ -n "$(ip -6 route show default 2>/dev/null)" ] &&
+    version_at_least "$(docker_version)" 27
 }
 
 write_env() {
@@ -764,11 +778,20 @@ write_env() {
   env_set BASE_URL "https://$DOMAIN"
   if [ -n "$PASSWORD" ]; then env_set ADMIN_PASSWORD "$PASSWORD"; fi
   if [ -z "$(env_get SECRET)" ]; then env_set SECRET "$(random_hex 32)"; fi
-  if [ -z "$(env_get POSTGRES_PASSWORD)" ]; then env_set POSTGRES_PASSWORD "$(random_hex 24)"; fi
+  # deploy/evolution.sql creates Evolution's own database user only on a new database, so only a new store gets its password.
+  if [ -z "$(env_get POSTGRES_PASSWORD)" ]; then
+    env_set POSTGRES_PASSWORD "$(random_hex 24)"
+    env_set EVOLUTION_DB_PASSWORD "$(random_hex 24)"
+  fi
+  # Separate keys, so a compromised Evolution cannot call the updater.
+  if [ -z "$(env_get EVOLUTION_KEY)" ]; then env_set EVOLUTION_KEY "$(random_hex 24)"; fi
+  if [ -z "$(env_get UPDATER_TOKEN)" ]; then env_set UPDATER_TOKEN "$(random_hex 24)"; fi
   if [ -n "$EMAIL" ]; then env_set ACME_EMAIL "$EMAIL"; fi
   # The updater drives compose from another folder: the same project name keeps it on these containers and volumes.
   if [ -z "$(env_get COMPOSE_PROJECT_NAME)" ]; then env_set COMPOSE_PROJECT_NAME "$PROJECT"; fi
   if [ "$FRESH" = 1 ]; then env_set LIBREFUNNEL_VERSION "$TAG"; fi
+  env_set LIBREFUNNEL_DIGEST "$DIGEST"
+  if ipv6_network; then env_set INSTALL_IPV6 true; else env_set INSTALL_IPV6 false; fi
   env_set INSTALL_CLOUDFLARE "$CF"
   if [ "$CF" = 1 ]; then
     env_set INSTALL_CF_DNS "$CF_DNS"
@@ -785,7 +808,7 @@ write_env() {
   # The updater turns Evolution on and off from the admin; here it only starts it, never stops what the admin turned on.
   if [ "$WHATSAPP" = 1 ]; then env_set COMPOSE_PROFILES whatsapp; fi
   if [ "$PLAN" = 1 ]; then
-    shell "escreve $ENV_FILE (modo 600): DOMAIN, BASE_URL, as escolhas (INSTALL_*) e o que faltar de ADMIN_PASSWORD, SECRET, POSTGRES_PASSWORD"
+    shell "escreve $ENV_FILE (modo 600): DOMAIN, BASE_URL, as escolhas (INSTALL_*) e o que faltar de ADMIN_PASSWORD, SECRET, POSTGRES_PASSWORD, EVOLUTION_KEY, UPDATER_TOKEN"
   elif [ "$LOCAL" = 1 ]; then
     ok "$ENV_FILE, legível só por você"
   else

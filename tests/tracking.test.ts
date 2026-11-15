@@ -85,6 +85,18 @@ describe("/t", () => {
     expect(cookieStore.get("lf_vid")).toMatch(/^[a-z0-9]{20}$/);
   });
 
+  test("requests that keep dropping the cookie stop creating visitors", async () => {
+    for (let index = 0; index < 600; index += 1) {
+      freshBrowser(`203.0.113.${ip}`);
+      vi.setSystemTime(new Date(Date.UTC(2026, 10, 14, 15, 0, index)));
+      await view("");
+    }
+    const before = await db().$count(event);
+    freshBrowser(`203.0.113.${ip}`);
+    expect((await view("")).status).toBe(204);
+    expect(await db().$count(event)).toBe(before);
+  });
+
   test("is rate limited per IP", async () => {
     let last = 0;
     for (let index = 0; index < 241; index += 1) last = (await hit({ e: "page_view", p: "" })).status;
@@ -220,6 +232,20 @@ describe("Meta Conversions API", () => {
     const other = await buy({ email: "nometa@example.com" });
     await sendConversions();
     expect(await conversionOf(other)).toMatchObject({ status: "skipped", error: "META_NOT_CONFIGURED" });
+  });
+
+  test("a rejected batch is sent again one event at a time, so one bad event fails alone", async () => {
+    server.routes["POST /v27.0/123/events"] = { status: 400, body: { error: { code: 100, fbtrace_id: "abc" } } };
+    const first = await buy({ email: "batch1@example.com" });
+    const second = await buy({ email: "batch2@example.com" });
+    const before = server.to("POST", "/v27.0/123/events").length;
+    await sendConversions();
+    const requests = server.to("POST", "/v27.0/123/events").slice(before);
+    const batch = JSON.parse(requests[0]?.body ?? "{}").data.length;
+    expect(batch).toBeGreaterThan(1);
+    expect(requests.slice(1).map((request) => JSON.parse(request.body).data.length)).toEqual(Array(batch).fill(1));
+    expect(await conversionOf(first)).toMatchObject({ status: "failed", error: "META_REJECTED" });
+    expect(await conversionOf(second)).toMatchObject({ status: "failed", error: "META_REJECTED" });
   });
 
   test("a rate-limited batch is retried with backoff", async () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { completeLesson, confirmLogin, enterFromOrder, refundOrder, requestLogin } from "@/lib/actions";
+import { completeLesson, confirmLogin, enterFromOrder, refundOrder, requestLogin, signOut } from "@/lib/actions";
 import { and, eq } from "drizzle-orm";
 import { db, one } from "@/lib/db";
 import { clientIp, isAdmin, sign, verify } from "@/lib/guard";
@@ -52,6 +52,22 @@ describe("members area", () => {
       "LESSON_NOT_FOUND",
     );
     expect(member && [...(await completedLessons(member))]).toEqual(["metodo-demo:m1a1"]);
+  });
+
+  test("signing out ends the session on every device, including one that copied the cookies", async () => {
+    const order = await buy({ email: "copied@example.com" });
+    await pay(order);
+    freshBrowser();
+    await redirected(confirmLogin({ code: null }, form({ token: await loginToken("copied@example.com") })));
+    const copied = new Map(cookieStore);
+    vi.setSystemTime(new Date(Date.now() + 2000));
+    await redirected(signOut());
+    expect(await currentMember()).toBeUndefined();
+    freshBrowser();
+    for (const [name, value] of copied) cookieStore.set(name, value);
+    expect(await currentMember()).toBeUndefined();
+    await redirected(confirmLogin({ code: null }, form({ token: await loginToken("copied@example.com") })));
+    expect(await currentMember()).toMatchObject({ email: "copied@example.com" });
   });
 
   test("magic links are single use, expire, and a GET of the page does not consume them", async () => {

@@ -120,12 +120,31 @@ function failed(error: Error | string, target?: string): Status {
   };
 }
 
+// The release lists the digest of the image it built, so an image swapped in the registry afterwards is refused by Docker.
+async function publishedDigest(version: string) {
+  const response = await fetch(`https://github.com/${REPO}/releases/download/${version}/images.txt`, {
+    headers: { "user-agent": "librefunnel-updater" },
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => undefined);
+
+  if (!response?.ok) return undefined;
+  return (await response.text()).match(/^app=(sha256:[0-9a-f]{64})$/m)?.[1];
+}
+
 async function update(version: string) {
   const previous = await readEnv("LIBREFUNNEL_VERSION");
+  const previousDigest = await readEnv("LIBREFUNNEL_DIGEST");
 
   status = { state: "updating", target: version, at: new Date().toISOString() };
 
   try {
+    const digest = await publishedDigest(version);
+
+    if (!digest)
+      throw new Error(
+        `A versão ${version} não tem a impressão digital da imagem publicada no GitHub, então não foi instalada. Versões anteriores a essa verificação só se instalam pelo instalador.`,
+      );
+
     // A dump named after the version, so going back is restoring one file. Only the last three are kept.
     await docker(
       "compose",
@@ -137,12 +156,14 @@ async function update(version: string) {
       `pg_dump --clean --if-exists --no-owner -f /backups/antes-${version}.sql && ls -t /backups/antes-*.sql | tail -n +4 | xargs -r rm -f`,
     );
     await writeEnv("LIBREFUNNEL_VERSION", version);
+    await writeEnv("LIBREFUNNEL_DIGEST", digest);
 
     try {
       await docker("compose", "pull", "app");
       await rollout();
     } catch (error) {
       await writeEnv("LIBREFUNNEL_VERSION", previous);
+      await writeEnv("LIBREFUNNEL_DIGEST", previousDigest);
       throw error;
     }
 

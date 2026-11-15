@@ -117,6 +117,9 @@ const SMTP_UNREACHABLE = ["ECONNECTION", "ETIMEDOUT", "ESOCKET", "EDNS", "ETLS",
 const INSTANCE = "librefunnel";
 const WHATSAPP_DAILY_CAP = 300;
 const RECOVERY_PER_ADDRESS_DAY = 2;
+const REPLIES_PER_HOUR = 5;
+// A claimed message still "sending" after this was left behind by a batch that crashed.
+const CLAIM_TTL = 15 * 60;
 const MAX_ATTEMPTS = 5;
 const QUIET_FROM = 21;
 const QUIET_UNTIL = 9;
@@ -675,6 +678,11 @@ export async function sendMessages() {
     return;
   }
 
+  await db()
+    .update(message)
+    .set({ status: "queued" })
+    .where(and(eq(message.status, "sending"), lte(message.nextAt, t)));
+
   // SKIP LOCKED plus the status check lets two senders run at once without claiming the same message.
   const due = db()
     .select({ id: message.id })
@@ -686,7 +694,7 @@ export async function sendMessages() {
 
   const claimed = await db()
     .update(message)
-    .set({ status: "sending", attempts: sql`${message.attempts} + 1` })
+    .set({ status: "sending", attempts: sql`${message.attempts} + 1`, nextAt: addSeconds(t, CLAIM_TTL) })
     .where(and(eq(message.status, "queued"), inArray(message.id, due)))
     .returning({
       id: message.id,
@@ -730,6 +738,8 @@ export async function sendMessages() {
   const cloud = stored && cloudOf(stored("whatsapp"));
   const whatsappTarget = stored && !cloud ? evolutionOf(stored("evolution")) : undefined;
   const state = whatsappTarget ? await whatsappState(whatsappTarget) : "close";
+  // Each send to a dead server waits for its timeouts, and the jobs after this one (payment checks) wait with it.
+  const down = new Set<string>();
 
   for (const row of claimed) {
     const whatsapp = row.channel === "whatsapp";
@@ -738,6 +748,7 @@ export async function sendMessages() {
     let outcome: Outcome;
     if (row.kind === "recovery" && optedOut.has(row.address)) outcome = { code: "OPTED_OUT", retry: false };
     else if (quiet !== undefined) outcome = { postponeTo: quiet };
+    else if (down.has(row.channel)) outcome = { postponeTo: addSeconds(t, 60) };
     else if (whatsapp && bulk && whatsappSent >= WHATSAPP_DAILY_CAP) outcome = { code: "DAILY_CAP", retry: false };
     else {
       const text =
@@ -752,6 +763,8 @@ export async function sendMessages() {
         : cloud
           ? await sendCloud(cloud, row.address, text, row.kind === "reply" || row.kind === "manual")
           : await sendWhatsApp(whatsappTarget, row.address, text, state);
+      if ("code" in outcome && (outcome.code === "SMTP_UNREACHABLE" || outcome.code === "PROVIDER_UNREACHABLE"))
+        down.add(row.channel);
     }
     const settle = db().update(message);
     const byId = eq(message.id, row.id);
@@ -1176,6 +1189,15 @@ async function storeInbound(phone: string, raw: string | undefined, externalId: 
       : (await replies(tx)).find((entry) => entry.keywords.some((keyword) => words(keyword) === said))?.text;
 
     if (!answer) return;
+
+    // A sender repeating a keyword would otherwise spend the number's daily cap and silence cart recovery.
+    const { recent } = await tx
+      .select({ recent: count() })
+      .from(message)
+      .where(and(eq(message.address, phone), eq(message.kind, "reply"), gt(message.createdAt, addSeconds(t, -3600))))
+      .then(one);
+
+    if (!stop && recent >= REPLIES_PER_HOUR) return;
     await tx.insert(message).values({
       channel: "whatsapp",
       address: phone,
@@ -1257,15 +1279,20 @@ export function cloudVerify(request: Request): Response {
 export async function cloudWebhook(request: Request): Promise<Response> {
   const raw = await readBody(request, BOT_LIMIT);
   if (raw === undefined) return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413 });
-  const appSecret = (await credentials("whatsapp"))("whatsapp")("appSecret");
+  const stored = (await credentials("whatsapp"))("whatsapp");
+  const appSecret = stored("appSecret");
   const signature = request.headers.get("x-hub-signature-256") ?? "";
   if (!appSecret || !safeEqual(signature, `sha256=${hmacHex(appSecret, raw)}`))
     return Response.json({ code: "INVALID_SIGNATURE" }, { status: 401 });
   const payload = jsonObject(raw);
   if (!payload) return Response.json({ code: "INVALID_PAYLOAD" }, { status: 400 });
 
+  const phoneId = stored("phoneId");
   for (const change of objects(payload.entry).flatMap((entry) => objects(entry.changes))) {
     const value = isObject(change.value) ? change.value : {};
+    // Every number on the seller's Meta app signs with the same secret; only the connected one is this store's.
+    const metadata = isObject(value.metadata) ? value.metadata : {};
+    if (metadata.phone_number_id !== phoneId) continue;
 
     const profiles = new Map(
       objects(value.contacts).flatMap((entry): [string, string][] => {

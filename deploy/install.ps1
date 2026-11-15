@@ -611,17 +611,35 @@ Guia completo: $Guide
     } finally {
       if (-not $Plan) { Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue }
     }
+    # The image digest published with the release: Docker then refuses an image changed in the registry after it.
+    # Releases published before images.txt existed have none, and those keep pulling by tag.
+    $Digest = ''
+    if (-not $Plan) {
+      try {
+        $Response = Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$Repo/releases/download/$Tag/images.txt"
+        $Images = [Text.Encoding]::UTF8.GetString($Response.RawContentStream.ToArray())
+        if ($Images -match '(?m)^app=(sha256:[0-9a-f]{64})$') { $Digest = $Matches[1] }
+      } catch { $Digest = '' }
+    }
     Ok "Versão $Tag em $Dir"
 
     Set-EnvValue DOMAIN $Site
     Set-EnvValue BASE_URL "https://$Domain"
     if ($Password) { Set-EnvValue ADMIN_PASSWORD $Password }
     if (-not (Get-EnvValue SECRET)) { Set-EnvValue SECRET (New-Hex 32) }
-    if (-not (Get-EnvValue POSTGRES_PASSWORD)) { Set-EnvValue POSTGRES_PASSWORD (New-Hex 24) }
+    # deploy/evolution.sql creates Evolution's own database user only on a new database, so only a new store gets its password.
+    if (-not (Get-EnvValue POSTGRES_PASSWORD)) {
+      Set-EnvValue POSTGRES_PASSWORD (New-Hex 24)
+      Set-EnvValue EVOLUTION_DB_PASSWORD (New-Hex 24)
+    }
+    # Separate keys, so a compromised Evolution cannot call the updater.
+    if (-not (Get-EnvValue EVOLUTION_KEY)) { Set-EnvValue EVOLUTION_KEY (New-Hex 24) }
+    if (-not (Get-EnvValue UPDATER_TOKEN)) { Set-EnvValue UPDATER_TOKEN (New-Hex 24) }
     if ($Email) { Set-EnvValue ACME_EMAIL $Email }
     # The updater drives compose from another folder: the same project name keeps it on these containers and volumes.
     if (-not (Get-EnvValue COMPOSE_PROJECT_NAME)) { Set-EnvValue COMPOSE_PROJECT_NAME $Project }
     if ($Fresh) { Set-EnvValue LIBREFUNNEL_VERSION $Tag }
+    Set-EnvValue LIBREFUNNEL_DIGEST $Digest
     Set-EnvValue INSTALL_CLOUDFLARE $Cf
     if ($Cf -eq '1') {
       Set-EnvValue INSTALL_CF_DNS $CfDns
@@ -634,7 +652,7 @@ Guia completo: $Guide
     # compose.yaml scales the updater to this, so 0 keeps it off across every docker compose up.
     Set-EnvValue INSTALL_UPDATER $Updater
     if ($WhatsApp -eq '1') { Set-EnvValue COMPOSE_PROFILES whatsapp }
-    if ($Plan) { Shell "escreve $EnvFile`: DOMAIN, BASE_URL, as escolhas (INSTALL_*) e o que faltar de ADMIN_PASSWORD, SECRET, POSTGRES_PASSWORD" } else { Ok $EnvFile }
+    if ($Plan) { Shell "escreve $EnvFile`: DOMAIN, BASE_URL, as escolhas (INSTALL_*) e o que faltar de ADMIN_PASSWORD, SECRET, POSTGRES_PASSWORD, EVOLUTION_KEY, UPDATER_TOKEN" } else { Ok $EnvFile }
 
     if ($Cf -eq '1') {
       Title 'Cloudflare'

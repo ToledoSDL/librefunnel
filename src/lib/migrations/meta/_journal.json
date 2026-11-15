@@ -92,6 +92,13 @@
       "when": 1794707848030,
       "tag": "0012_crypto",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794711798109,
+      "tag": "0013_sessions",
+      "breakpoints": true
     }
   ]
 }

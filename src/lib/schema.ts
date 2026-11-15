@@ -101,6 +101,8 @@ export const customer = pgTable("customer", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   createdAt: timestamptz("created_at").notNull(),
+  // Signing out ends every session of this buyer started before it, on any device.
+  sessionsAfter: timestamptz("sessions_after"),
 });
 
 export const order = pgTable(

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { createHmac } from "node:crypto";
-import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import {
   connectWhatsApp,
   optOut,
@@ -248,6 +248,39 @@ describe("transactional messages", () => {
       error: "SMTP_UNREACHABLE",
     });
   });
+
+  test("with the mail server down, one timeout postpones the rest of the batch instead of waiting on each", async () => {
+    const first = await buy({ email: "down1@example.com", phone: "" });
+    const second = await buy({ email: "down2@example.com", phone: "" });
+    await pay(first);
+    await pay(second);
+    mailFailures.push(Object.assign(new Error("timeout"), { code: "ETIMEDOUT" }));
+    const attempts = sentMail.length;
+    await sendMessages();
+
+    const rows = await db()
+      .select({ status: message.status, error: message.error, attempts: message.attempts })
+      .from(message)
+      .where(and(inArray(message.orderId, [first, second]), eq(message.kind, "access")))
+      .orderBy(asc(message.id));
+
+    expect(rows).toEqual([
+      { status: "queued", error: "SMTP_UNREACHABLE", attempts: 1 },
+      { status: "queued", error: null, attempts: 0 },
+    ]);
+    expect(sentMail.length).toBe(attempts);
+  });
+
+  test("a message left in sending by a crashed batch goes back to the queue", async () => {
+    const order = await buy({ email: "stuck@example.com", phone: "" });
+    await pay(order);
+    await db()
+      .update(message)
+      .set({ status: "sending", nextAt: new Date(Date.now() - 1000) })
+      .where(eq(message.orderId, order));
+    await sendMessages();
+    expect((await messagesOf(order)).find((row) => row.kind === "access")).toMatchObject({ status: "sent" });
+  });
 });
 
 describe("bot", () => {
@@ -482,6 +515,10 @@ describe("connections in the panel", () => {
     });
     expect((await testConnection({ code: null }, form({ kind: "evolution" }))).code).toBe("PROVIDER_REJECTED");
     expect(external.requests[0]?.headers["apikey"]).toBe("external-key");
+    expect((await saveEvolution({ code: null }, form({ url: "https://elsewhere.example", key: "" }))).code).toBe(
+      "INVALID_CREDENTIAL",
+    );
+    expect(await saveEvolution({ code: null }, form({ url: external.url, key: "" }))).toEqual({ code: null, ok: true });
     expect(await saveEvolution({ code: null }, form({ url: "", key: "" }))).toEqual({ code: null, ok: true });
     await saveSettings({ code: null }, form({ brand: "Loja", ownerWhatsapp: "48999990000", orderHours: "72" }));
     expect(await testConnection({ code: null }, form({ kind: "evolution" }))).toEqual({ code: null, ok: true });
@@ -560,8 +597,13 @@ describe("official WhatsApp", () => {
     );
   }
 
-  function change(value: object) {
-    return { object: "whatsapp_business_account", entry: [{ id: "WABA", changes: [{ field: "messages", value }] }] };
+  function change(value: object, phoneId = "1234567890") {
+    return {
+      object: "whatsapp_business_account",
+      entry: [
+        { id: "WABA", changes: [{ field: "messages", value: { metadata: { phone_number_id: phoneId }, ...value } }] },
+      ],
+    };
   }
 
   test("connecting names each problem in the seller's Meta setup and saves nothing until all pass", async () => {
@@ -706,6 +748,11 @@ describe("official WhatsApp", () => {
     const order = await buy({ email: "throughput@example.com", phone: "11966665555" });
     at("12:16");
     await queueRecovery();
+    // A throughput limit postpones the rest of the batch, so only this order's message may be due.
+    await db()
+      .update(message)
+      .set({ status: "skipped" })
+      .where(and(eq(message.status, "queued"), or(isNull(message.orderId), ne(message.orderId, order))));
     graph.routes[`POST ${path("1234567890/messages")}`] = { status: 400, body: { error: { code: 130429 } } };
     await sendMessages();
     expect((await messagesOf(order))[0]).toMatchObject({ status: "queued", error: "PROVIDER_UNREACHABLE" });
@@ -735,6 +782,27 @@ describe("official WhatsApp", () => {
       .where(and(eq(message.address, "5521955556666"), eq(message.kind, "reply")));
 
     expect(row).toEqual({ status: "failed", error: "PROVIDER_REJECTED" });
+  });
+
+  test("messages to another number of the same Meta app are ignored", async () => {
+    const other = change(
+      { messages: [{ from: "5521944443333", id: "wamid.OTHER", type: "text", text: { body: "quero" } }] },
+      "9999999999",
+    );
+
+    expect((await cloudHook(other)).status).toBe(200);
+    expect(await db().$count(message, eq(message.address, "5521944443333"))).toBe(0);
+  });
+
+  test("one sender repeating a keyword gets a bounded number of automatic replies", async () => {
+    for (let index = 0; index < 8; index += 1)
+      await cloudHook(
+        change({
+          messages: [{ from: "5521922221111", id: `wamid.SPAM${index}`, type: "text", text: { body: "quero" } }],
+        }),
+      );
+
+    expect(await db().$count(message, and(eq(message.address, "5521922221111"), eq(message.kind, "reply")))).toBe(5);
   });
 
   test("the seller's reply goes as free text only inside 24 hours of the buyer's last message", async () => {

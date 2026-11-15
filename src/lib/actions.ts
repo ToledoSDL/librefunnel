@@ -564,8 +564,9 @@ export async function saveEvolution(...[, form]: FormArgs): Promise<ActionState>
   }
   if (!/^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(url) || url.length > 300) return { code: "INVALID_EVOLUTION_URL" };
   const key = credential(field(form, "key"));
-  if (key === undefined || (!key && !(await catalog.credentials("evolution"))("evolution")("key")))
-    return { code: "INVALID_CREDENTIAL" };
+  const stored = (await catalog.credentials("evolution"))("evolution");
+  // The kept key goes only to the address it was typed for, never to a new one.
+  if (key === undefined || (!key && (!stored("key") || stored("url") !== url))) return { code: "INVALID_CREDENTIAL" };
   await catalog.saveCredentials("evolution", { url }, { key });
   return done(null);
 }

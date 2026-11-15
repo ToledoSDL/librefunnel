@@ -5,12 +5,12 @@ import { mkdir, open, readdir, readFile, rename, rm, stat } from "node:fs/promis
 import { setPriority } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { eq, inArray, or } from "drizzle-orm";
+import { eq, inArray, or, sql } from "drizzle-orm";
 import { credentials, saveCredentials } from "./catalog";
 import { dataDir, db } from "./db";
-import { baseUrl, isAdmin, isObject, jsonObject, readBody } from "./guard";
+import { baseUrl, demoMode, isAdmin, isObject, jsonObject, readBody } from "./guard";
 import { currentMember } from "./members";
-import { lesson, module, product } from "./schema";
+import { lesson, module, product, recoveryStep, reply as autoReply, setting } from "./schema";
 
 export type MediaCode = "MEDIA_TYPE" | "MEDIA_TOO_LARGE" | "UPLOAD_FAILED";
 export type StorageCode =
@@ -32,6 +32,14 @@ const IMAGE_MAX = 10 * 1024 ** 2;
 const CAPTIONS_MAX = 1024 ** 2;
 const CHUNK = 256 * 1024;
 const PART = 16 * 1024 ** 2;
+const PART_TTL_MS = 86_400_000;
+const ORPHAN_AGE_MS = 30 * 86_400_000;
+// The id is the first 32 hex characters of every file a media upload creates: the original, its stream folder, temp files.
+const MEDIA_ID = /^([a-f0-9]{32})(?:[./]|$)/;
+const ID_TEXT = "([a-f0-9]{32})";
+const PROBE_TIMEOUT_MS = 60_000;
+// Long enough for a 1 GB video at the lowest priority on one core; only a hung ffmpeg reaches it.
+const ENCODE_TIMEOUT_MS = 4 * 3_600_000;
 const FILE = /^[a-f0-9]{32}\.(mp4|webm|jpg|png|webp|vtt)$/;
 const FOLDER = /^[a-f0-9]{32}$/;
 const ORIGINAL = /^([a-f0-9]{32})\.(?:mp4|webm)$/;
@@ -338,21 +346,28 @@ async function putFolder(target: Bucket, id: string, dir: string): Promise<void>
   }
 }
 
-async function listBucket(target: Bucket): Promise<{ files: string[]; folders: Set<string> }> {
-  const files: string[] = [];
-  const folders = new Set<string>();
+async function* listing(target: Bucket, query: Record<string, string>): AsyncGenerator<string> {
   let token: string | undefined;
 
   do {
-    const query: Record<string, string> = { "list-type": "2", prefix: PREFIX, delimiter: "/" };
-    if (token) query["continuation-token"] = token;
-    const response = await call(target, "GET", "", { query });
+    const page: Record<string, string> = { "list-type": "2", prefix: PREFIX, ...query };
+    if (token) page["continuation-token"] = token;
+    const response = await call(target, "GET", "", { query: page });
     if (!response.ok) throw new Error(`listing the bucket answered ${response.status}`);
     const xml = await response.text();
-    files.push(...xmlValues(xml, "Key").map((key) => key.slice(PREFIX.length)));
-    for (const prefix of xmlValues(xml, "Prefix")) if (prefix !== PREFIX) folders.add(prefix.slice(PREFIX.length, -1));
+    yield xml;
     token = xml.includes("<IsTruncated>true</IsTruncated>") ? xmlValues(xml, "NextContinuationToken")[0] : undefined;
   } while (token);
+}
+
+async function listBucket(target: Bucket): Promise<{ files: string[]; folders: Set<string> }> {
+  const files: string[] = [];
+  const folders = new Set<string>();
+
+  for await (const xml of listing(target, { delimiter: "/" })) {
+    files.push(...xmlValues(xml, "Key").map((key) => key.slice(PREFIX.length)));
+    for (const prefix of xmlValues(xml, "Prefix")) if (prefix !== PREFIX) folders.add(prefix.slice(PREFIX.length, -1));
+  }
 
   return { files, folders };
 }
@@ -439,7 +454,11 @@ export async function directUpload(request: Request): Promise<Response> {
   if (body.step !== "finish" || !file || !uploadId || !type || !parts.length || parts.length !== sent.length)
     return reply("UPLOAD_FAILED", 400);
   const key = `${PREFIX}${file}`;
-  if (!(await finishMultipart(target, key, uploadId, parts).catch(() => false))) return reply("UPLOAD_FAILED", 502);
+  if (!(await finishMultipart(target, key, uploadId, parts).catch(() => false))) {
+    // Parts of an upload never finished stay billed in the bucket until aborted.
+    await call(target, "DELETE", key, { query: { uploadId } }).catch(() => undefined);
+    return reply("UPLOAD_FAILED", 502);
+  }
 
   const [head, start] = await Promise.all([
     call(target, "HEAD", key),
@@ -712,17 +731,14 @@ async function checkStorage(target: Bucket, cors = true): Promise<StorageCode | 
 }
 
 async function probe(source: string, stream: string, entries: string): Promise<string> {
-  const { stdout } = await run("ffprobe", [
-    "-v",
-    "error",
-    "-select_streams",
-    stream,
-    "-show_entries",
-    `stream=${entries}`,
-    "-of",
-    "csv=p=0",
-    source,
-  ]);
+  const { stdout } = await run(
+    "ffprobe",
+    [
+      ["-v", "error", "-protocol_whitelist", "file", "-select_streams", stream],
+      ["-show_entries", `stream=${entries}`, "-of", "csv=p=0", source],
+    ].flat(),
+    { timeout: PROBE_TIMEOUT_MS },
+  );
 
   return stdout.trim();
 }
@@ -749,7 +765,7 @@ async function transcode(source: string, out: string): Promise<void> {
   const encoding = run(
     "ffmpeg",
     [
-      ["-nostdin", "-v", "error", "-y", "-i", source, "-filter_complex", graph],
+      ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file", "-i", source, "-filter_complex", graph],
       renditions.flatMap((rendition, index) => [
         "-map",
         `[v${rendition.height}]`,
@@ -774,6 +790,8 @@ async function transcode(source: string, out: string): Promise<void> {
       ],
       [`${temp}/%v/index.m3u8`],
     ].flat(),
+    // A file that makes ffmpeg hang would otherwise hold the one transcoding slot until a restart.
+    { timeout: ENCODE_TIMEOUT_MS },
   );
 
   // Lowest CPU priority: on a one-core server a long encode must not slow down the pages buyers are loading.
@@ -830,6 +848,14 @@ export async function transcodeVideos(): Promise<void> {
   if (busy) return;
   const target = await bucket();
   const names = await readdir(mediaDir()).catch((): string[] => []);
+  const abandoned = Date.now() - PART_TTL_MS;
+
+  // An upload cut by a crash or a restart leaves its .part file; one a day old is not being written anymore.
+  for (const name of names.filter((entry) => entry.endsWith(".part"))) {
+    const path = join(mediaDir(), name);
+    const modified = (await stat(path).catch(() => undefined))?.mtimeMs ?? Infinity;
+    if (modified < abandoned) await rm(path, { force: true });
+  }
 
   if (target) {
     const local = names.find((name) => (FILE.test(name) || FOLDER.test(name)) && !failed.has(name));
@@ -872,6 +898,62 @@ export async function transcodeVideos(): Promise<void> {
 }
 
 const DUMP = /^librefunnel-\d\.sql$/;
+
+// Every id that any row of these tables mentions, in any column: a column added later is covered without a change here.
+async function usedMedia(): Promise<Set<string>> {
+  const everything = sql.join(
+    [product, module, lesson, setting, autoReply, recoveryStep].map(
+      (table) => sql`SELECT ${table}::text AS row FROM ${table}`,
+    ),
+    sql` UNION ALL `,
+  );
+
+  const rows = await db()
+    .selectDistinct({ id: sql<string>`(regexp_matches(everything.row, ${ID_TEXT}, 'g'))[1]` })
+    .from(sql`(${everything}) AS everything`);
+
+  return new Set(rows.map((row) => row.id));
+}
+
+async function oldBucketObjects(target: Bucket, before: number): Promise<string[]> {
+  const keys: string[] = [];
+
+  for await (const xml of listing(target, {}))
+    for (const [, entry = ""] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+      const [key] = xmlValues(entry, "Key");
+      const [modified] = xmlValues(entry, "LastModified");
+      if (key && modified && Date.parse(modified) < before) keys.push(key);
+    }
+
+  return keys;
+}
+
+let sweptDay = "";
+
+// Uploads nothing uses anymore. They are kept for 30 days, so a form saved late or a restored backup still finds its files.
+export async function sweepMedia(): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  if (demoMode() || busy || sweptDay === today) return;
+  sweptDay = today;
+  const used = await usedMedia();
+  const before = Date.now() - ORPHAN_AGE_MS;
+
+  const unused = (name: string) => {
+    const id = MEDIA_ID.exec(name)?.[1];
+    return id !== undefined && !used.has(id);
+  };
+
+  for (const name of (await readdir(mediaDir()).catch((): string[] => [])).filter(unused)) {
+    const path = join(mediaDir(), name);
+    const modified = (await stat(path).catch(() => undefined))?.mtimeMs ?? Infinity;
+    if (modified < before) await rm(path, { recursive: true, force: true });
+  }
+
+  const target = await bucket();
+  if (!target) return;
+  for (const key of await oldBucketObjects(target, before))
+    if (key.startsWith(PREFIX) && unused(key.slice(PREFIX.length))) await call(target, "DELETE", key);
+}
 let backupSentAt = 0;
 
 // The daily database dump also goes to the connected bucket, so losing the server does not lose the sales.

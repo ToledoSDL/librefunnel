@@ -31,6 +31,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
+        id: app
         with:
           context: .
           file: deploy/Dockerfile
@@ -41,6 +42,7 @@ jobs:
             ${{ steps.image.outputs.name }}:${{ github.ref_name }}
             ${{ steps.image.outputs.name }}:latest
       - uses: docker/build-push-action@v6
+        id: updater
         with:
           context: .
           file: deploy/Dockerfile.updater
@@ -61,10 +63,16 @@ jobs:
           tags: |
             ${{ steps.image.outputs.name }}-demo:${{ github.ref_name }}
             ${{ steps.image.outputs.name }}-demo:latest
+      # The installer and the updater pull the image by this digest, so one changed in the registry later is refused.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+          UPDATER_DIGEST: ${{ steps.updater.outputs.digest }}
+        run: |
+          printf 'app=%s\nupdater=%s\n' "$APP_DIGEST" "$UPDATER_DIGEST" > images.txt
+          grep -Eq '^app=sha256:[0-9a-f]{64}$' images.txt
+          gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag images.txt
 
   # librefunnel.com serves /install from the latest release, so the site goes out right after it.
   site:

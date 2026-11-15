@@ -50,6 +50,7 @@ export async function start() {
     messages.refreshPhotos,
     tracking.sendConversions,
     media.transcodeVideos,
+    media.sweepMedia,
     media.sendBackup,
     checkRelease,
     nightlyDemoReset,

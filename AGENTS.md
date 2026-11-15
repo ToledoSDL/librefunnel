@@ -62,7 +62,8 @@ A change is done only when `bun run check` passes. CI runs the same plus a Docke
   served at librefunnel.com/install: POSIX sh, pt-BR output, downloads only `compose.yaml`, `Caddyfile` and
   `evolution.sql` of the latest release, plus its `images.txt` (image digests); check with `shellcheck -s sh` and
   `--plan`)
-- `docs/`: `deploy.md` (layperson guide), `design-system.md`, `brand.ts` and the brand SVGs it writes
+- `docs/`: `deploy.md` (layperson guide), `design-system.md`, `roadmap.md` (what to build next, in order), `brand.ts`
+  and the brand SVGs it writes
 - `site/`: librefunnel.com: a separate Fumadocs app (own `package.json` and `bun.lock`, outside the store's tooling and
   image), landing page in `app/(home)`, docs in `content/docs/*.mdx`, static export to `site/out` with
   `deploy/install.sh` copied in as `/install`; `llms.txt`, `llms-full.txt` and `/md/<page>.md` are built from the docs

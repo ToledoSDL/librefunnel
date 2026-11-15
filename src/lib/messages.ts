@@ -557,12 +557,13 @@ async function evolution(
   path: string,
   method: "GET" | "POST" | "DELETE" = "GET",
   body?: Json,
+  timeout = 15_000,
 ): Promise<{ status: number; body: JsonObject | undefined }> {
   const response = await fetch(`${config.url}${path}`, {
     method,
     headers: { apikey: config.key, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(timeout),
   });
 
   return { status: response.status, body: jsonObject(await response.text()) };
@@ -795,7 +796,9 @@ function stateOf(response: { status: number; body: JsonObject | undefined }): Wh
 export async function whatsappState(config: Evolution | undefined): Promise<WhatsAppState> {
   if (!config) return "missing";
   try {
-    return stateOf(await evolution(config, `/instance/connectionState/${INSTANCE}`));
+    // The admin waits on this; the bundled Evolution stays stopped until WhatsApp is connected, and Docker takes
+    // 5 seconds to give up resolving a stopped service.
+    return stateOf(await evolution(config, `/instance/connectionState/${INSTANCE}`, "GET", undefined, 2000));
   } catch {
     return "error";
   }

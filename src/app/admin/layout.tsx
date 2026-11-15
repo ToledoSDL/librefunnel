@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { adminSignOut } from "@/lib/actions";
 import { demoMode, isAdmin } from "@/lib/guard";
 import { cookies } from "next/headers";
+import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { StoreMark } from "@/app/buyer";
 import styles from "./admin.module.css";
@@ -90,7 +91,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         ]}
         footer={
           <>
-            <VersionPanel />
+            {/* The updater answers over the network: the page never waits for it, the version button streams in. */}
+            <Suspense fallback={null}>
+              <VersionPanel />
+            </Suspense>
             <ThemeMenu
               theme={theme === "light" || theme === "dark" ? theme : "system"}
               icons={{

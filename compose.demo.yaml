@@ -6,3 +6,7 @@ services:
     image: ghcr.io/toledosdl/librefunnel-demo:latest
     build:
       target: demo
+    # The demo runs no updater and no Evolution: an address would only make the admin wait for them.
+    environment:
+      UPDATER_URL: ""
+      EVOLUTION_URL: ""

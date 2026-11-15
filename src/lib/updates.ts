@@ -69,7 +69,8 @@ export async function checkRelease() {
   };
 }
 
-function updater(method: "GET" | "POST", path: string) {
+// The updater runs next to the store on the Docker network: no answer in this time means it is not running.
+function updater(method: "GET" | "POST", path: string, timeout = 5000) {
   const url = process.env.UPDATER_URL;
   const token = process.env.UPDATER_TOKEN;
 
@@ -78,12 +79,12 @@ function updater(method: "GET" | "POST", path: string) {
   return fetch(`${url}${path}`, {
     method,
     headers: { authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(timeout),
   }).catch(() => undefined);
 }
 
 export async function updaterStatus(): Promise<UpdaterStatus | undefined> {
-  const response = await updater("GET", "/status");
+  const response = await updater("GET", "/status", 1500);
 
   if (!response?.ok) return undefined;
 

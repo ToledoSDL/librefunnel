@@ -40,6 +40,8 @@ curl -fsSL https://librefunnel.com/install | sh
 
 It installs Docker if needed, asks for the store address (or uses `<IP>.sslip.io`, which works with no DNS), an optional e-mail for the certificate, the dashboard password (or generates one) and whether the domain is on Cloudflare, protects a new server (firewall, automatic security updates, fail2ban, SSH by key only when you have one), downloads the latest release to `/opt/librefunnel` and starts it. At the end it prints the store and dashboard addresses and the password, once. With a Cloudflare API token it also points the DNS, sets HTTPS, locks ports 80 and 443 to Cloudflare and connects R2 for videos.
 
+To try it on your own computer, run the same command on macOS or in Git Bash, or `irm https://librefunnel.com/install.ps1 | iex` in PowerShell on Windows: it installs a local store at `https://localhost` on Docker Desktop.
+
 Every step is its own question with a matching option, such as `--no-cf-firewall`, `--no-r2` or `--no-updater`, and it prints a one-line summary before changing anything. `--plan` prints what it would do and changes nothing; `--yes` asks nothing. Running it again keeps your settings and your earlier answers. The [deployment guide](docs/deploy.md) walks through every click, from creating the server to the first sale, explains every option and the token permissions, and has the [manual install](docs/deploy.md#manual-install) without the script.
 
 Then open `https://<your address>/admin`, create your first product with its Pix key, price and lessons, and set up e-mail in **Conexões** so buyers receive their access link.
@@ -105,10 +107,10 @@ Stack: Next.js 16 (App Router, standalone output), React 19, PostgreSQL with Dri
 cd site
 bun install
 bun run dev     # http://localhost:3000
-bun run build   # static export in site/out, with deploy/install.sh copied to site/out/install
+bun run build   # static export in site/out, with deploy/install.sh and install.ps1 copied to site/out/install and install.ps1
 ```
 
-On Cloudflare Pages, set the root directory to `site`, the build command to `bun install && bun run build` and the output directory to `out`. `site/public/_headers` serves `/install` as plain text.
+On Cloudflare Pages, set the root directory to `site`, the build command to `bun install && bun run build` and the output directory to `out`. `site/public/_headers` serves `/install` and `/install.ps1` as plain text.
 
 ## License
 

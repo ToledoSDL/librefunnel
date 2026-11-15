@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp ../deploy/install.sh out/install",
+    "build": "next build && cp ../deploy/install.sh out/install && cp ../deploy/install.ps1 out/install.ps1",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {

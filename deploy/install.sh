@@ -4,6 +4,8 @@
 #   curl -fsSL https://librefunnel.com/install | sh
 #   curl -fsSL https://librefunnel.com/install | sh -s -- --plan     prints what it would do, does nothing
 #
+# On a Mac it installs a local store (https://localhost) on the Docker it finds; under Git Bash on Windows it hands
+# over to install.ps1, which does the same with Docker Desktop.
 # To read it before it runs: curl -fsSLo install.sh https://librefunnel.com/install, then sh install.sh --help.
 # Everything is inside main, which the last line calls, so a download cut short runs nothing.
 
@@ -23,11 +25,14 @@ main() {
   # A store is these files, .env and the published images: no source code on the server.
   FILES='compose.yaml deploy/Caddyfile deploy/evolution.sql'
 
-  PLAN=0 YES=0 CONFIRMED=0 DIR=/opt/librefunnel DOMAIN_ARG='' EMAIL_ARG='' SSH_FROM=''
+  PLAN=0 YES=0 CONFIRMED=0 DIR='' DOMAIN_ARG='' EMAIL_ARG='' SSH_FROM=''
   # Each step is its own choice: a flag wins, then what an earlier run stored in .env (INSTALL_*), then the question.
   CF='' CF_DNS='' CF_SSL='' CF_FIREWALL='' R2='' WHATSAPP='' UPDATER='' HARDEN=''
+  # 1 on a Mac: a store on this computer, for testing, with no server steps.
+  LOCAL=0
   init_output
-  parse_args "$@"
+  TTY=''
+  if (exec </dev/tty) 2>/dev/null; then TTY=/dev/tty; fi
 
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64 | Linux-amd64)
@@ -38,16 +43,20 @@ main() {
       COMPOSE_ASSET=docker-compose-linux-aarch64
       COMPOSE_SHA256=732e3a84c1a0f67256ce80bc2598a24546b10ca05f9faa97efceb1171ece2ef7
       ;;
+    Darwin-x86_64 | Darwin-arm64) LOCAL=1 ;;
+    MINGW* | MSYS* | CYGWIN*) windows "$@" ;;
     *)
-      die "O instalador funciona em Linux x64 ou arm64, e este computador é $(uname -s) em $(uname -m)." \
+      die "O instalador funciona em Linux, macOS e Windows, em x64 ou arm64, e este computador é $(uname -s) em $(uname -m)." \
         "Siga o guia manual: $GUIDE"
       ;;
   esac
+  parse_args "$@"
+  if [ -z "$DIR" ]; then
+    DIR=/opt/librefunnel
+    if [ "$LOCAL" = 1 ]; then DIR=$HOME/librefunnel; fi
+  fi
 
-  TTY=''
-  if (exec </dev/tty) 2>/dev/null; then TTY=/dev/tty; fi
-
-  if [ "$(id -u)" != 0 ]; then
+  if [ "$LOCAL" = 0 ] && [ "$(id -u)" != 0 ]; then
     if [ "$PLAN" = 1 ]; then
       warn "Sem root: a instalação de verdade roda de novo com sudo."
     else
@@ -127,6 +136,7 @@ Uso: curl -fsSL $INSTALL_URL | sh -s -- [opções]
 
   --domain <domínio>   Endereço da loja, como loja.seudominio.com.br.
                        Sem ele, pergunta; o padrão é <IP>.sslip.io, que já funciona sem DNS.
+                       No Mac, o padrão é localhost: a loja só neste computador, para testar.
   --email <e-mail>     E-mail para o certificado HTTPS (opcional).
 
 Cada etapa abaixo é uma pergunta (Enter aceita o padrão) e tem a opção de ligar e a de desligar:
@@ -145,7 +155,7 @@ Cada etapa abaixo é uma pergunta (Enter aceita o padrão) e tem a opção de li
                                        fail2ban e SSH só por chave (padrão: sim numa instalação nova).
 
   --ssh-from <ip>      Com o firewall, o SSH aceita só este IP (o padrão é aceitar de qualquer lugar).
-  --dir <pasta>        Onde a loja fica (padrão /opt/librefunnel).
+  --dir <pasta>        Onde a loja fica (padrão /opt/librefunnel; no Mac, ~/librefunnel).
   --yes, -y            Não pergunta: usa as opções acima, as escolhas de antes e os padrões.
   --plan, --dry-run    Mostra o que faria e não faz nada.
   -h, --help
@@ -156,7 +166,30 @@ Variáveis de ambiente, para não deixar segredos no histórico do terminal:
 
 Rodar de novo é seguro: o que está no .env fica, e as escolhas de antes (INSTALL_* no .env) também.
 Para mudar uma escolha, rode de novo com a opção dela.
+No Mac, a proteção do servidor e o firewall da Cloudflare ficam de fora. No Windows, o mesmo comando
+no Git Bash chama o instalador do PowerShell: irm https://librefunnel.com/install.ps1 | iex
 Guia completo e instalação manual: $GUIDE"
+}
+
+# Git Bash on Windows: install.ps1 does the same with Docker Desktop, in its own PowerShell, with the same options.
+windows() {
+  ps=$(command -v pwsh.exe || command -v powershell.exe) ||
+    die "O instalador do Windows roda no PowerShell, e ele não foi encontrado." "Abra o PowerShell e rode: irm https://librefunnel.com/install.ps1 | iex"
+  work=$(mktemp -d "${TMPDIR:-/tmp}/librefunnel-install.XXXXXX")
+  trap 'rm -rf "$work"' EXIT
+  source=${0%/*}/install.ps1
+  if [ ! -f "$source" ]; then
+    source=$work/download.ps1
+    fetch "${INSTALL_URL}.ps1" "$source"
+  fi
+  # A BOM, so Windows PowerShell 5.1 reads the pt-BR text as UTF-8.
+  { printf '\357\273\277'; cat "$source"; } >"$work/install.ps1"
+  input=/dev/null
+  if [ -n "$TTY" ]; then input=$TTY; fi
+  info "Windows: seguindo com o instalador do PowerShell (install.ps1)"
+  status=0
+  "$ps" -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$work/install.ps1")" "$@" <"$input" || status=$?
+  exit "$status"
 }
 
 parse_args() {
@@ -359,23 +392,86 @@ version_at_least() {
   done
 }
 
-# A Docker engine that is still starting can hang without answering.
+# A Docker engine that is still starting can hang without answering. macOS has no timeout command.
 docker_version() {
   command -v docker >/dev/null 2>&1 || return 1
-  timeout 15 docker version --format '{{.Server.Version}}' 2>/dev/null </dev/null
+  docker version --format '{{.Server.Version}}' 2>/dev/null </dev/null &
+  probe=$!
+  (sleep 15 && kill "$probe") </dev/null >/dev/null 2>&1 &
+  watchdog=$!
+  status=0
+  wait "$probe" || status=$?
+  kill "$watchdog" 2>/dev/null || :
+  return "$status"
 }
 
 wait_docker() {
   i=0
-  while [ "$i" -lt 60 ]; do
+  while [ "$i" -lt 90 ]; do
     if docker_version >/dev/null; then return 0; fi
     sleep 2
     i=$((i + 1))
   done
-  die "O Docker foi iniciado, mas não responde depois de 2 minutos." "Veja systemctl status docker e rode o instalador de novo."
+  if [ "$LOCAL" = 1 ]; then
+    die "O Docker foi iniciado, mas não responde depois de 3 minutos." "Abra o Docker Desktop, o OrbStack ou o Colima, veja o que ele diz e rode o instalador de novo."
+  fi
+  die "O Docker foi iniciado, mas não responde depois de 3 minutos." "Veja systemctl status docker e rode o instalador de novo."
+}
+
+# A Mac's Docker: the one it has (Docker Desktop, OrbStack or Colima), started when it is not running; with none,
+# Colima with Homebrew, only after asking.
+mac_docker() {
+  # Where those put the docker command, often not on the PATH a piped script gets.
+  for d in /opt/homebrew/bin /usr/local/bin "$HOME/.orbstack/bin" /Applications/Docker.app/Contents/Resources/bin; do
+    if [ -d "$d" ]; then PATH=$PATH:$d; fi
+  done
+  export PATH
+  if v=$(docker_version); then
+    ok "Docker $v"
+  elif [ -d /Applications/OrbStack.app ] || [ -d "$HOME/Applications/OrbStack.app" ]; then
+    mac_start OrbStack open -g -a OrbStack
+  elif [ -d /Applications/Docker.app ] || [ -d "$HOME/Applications/Docker.app" ]; then
+    mac_start "Docker Desktop" open -g -a Docker
+  elif command -v colima >/dev/null 2>&1; then
+    mac_start Colima colima start
+  elif command -v docker >/dev/null 2>&1; then
+    die "O Docker está neste Mac, mas não responde." "Abra o Docker Desktop, o OrbStack ou o Colima e rode o instalador de novo."
+  else
+    fix="Instale o Docker Desktop, o OrbStack (orbstack.dev) ou o Colima (brew install colima docker docker-compose && colima start) e rode de novo."
+    command -v brew >/dev/null 2>&1 || die "Este Mac não tem Docker, que a loja usa para rodar." "$fix"
+    if [ "$YES" = 0 ] && [ "$PLAN" = 0 ]; then
+      [ -n "$TTY" ] || die "Este Mac não tem Docker, e sem terminal para perguntar o instalador não instala sozinho." "$fix"
+      yes_no "Este Mac não tem Docker. Instalar o Colima (o motor do Docker, sem janela) com o Homebrew e iniciar?" s ||
+        die "Parado a seu pedido." "$fix"
+    fi
+    info "Instalando o Colima, o Docker e o Compose com o Homebrew (alguns minutos)"
+    run brew install colima docker docker-compose
+    # Docker finds Compose among its plugins.
+    run mkdir -p "${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
+    run ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" "${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins/docker-compose"
+    CONFIRMED=1
+    mac_start Colima colima start
+  fi
+}
+
+# mac_start NAME COMMAND...: a Docker this Mac has but is not running, started after asking.
+mac_start() {
+  name=$1
+  shift
+  confirm "O $name está neste Mac, mas parado. Iniciar agora?" "Inicie o $name e rode de novo, ou use --yes."
+  info "Iniciando o $name (na primeira vez demora um pouco)"
+  run "$@"
+  if [ "$PLAN" = 1 ]; then return 0; fi
+  wait_docker
+  ok "Docker $(docker_version), iniciado ($name)"
 }
 
 setup_docker() {
+  if [ "$LOCAL" = 1 ]; then
+    mac_docker
+    compose_plugin
+    return 0
+  fi
   if v=$(docker_version); then
     ok "Docker $v"
   elif command -v docker >/dev/null 2>&1; then
@@ -413,6 +509,11 @@ compose_plugin() {
   if [ -n "$have" ] && version_at_least "$have" "$MIN_COMPOSE"; then
     ok "Docker Compose $have"
     return 0
+  fi
+  if [ "$LOCAL" = 1 ]; then
+    if [ "$PLAN" = 1 ]; then return 0; fi
+    die "Este Mac precisa do Docker Compose $MIN_COMPOSE ou mais novo${have:+ (tem o $have)}." \
+      "Atualize o Docker Desktop ou o OrbStack; com o Colima, rode brew install docker-compose. Depois rode o instalador de novo."
   fi
   plugins=/usr/local/lib/docker/cli-plugins
   info "Instalando o Docker Compose $COMPOSE_VERSION em $plugins (SHA-256 conferido)"
@@ -453,6 +554,8 @@ random_hex() { od -An -N"$1" -tx1 /dev/urandom | tr -d ' \n'; }
 
 ask_domain() {
   DOMAIN=$(env_get DOMAIN)
+  # A local store's DOMAIN in .env also lists 127.0.0.1 for Caddy.
+  DOMAIN=${DOMAIN%% *}
   if [ "$DOMAIN" = shop.yourdomain.com ]; then DOMAIN=''; fi
   if [ -n "$DOMAIN_ARG" ]; then DOMAIN=$DOMAIN_ARG; fi
   if [ -n "$DOMAIN" ] && [ -z "$DOMAIN_ARG" ]; then
@@ -463,15 +566,20 @@ ask_domain() {
     fallback=''
     if [ -n "$IP4" ]; then fallback=$(printf '%s' "$IP4" | tr . -).sslip.io; fi
     if [ "$PLAN" = 1 ]; then fallback='<IP>.sslip.io'; fi
+    if [ "$LOCAL" = 1 ]; then fallback=localhost; fi
     if [ -n "$TTY" ] && [ "$YES" = 0 ] && [ "$PLAN" = 0 ]; then
-      info "O domínio da loja, como loja.seudominio.com.br. Enter usa $fallback, que funciona sem DNS."
+      if [ "$LOCAL" = 1 ]; then
+        info "Enter usa localhost: a loja abre só neste computador, para testar. Para vender pela internet, use um servidor."
+      else
+        info "O domínio da loja, como loja.seudominio.com.br. Enter usa $fallback, que funciona sem DNS."
+      fi
     fi
     ask "Domínio da loja" "$fallback"
     DOMAIN=$ANSWER
   fi
   DOMAIN=$(printf '%s' "$DOMAIN" | tr '[:upper:]' '[:lower:]' | sed 's#^https\{0,1\}://##; s#/.*$##')
   [ -n "$DOMAIN" ] || die "Falta o domínio da loja." "Rode com --domain loja.seudominio.com.br."
-  if [ "$PLAN" = 0 ] &&
+  if [ "$PLAN" = 0 ] && [ "$DOMAIN" != localhost ] &&
     ! printf '%s' "$DOMAIN" | grep -Eq '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*[a-z0-9]$'; then
     die "\"$DOMAIN\" não é um domínio." "Use só o nome, como loja.seudominio.com.br, sem https:// nem barra."
   fi
@@ -481,7 +589,7 @@ ask_domain() {
 ask_email() {
   EMAIL=$(env_get ACME_EMAIL)
   if [ -n "$EMAIL_ARG" ]; then EMAIL=$EMAIL_ARG; fi
-  if [ -z "$EMAIL" ] && [ "$FRESH" = 1 ] && [ -z "$EMAIL_ARG" ]; then
+  if [ -z "$EMAIL" ] && [ "$FRESH" = 1 ] && [ -z "$EMAIL_ARG" ] && [ "$DOMAIN" != localhost ]; then
     ask "E-mail para o certificado HTTPS (opcional, Enter pula)" ''
     EMAIL=$ANSWER
   fi
@@ -529,11 +637,15 @@ choose() {
 
 ask_choices() {
   case $DOMAIN in
-    *.sslip.io | *.duckdns.org | '<'*)
+    *.sslip.io | *.duckdns.org | '<'* | localhost)
       if [ "$CF" = 1 ]; then warn "$DOMAIN não fica na Cloudflare: seguindo sem ela."; fi
       CF=0
       ;;
   esac
+  if [ "$LOCAL" = 1 ]; then
+    info "Neste Mac ficam de fora a proteção do servidor e o firewall da Cloudflare, que são para servidores Linux"
+    HARDEN=0 CF_FIREWALL=0
+  fi
   fallback=n
   if [ -n "$(env_get TRUSTED_PROXIES)" ]; then fallback=s; fi
   choose INSTALL_CLOUDFLARE "$CF" "O domínio está na Cloudflare? (DNS, SSL, firewall e R2, cada um com sua pergunta)" "$fallback"
@@ -647,7 +759,8 @@ fetch_files() {
 
 write_env() {
   if [ "$FRESH" = 1 ]; then run install -m 600 "$WORK/files/.env.example" "$ENV_FILE"; fi
-  env_set DOMAIN "$DOMAIN"
+  # localhost can hang over IPv6 with Docker Desktop, so a local store answers on 127.0.0.1 too.
+  if [ "$DOMAIN" = localhost ]; then env_set DOMAIN 'localhost 127.0.0.1'; else env_set DOMAIN "$DOMAIN"; fi
   env_set BASE_URL "https://$DOMAIN"
   if [ -n "$PASSWORD" ]; then env_set ADMIN_PASSWORD "$PASSWORD"; fi
   if [ -z "$(env_get SECRET)" ]; then env_set SECRET "$(random_hex 32)"; fi
@@ -673,6 +786,8 @@ write_env() {
   if [ "$WHATSAPP" = 1 ]; then env_set COMPOSE_PROFILES whatsapp; fi
   if [ "$PLAN" = 1 ]; then
     shell "escreve $ENV_FILE (modo 600): DOMAIN, BASE_URL, as escolhas (INSTALL_*) e o que faltar de ADMIN_PASSWORD, SECRET, POSTGRES_PASSWORD"
+  elif [ "$LOCAL" = 1 ]; then
+    ok "$ENV_FILE, legível só por você"
   else
     ok "$ENV_FILE, legível só pelo root"
   fi
@@ -705,7 +820,7 @@ cloudflare() {
     return 0
   fi
   if ! command -v jq >/dev/null 2>&1; then
-    [ "$APT" = 1 ] || die "A conexão com a Cloudflare precisa do jq." "Instale o jq e rode de novo."
+    [ "$APT" = 1 ] || die "A conexão com a Cloudflare precisa do jq." "Instale o jq (no Mac: brew install jq) e rode de novo."
     run env DEBIAN_FRONTEND=noninteractive apt-get update -q
     run env DEBIAN_FRONTEND=noninteractive apt-get install -y -q jq
   fi
@@ -942,12 +1057,16 @@ r2() {
 }
 
 check_https() {
+  URLS="https://$DOMAIN"
   if [ "$PLAN" = 1 ]; then
     shell "confere o DNS de $DOMAIN e espera https://$DOMAIN responder (até 3 minutos)"
     return 0
   fi
-  # Behind the Cloudflare proxy the name resolves to Cloudflare, so only the HTTPS answer tells.
-  if [ "$CF" = 0 ]; then
+  # The certificate of a local store comes from Caddy's own authority, which this computer does not trust.
+  set --
+  if [ "$DOMAIN" = localhost ]; then set -- -k --resolve localhost:443:127.0.0.1; fi
+  # Behind the Cloudflare proxy the name resolves to Cloudflare, so only the HTTPS answer tells. A Mac has no getent.
+  if [ "$CF" = 0 ] && [ "$LOCAL" = 0 ]; then
     points=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR == 1 { print $1 }')
     if [ -z "$IP4" ] || [ "$points" != "$IP4" ]; then
       if [ -n "$points" ]; then
@@ -966,8 +1085,11 @@ check_https() {
   info "Esperando o HTTPS de $DOMAIN (o certificado sai em um ou dois minutos)"
   i=0
   while [ "$i" -lt 36 ]; do
-    if curl -fsS -o /dev/null --max-time 5 "https://$DOMAIN/api/health" 2>/dev/null; then
+    if curl -fsS -o /dev/null --max-time 5 "$@" "https://$DOMAIN/api/health" 2>/dev/null; then
       ok "https://$DOMAIN responde"
+      if [ "$DOMAIN" = localhost ] && curl -fsk -o /dev/null --max-time 5 https://127.0.0.1/api/health; then
+        URLS="$URLS https://127.0.0.1"
+      fi
       return 0
     fi
     sleep 5
@@ -982,11 +1104,18 @@ finish() {
     return 0
   fi
   title "Pronto"
-  line "Loja:    https://$DOMAIN"
-  line "Painel:  https://$DOMAIN/admin"
+  for url in $URLS; do line "Loja:    $url"; done
+  for url in $URLS; do line "Painel:  $url/admin"; done
   if [ -n "$PASSWORD_SHOWN" ]; then
     line "Senha:   $PASSWORD_SHOWN"
     line "${D}A senha aparece só agora: guarde num gerenciador de senhas. Ela também fica em $ENV_FILE.$O"
+  fi
+  if [ "$DOMAIN" = localhost ]; then
+    printf '\n'
+    info "O navegador avisa que a conexão não é particular: o certificado é da própria loja, feito neste computador."
+    line "Clique em Avançado (ou Mostrar detalhes) e continue."
+    info "A loja roda enquanto o Docker estiver aberto, e só este computador a vê. Para vender, instale num servidor:"
+    line "$GUIDE"
   fi
   printf '\n'
   info "Entre no painel e siga os primeiros passos:"

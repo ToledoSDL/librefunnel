@@ -1,6 +1,8 @@
 {
 	# Quoted so an empty ACME_EMAIL is valid; with an address, ZeroSSL becomes the fallback when Let's Encrypt fails.
 	email "{$ACME_EMAIL}"
+	# Browsers send no SNI to an IP address: a store on a computer (DOMAIN=localhost 127.0.0.1) answers https://127.0.0.1 too.
+	default_sni localhost
 	servers {
 		# Behind Cloudflare, TRUSTED_PROXIES lists its ranges so {client_ip} is the visitor (CF-Connecting-IP cannot be forged through Cloudflare).
 		trusted_proxies static {$TRUSTED_PROXIES:private_ranges}

@@ -8,6 +8,8 @@ Already connected to a Linux server (x64 or arm64, Ubuntu or Debian for the serv
 curl -fsSL https://librefunnel.com/install | sh
 ```
 
+To try the store on your own computer instead (only that computer sees it, at `https://localhost`): the same command on macOS or in Git Bash, or `irm https://librefunnel.com/install.ps1 | iex` in PowerShell on Windows. It uses Docker Desktop (or OrbStack or Colima on a Mac) and asks before installing one.
+
 **What you need**
 
 - A credit or debit card. Oracle uses it to verify your identity and does not charge on the Always Free tier.

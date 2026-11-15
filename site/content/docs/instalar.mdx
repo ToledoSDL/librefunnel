@@ -26,6 +26,26 @@ sh install.sh --help
 
 `--plan` mostra tudo o que o instalador faria, sem fazer nada.
 
+## No seu computador (Windows ou macOS)
+
+Para testar a loja, ou usar só neste computador, ela também roda no Windows e no Mac, com o Docker. O endereço é `https://localhost` (e `https://127.0.0.1`), que só este computador vê. Para vender pela internet, use um servidor.
+
+No Windows, no PowerShell (ou o comando de cima no Git Bash, que chama este):
+
+```powershell
+irm https://librefunnel.com/install.ps1 | iex
+```
+
+Com opções, como `--plan`: `& ([scriptblock]::Create((irm https://librefunnel.com/install.ps1))) --plan`.
+
+No Mac, no Terminal, o mesmo comando do servidor:
+
+```sh
+curl -fsSL https://librefunnel.com/install | sh
+```
+
+O instalador usa o Docker Desktop (no Mac, também o OrbStack ou o Colima). Se não houver um, ele pergunta antes de instalar: no Windows com o `winget`, no Mac o Colima com o Homebrew. A loja fica em `%LOCALAPPDATA%\LibreFunnel` no Windows e em `~/librefunnel` no Mac. O certificado HTTPS é feito pela própria loja, então o navegador avisa que a conexão não é particular: clique em Avançado e continue. A proteção do servidor e o firewall da Cloudflare ficam de fora. No WSL, vale o caminho do Linux.
+
 ## O que o instalador pergunta
 
 Cada etapa é uma pergunta própria, e Enter aceita o padrão:

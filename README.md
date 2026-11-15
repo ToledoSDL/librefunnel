@@ -110,7 +110,15 @@ bun run dev     # http://localhost:3000
 bun run build   # static export in site/out, with deploy/install.sh and install.ps1 copied to site/out/install and install.ps1
 ```
 
-The site is the Cloudflare Pages project `librefunnel` (direct upload, not linked to GitHub), with `librefunnel.com` and `www.librefunnel.com` as custom domains. Publish it after changing `site/` or either installer: `bunx wrangler@4.162.0 login` once, then `bun run build` and `bunx wrangler@4.162.0 pages deploy out --project-name librefunnel --branch main` from `site/`. `site/public/_headers` serves `/install` and `/install.ps1` as plain text; check both with `curl -sI` after publishing.
+The site is the Cloudflare Pages project `librefunnel` (direct upload, not linked to GitHub), with `librefunnel.com` and `www.librefunnel.com` as custom domains. Every release publishes it (the `site` job in `.github/workflows/release.yml`), which needs two repository secrets: `CLOUDFLARE_API_TOKEN` (a token with **Cloudflare Pages: Edit**) and `CLOUDFLARE_ACCOUNT_ID`. To publish between releases: `bunx wrangler@4.162.0 login` once, then `bun run build` and `bunx wrangler@4.162.0 pages deploy out --project-name librefunnel --branch main` from `site/`. `site/public/_headers` serves `/install` and `/install.ps1` as plain text; check both with `curl -sI` after publishing.
+
+Every release also publishes the demo image (`ghcr.io/toledosdl/librefunnel-demo`). The demo server pulls it on its own with this crontab line, so it needs no inbound access from GitHub:
+
+```sh
+*/10 * * * * cd /opt/librefunnel && docker compose -f compose.yaml -f compose.demo.yaml pull -q app && docker compose -f compose.yaml -f compose.demo.yaml up -d app db caddy
+```
+
+`up -d` recreates the app only when the pulled image changed. Changes to `compose.yaml`, `compose.demo.yaml` or the `Caddyfile` still need copying to the server.
 
 ## License
 

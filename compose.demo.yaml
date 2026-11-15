@@ -1,7 +1,8 @@
-# Public demo only (DEMO_MODE=1 in .env): builds the image's demo target, which adds the demo/ seeds and media.
+# Public demo only (DEMO_MODE=1 in .env): the image's demo target, which adds the demo/ seeds and media.
+# Each release publishes it; the demo server pulls it on its own (see README). To build locally instead:
 # docker compose -f compose.yaml -f compose.demo.yaml up -d --build app db caddy
 services:
   app:
-    image: librefunnel-demo
+    image: ghcr.io/toledosdl/librefunnel-demo:latest
     build:
       target: demo

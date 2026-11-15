@@ -63,7 +63,12 @@ export async function checkRelease() {
 
   globalThis.libreFunnelRelease = {
     version: release.tag_name,
-    notes: (release.body ?? "").slice(0, 4000),
+    // GitHub's generated body is only a compare link, which "Ver o que mudou" already covers.
+    notes: (release.body ?? "")
+      .replace(/^\*\*Full Changelog\*\*.*$/gm, "")
+      .replace(/\*\*|^#+\s*/gm, "")
+      .trim()
+      .slice(0, 4000),
     url: release.html_url ?? `https://github.com/${REPO}/releases`,
     publishedAt: release.published_at ?? "",
   };

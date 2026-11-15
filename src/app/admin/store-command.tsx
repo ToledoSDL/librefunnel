@@ -2,13 +2,15 @@
 
 import { useActionState, useEffect, useState } from "react";
 import type { ButtonAttributes } from "@/components/action/button";
+import { Stack } from "@/components/layout/stack";
+import { Text } from "@/components/text/text";
 import type { ActionState } from "@/lib/actions";
 import { ErrorText } from "@/app/ui";
 import styles from "./admin.module.css";
 
 type Command = (state: ActionState, form: FormData) => Promise<ActionState>;
 
-// The store goes down while it updates or restarts, so wait until it answers again and reload into the new version.
+// A new container replaces the running one in the background, so poll until the version changes and reload into it.
 function useReturn(active: boolean, from: string) {
   const [late, setLate] = useState(false);
 
@@ -71,11 +73,19 @@ export function StoreCommand({
 
   return (
     <form action={run}>
-      {version ? <input type="hidden" name="version" value={version} /> : null}
-      <button type="submit" {...look} disabled={pending} aria-busy={pending || undefined}>
-        {pending ? pendingLabel : label}
-      </button>
-      {state.code ? <ErrorText code={state.code} /> : null}
+      <Stack gap={2}>
+        {version ? <input type="hidden" name="version" value={version} /> : null}
+        <div>
+          <button type="submit" {...look} disabled={pending} aria-busy={pending || undefined}>
+            {pending ? pendingLabel : label}
+          </button>
+        </div>
+        {state.code ? (
+          <Text variant="body-sm" tone="danger">
+            <ErrorText code={state.code} />
+          </Text>
+        ) : null}
+      </Stack>
     </form>
   );
 }

@@ -352,16 +352,22 @@ Choose the provider in **Conexões** > **Recebimento do Pix**. The card shows ea
 | Mercado Pago | 0.99% per sale                                                                     | CPF or CNPJ         |
 | Woovi        | 0.80% per Pix (min R$ 0.50, max R$ 5.00) or R$ 0.85 per Pix, depending on the plan | CNPJ (MEI accepted) |
 | AbacatePay   | R$ 0.80 per Pix                                                                    | CNPJ (MEI accepted) |
+| DePix        | Set by Eulen                                                                       | Eulen partner       |
+| NoxPay       | Set by NoxPay                                                                      | NoxPay account      |
+
+DePix and NoxPay pay you in crypto instead of reais. Both are third parties holding or issuing what you receive: DePix is a BRL token issued by Eulen on the Liquid network, with no published proof of reserves, and NoxPay keeps the converted balance in your NoxPay account until you withdraw it. Neither has a documented Banco Central authorization. Move what you receive to your own custody or exchange it promptly if you do not want that exposure. Woovi can also convert what it receives into USDT or USDC, sent to your own wallet (see [Woovi to crypto](#woovi-to-crypto)).
 
 Switching provider changes only new orders: an order is always confirmed through the provider that issued its Pix, as long as that provider's keys stay saved. If the provider cannot be reached when an order is created, that order keeps the direct Pix to your key and waits in **Orders** for a manual release. **Usar Pix direto na chave** goes back to manual confirmation.
 
-Every webhook only tells the store to look: the store then asks the provider, with your key, how much was paid, and releases only when it covers the order.
+Every webhook only tells the store to look: the store then asks the provider, with your key, how much was paid, and releases only when it covers the order. So a repeated, forged or out-of-order webhook changes nothing: the provider's current state decides, each payment, refund and MED is recorded once by its own id, and a refunded order is never released again.
+
+Webhooks can also get lost, so the store checks each order on its own too: 5, 30 and 120 minutes after it is created and 10 minutes after it expires, then 1, 7, 30 and 85 days after a paid sale, to catch a MED (a payer can claim a Pix back for up to 80 days). When a provider answers that it is busy or rate limiting, every check of that provider waits the time it asked for.
 
 ### Mercado Pago
 
 1. Go to [mercadopago.com.br/developers](https://www.mercadopago.com.br/developers), open **Your integrations** and create an application (or open an existing one).
 2. Under **Production credentials**, copy the **Access Token**.
-3. Under **Webhooks**, register the production URL shown in the dashboard, and select the **Order** event:
+3. Under **Webhooks**, register the production URL shown in the dashboard, and select the **Order** and **Chargebacks** events:
 
    ```text
    https://yourstore.duckdns.org/api/webhooks/payment?psp=mercadopago
@@ -379,9 +385,21 @@ Every webhook only tells the store to look: the store then asks the provider, wi
    https://yourstore.duckdns.org/api/webhooks/payment?psp=woovi
    ```
 
-   Events: `OPENPIX:CHARGE_COMPLETED`, `PIX_TRANSACTION_REFUND_SENT_CONFIRMED` and `OPENPIX:DISPUTE_ACCEPTED`. Optionally, fill the webhook authorization with the output of `openssl rand -hex 32`.
+   Events: `OPENPIX:CHARGE_COMPLETED`, `OPENPIX:CHARGE_COMPLETED_NOT_SAME_CUSTOMER_PAYER`, `PIX_TRANSACTION_REFUND_SENT_CONFIRMED` and `OPENPIX:DISPUTE_ACCEPTED`. Optionally, fill the webhook authorization with the output of `openssl rand -hex 32`.
 
 3. In **Conexões** > **Recebimento do Pix** > **Woovi**, paste the **AppID** (and the same authorization in **Authorization do webhook (opcional)**, if you set one), click **Salvar e usar este provedor**, then **Testar**. The test also downloads the keys Woovi signs its webhooks with.
+
+#### Woovi to crypto
+
+The buyer pays the Woovi Pix as usual. The store then asks Woovi to convert reais from your Woovi balance into USDT or USDC and send it to your wallet. Woovi does not hold the crypto: a virtual asset provider it partners with makes the conversion.
+
+1. Ask Woovi support for a stablecoin subaccount (a review of your company) and give the AppID the `STABLECOIN_DEPOSIT_CREATE` permission.
+2. In **Conexões** > **Receber em cripto pela Woovi**, choose the coin and network, paste your wallet address on that network and choose how to convert:
+   - **Converter o saldo disponível**: once an hour, everything available in the Woovi account above R$ 50 is converted, including money that did not come from the store.
+   - **Converter cada venda**: each Woovi sale paid after you turn this on is converted, minus the Pix fee shown on the charge (R$ 5 stays in reais when the charge does not show it).
+3. Click **Salvar**. The store checks the AppID with a Woovi quote before saving.
+
+If Woovi refuses a conversion (subaccount not approved yet, not enough balance), the card shows why and the store tries again every 10 minutes. A refund after a sale was converted is debited from your reais balance: the crypto already sent does not come back.
 
 ### AbacatePay
 
@@ -395,6 +413,32 @@ Every webhook only tells the store to look: the store then asks the provider, wi
 3. In **Conexões** > **Recebimento do Pix** > **AbacatePay**, paste the key into **Chave da API (v2)** and the secret into **Segredo do webhook**, click **Salvar e usar este provedor**, then **Testar**.
 
 A test key (starting with `abc_dev_`) only confirms test charges. Save the production key (`abc_prod_`) before selling.
+
+### DePix (Eulen)
+
+The buyer pays an ordinary Pix on the order page, and Eulen sends the same amount in DePix to the default Liquid address of your Eulen account.
+
+1. Request partner access at [depix.info](https://depix.info/#partners). Eulen gives you a private Telegram channel.
+2. In that channel, under **#Bot**, send `/addclientcredentials librefunnel` and copy the **Client ID** and **Client Secret**.
+3. Generate a webhook secret with `openssl rand -hex 32` and register it for both events:
+
+   ```text
+   /registerwebhook deposit https://yourstore.duckdns.org/api/webhooks/payment?psp=depix <secret>
+   /registerwebhook med https://yourstore.duckdns.org/api/webhooks/payment?psp=depix <secret>
+   ```
+
+4. In **Conexões** > **Recebimento do Pix** > **DePix**, paste the Client ID, the Client Secret and the webhook secret, click **Salvar e usar este provedor**, then **Testar**.
+
+Eulen does not retry webhooks, so the store also checks every open DePix order once a minute until it is paid or its code expires. A Pix code lasts at most 24 hours, even if the order lasts longer. Eulen caps each payment by the payer's daily limit: when it refuses a charge, that order keeps the direct Pix to your key.
+
+### NoxPay
+
+The buyer leaves the order page for NoxPay's checkout, enters their CPF there and pays the Pix. NoxPay converts it and credits the chosen currency to your NoxPay balance; withdrawals to your wallet are made in the NoxPay dashboard.
+
+1. In the NoxPay dashboard, open **Settings** > **API Keys**, create a key and copy the **API Key** and the **Webhook Secret**.
+2. In **Conexões** > **Recebimento do Pix** > **NoxPay**, choose the currency you want to receive, paste both values, click **Salvar e usar este provedor**, then **Testar**. There is no webhook to register: the store sends its address with each checkout.
+
+NoxPay documents no refund or MED status, so a reversed NoxPay payment does not revoke access on its own: refund it in **Orders**.
 
 ## Other payment providers
 
@@ -490,7 +534,8 @@ The public demo at `demo.librefunnel.com` is an install with `DEMO_MODE=1` in `.
 - Every day at 04:00 (Sao Paulo time) the database goes back to the demo store: orders, buyers, messages, settings and edited products are erased and the seed runs again. Uploaded files stay in `data`.
 
 - Uploads are refused: the password is public and files would survive the reset.
-- Build and run it with the demo override, without the updater and without Evolution: `docker compose -f compose.yaml -f compose.demo.yaml up -d --build app db caddy`. Nothing in the demo needs Docker access or WhatsApp. Without the override the image has no `demo/` folder and the log says so.
+- Build and run it with the demo override, without the updater, Evolution or backups: `docker compose -f compose.yaml -f compose.demo.yaml up -d --build app db caddy`. Nothing in the demo needs Docker access or WhatsApp, and the privacy page promises no copies of what visitors type. Without the override the image has no `demo/` folder and the log says so.
+- To update it, copy the repository at the new commit to the server's install folder (keep its `.env`, never copy a local one) and run the same command. The demo store reloads only on an empty database or at the nightly reset; to apply a changed `demo/*.sql` right away, run `docker compose exec db psql -U librefunnel -d librefunnel` with the changed statements, or wait for 04:00.
 
 DNS: create an `A` record named `demo` pointing to the server's IP. With Cloudflare, keep the proxy on (orange cloud) to hide the server's IP, set SSL to **Full (strict)**, leave **Always Use HTTPS** off (Caddy redirects by itself and Let's Encrypt validates through Cloudflare), set `TRUSTED_PROXIES` to Cloudflare's ranges, and in the server's firewall open ports 80 and 443 only to those ranges. Then set `DOMAIN=demo.yourdomain.com` and `BASE_URL=https://demo.yourdomain.com`.
 

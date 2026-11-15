@@ -89,7 +89,9 @@ describe("one-token Cloudflare setup", () => {
     expect(JSON.parse(created?.body ?? "{}").name).toMatch(/^librefunnel-/);
     const cors = calls.find((call) => call.url.endsWith("/cors"));
     expect(JSON.parse(cors?.body ?? "{}").rules[0].allowed.methods).toEqual(["GET", "PUT", "HEAD"]);
-    expect(calls.some((call) => call.method === "PUT" && call.url.includes(".r2.cloudflarestorage.com/"))).toBe(true);
+    expect(
+      calls.some((call) => call.method === "PUT" && new URL(call.url).hostname.endsWith(".r2.cloudflarestorage.com")),
+    ).toBe(true);
   });
 
   test("an existing bucket is reused, and R2 still off on the account says so", async () => {

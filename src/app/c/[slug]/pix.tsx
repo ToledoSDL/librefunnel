@@ -47,7 +47,7 @@ export async function PixPage({
   const retry = `/c/${product.slug}${order.bump ? "?bump=1" : ""}#buy`;
 
   if (order.status === "pending") {
-    const qr = await pixQrSvg(order.pixCode);
+    const qr = order.payUrl ? "" : await pixQrSvg(order.pixCode);
 
     return (
       <main className={styles.narrow}>
@@ -59,57 +59,69 @@ export async function PixPage({
                 <Badge tone="warning">Aguardando pagamento</Badge>
               </Row>
               <Text variant="heading" as="h1">
-                Pix gerado! Falta só pagar
+                {order.payUrl ? "Pedido criado! Falta só pagar" : "Pix gerado! Falta só pagar"}
               </Text>
               <Text variant="metric">
                 <Money cents={order.amount} />
               </Text>
               <Text variant="body-sm">
-                Pague até <DateTime at={order.expiresAt} />. Depois disso o código vence.
+                Pague até <DateTime at={order.expiresAt} />. Depois disso o {order.payUrl ? "pedido" : "código"} vence.
               </Text>
             </Stack>
-            <div className={styles.pix}>
-              <div className={styles.pixCode}>
-                <Stack gap={4}>
-                  <CopyField label="Pix Copia e Cola" value={order.pixCode} multiline />
-                  <ol className={styles.steps}>
-                    <li>
-                      <Text variant="body-sm">
-                        Toque em <strong>Copiar</strong>.
-                      </Text>
-                    </li>
-                    <li>
-                      <Text variant="body-sm">
-                        Abra o app do seu banco, entre em <strong>Pix</strong> e escolha{" "}
-                        <strong>Pix Copia e Cola</strong>.
-                      </Text>
-                    </li>
-                    <li>
-                      <Text variant="body-sm">
-                        Cole o código e confirme{" "}
-                        <strong>
-                          <Money cents={order.amount} />
-                        </strong>
-                        . Esta página muda sozinha quando o pagamento cair.
-                      </Text>
-                    </li>
-                  </ol>
-                </Stack>
+            {order.payUrl ? (
+              <Stack gap={2}>
+                <Button href={order.payUrl} variant="solid" tone="primary" size="lg" block>
+                  Pagar com Pix
+                </Button>
+                <Text variant="body-sm" tone="muted">
+                  O pagamento é feito na página segura da NoxPay, que pede o seu CPF e mostra o Pix. Depois de pagar,
+                  volte para esta página: ela muda sozinha quando o pagamento cair.
+                </Text>
+              </Stack>
+            ) : (
+              <div className={styles.pix}>
+                <div className={styles.pixCode}>
+                  <Stack gap={4}>
+                    <CopyField label="Pix Copia e Cola" value={order.pixCode} multiline />
+                    <ol className={styles.steps}>
+                      <li>
+                        <Text variant="body-sm">
+                          Toque em <strong>Copiar</strong>.
+                        </Text>
+                      </li>
+                      <li>
+                        <Text variant="body-sm">
+                          Abra o app do seu banco, entre em <strong>Pix</strong> e escolha{" "}
+                          <strong>Pix Copia e Cola</strong>.
+                        </Text>
+                      </li>
+                      <li>
+                        <Text variant="body-sm">
+                          Cole o código e confirme{" "}
+                          <strong>
+                            <Money cents={order.amount} />
+                          </strong>
+                          . Esta página muda sozinha quando o pagamento cair.
+                        </Text>
+                      </li>
+                    </ol>
+                  </Stack>
+                </div>
+                <div className={styles.pixQr}>
+                  <Stack gap={2}>
+                    <div
+                      className={styles.qr}
+                      role="img"
+                      aria-label="QR Code do Pix"
+                      dangerouslySetInnerHTML={{ __html: qr }}
+                    />
+                    <Text variant="body-sm" tone="muted">
+                      Pagando pelo computador? Leia o QR com o app do banco.
+                    </Text>
+                  </Stack>
+                </div>
               </div>
-              <div className={styles.pixQr}>
-                <Stack gap={2}>
-                  <div
-                    className={styles.qr}
-                    role="img"
-                    aria-label="QR Code do Pix"
-                    dangerouslySetInnerHTML={{ __html: qr }}
-                  />
-                  <Text variant="body-sm" tone="muted">
-                    Pagando pelo computador? Leia o QR com o app do banco.
-                  </Text>
-                </Stack>
-              </div>
-            </div>
+            )}
           </Card>
           {demoMode() ? (
             <Card title="Demonstração">

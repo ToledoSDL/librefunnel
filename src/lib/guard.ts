@@ -6,6 +6,7 @@ import {
   createHmac,
   hkdfSync,
   randomBytes,
+  scryptSync,
   timingSafeEqual,
 } from "node:crypto";
 import { cookies } from "next/headers";
@@ -31,6 +32,7 @@ const EMAIL =
 const NAME = /^[\p{L}\p{M}'’. -]+$/u;
 const WINDOW_LIMIT = 50_000;
 const windows = new Map<string, { count: number; resetAt: number }>();
+let adminHash: { password: string; digest: Buffer } | undefined;
 
 export function now(): number {
   return Math.floor(Date.now() / 1000);
@@ -221,8 +223,19 @@ export function maskEmail(email: string): string {
   return `${local.slice(0, 1)}***@${domain}`;
 }
 
+function passwordDigest(password: string): Buffer {
+  return scryptSync(password, key("admin-password"), 32);
+}
+
+// scrypt is slow on purpose and isAdmin runs on every admin request, so the digest is kept until the password changes.
+function adminDigest(): Buffer {
+  const password = process.env.ADMIN_PASSWORD ?? "";
+  if (adminHash?.password !== password) adminHash = { password, digest: passwordDigest(password) };
+  return adminHash.digest;
+}
+
 function adminLabel(): string {
-  return `admin:${process.env.ADMIN_PASSWORD ?? ""}`;
+  return `admin:${adminDigest().toString("hex")}`;
 }
 
 export async function isAdmin(): Promise<boolean> {
@@ -232,8 +245,8 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function signInAdmin(password: string, ip: string): Promise<GuardCode | null> {
   if (limited("admin", ip, 10, 900)) return "RATE_LIMITED";
-  const expected = process.env.ADMIN_PASSWORD ?? "";
-  if (expected.length < 16 || !safeEqual(password, expected)) return "INVALID_PASSWORD";
+  if ((process.env.ADMIN_PASSWORD ?? "").length < 16 || !timingSafeEqual(passwordDigest(password), adminDigest()))
+    return "INVALID_PASSWORD";
   await setCookie(ADMIN_COOKIE, sign(adminLabel(), "admin", ADMIN_TTL), ADMIN_TTL, "strict");
   return null;
 }

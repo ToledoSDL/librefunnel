@@ -205,6 +205,8 @@ describe("integration settings", () => {
       ["mercadopago", false, true],
       ["woovi", true, false],
       ["abacatepay", true, true],
+      ["depix", false, false],
+      ["noxpay", false, false],
     ]);
     expect(links.pix.providers.find((entry) => entry.id === "woovi")?.webhookUrl).toBe(
       "https://shop.example/api/webhooks/payment?psp=woovi",

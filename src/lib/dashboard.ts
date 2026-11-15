@@ -22,7 +22,7 @@ import { credentials, productNames } from "./catalog";
 import { addSeconds, db, one } from "./db";
 import { baseUrl } from "./guard";
 import { cloudOf, cloudStatus, evolutionOf, messageCode, replyOpen, SMTP_PRESETS, whatsappState } from "./messages";
-import { PIX_PROVIDERS, pixProvider } from "./orders";
+import { conversionError, cryptoMode, PIX_PROVIDERS, pixProvider, pspConfigured, pspKeys } from "./orders";
 import type { OrderStatus } from "./orders";
 import {
   contact,
@@ -522,6 +522,8 @@ export async function integrations() {
       "mercadopago",
       "woovi",
       "abacatepay",
+      "depix",
+      "noxpay",
       "webhook",
       "evolution",
       "whatsapp",
@@ -561,6 +563,12 @@ export async function integrations() {
     pix: {
       provider: active,
       chosen: stored("pix")("provider") !== "",
+      crypto: {
+        mode: cryptoMode(stored("woovi")("convertMode")),
+        asset: stored("woovi")("convertAsset"),
+        wallet: stored("woovi")("convertWallet"),
+        error: conversionError(stored("woovi")("convertError")),
+      },
       providers: PIX_PROVIDERS.map((provider) => {
         if (provider.id === "static")
           return {
@@ -569,19 +577,22 @@ export async function integrations() {
             configured: true,
             apiKeySet: false,
             webhookSecretSet: false,
+            clientId: "",
+            currency: "",
             webhookUrl: null,
           };
-        const keys = stored(provider.id);
-        const apiKeySet = keys("apiKey") !== "";
-        const webhookSecretSet = keys("webhookSecret") !== "";
+        const keys = pspKeys(stored(provider.id));
 
         return {
           ...provider,
           active: active === provider.id,
-          configured: apiKeySet && (provider.id === "woovi" || webhookSecretSet),
-          apiKeySet,
-          webhookSecretSet,
-          webhookUrl: `${webhookUrl}?psp=${provider.id}`,
+          configured: pspConfigured(provider.id, keys),
+          apiKeySet: keys.apiKey !== "",
+          webhookSecretSet: keys.webhookSecret !== "",
+          clientId: keys.clientId,
+          currency: keys.currency,
+          // NoxPay takes the address with each checkout, so there is nothing to register in its panel.
+          webhookUrl: provider.id === "noxpay" ? null : `${webhookUrl}?psp=${provider.id}`,
         };
       }),
     },

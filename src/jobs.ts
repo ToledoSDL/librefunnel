@@ -44,6 +44,7 @@ export async function start() {
     orders.attachCharges,
     orders.refreshWebhookKeys,
     orders.checkCharges,
+    orders.convertToCrypto,
     messages.queueRecovery,
     messages.sendMessages,
     messages.refreshPhotos,

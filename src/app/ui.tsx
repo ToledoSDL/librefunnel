@@ -135,7 +135,7 @@ const ERROR_TEXT: Record<Code, string> = {
   PSP_NOT_CONFIGURED:
     "Faltam as chaves deste provedor de Pix. Cole as chaves em Conexões, em Recebimento do Pix, e salve.",
   PSP_REJECTED:
-    "O provedor de Pix recusou a chave. Cole de novo a chave de produção inteira (Mercado Pago: Access Token; Woovi: AppID com permissão de cobrança; AbacatePay: chave da API v2) e salve.",
+    "O provedor de Pix recusou a chave. Cole de novo a chave de produção inteira (Mercado Pago: Access Token; Woovi: AppID com permissão de cobrança; AbacatePay: chave da API v2; DePix: Client ID e Client Secret com permissão de depósito; NoxPay: API Key) e salve. Para converter em cripto pela Woovi, o AppID também precisa da permissão STABLECOIN_DEPOSIT_CREATE.",
   PSP_UNREACHABLE:
     "O provedor de Pix não respondeu agora. Teste de novo em alguns minutos; enquanto isso, os pedidos saem com o Pix na sua chave.",
   INVALID_HOST:
@@ -170,9 +170,13 @@ const ERROR_TEXT: Record<Code, string> = {
   REPLY_WINDOW_CLOSED:
     "A API oficial do WhatsApp só aceita resposta até 24 horas depois da última mensagem do comprador. Quando ele escrever de novo, responda por aqui.",
   INVALID_WEBHOOK_SECRET:
-    "O segredo do webhook da AbacatePay precisa ter pelo menos 32 caracteres, igual ao que você digitou ao criar o webhook lá.",
+    "O segredo do webhook precisa ter pelo menos 32 caracteres, igual ao que você cadastrou no provedor (AbacatePay: ao criar o webhook; DePix: no comando /registerwebhook).",
   PIX_PROVIDER_NOT_CONFIGURED:
-    "Faltam chaves para ativar este provedor. Mercado Pago e AbacatePay pedem a chave da API e o segredo do webhook; a Woovi pede o AppID.",
+    "Faltam chaves para ativar este provedor. Mercado Pago e AbacatePay pedem a chave da API e o segredo do webhook; a Woovi pede o AppID; o DePix pede Client ID, Client Secret e segredo do webhook; a NoxPay pede API Key, Webhook Secret e a moeda.",
+  CRYPTO_REFUSED:
+    "A Woovi recusou a conversão para cripto. Confira com o suporte da Woovi se a subconta de stablecoin já foi aprovada (KYB) e se há saldo disponível; a loja tenta de novo a cada 10 minutos.",
+  INVALID_WALLET:
+    "Endereço de carteira inválido para a rede escolhida. Na Tron ele começa com T e tem 34 caracteres; nas outras redes começa com 0x e tem 42. Copie de novo da sua carteira.",
   UPLOAD_FAILED: "O envio foi interrompido. Confira a internet e tente de novo; vídeos grandes levam alguns minutos.",
 };
 

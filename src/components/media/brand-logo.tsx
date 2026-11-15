@@ -6,6 +6,8 @@ const BRANDS: Record<string, { icon?: string; src?: string; color: string; initi
   mercadopago: { src: "/brands/mercadopago.svg", color: "#00bcff" },
   woovi: { src: "/brands/woovi.png", color: "#03d69d" },
   abacatepay: { src: "/brands/abacatepay.svg", color: "#7fb83d" },
+  depix: { color: "#6b6e66", initials: "DP" },
+  noxpay: { color: "#6b6e66", initials: "NX" },
   pix: { icon: "pix", color: "#32bcad" },
   gmail: { icon: "gmail", color: "#ea4335" },
   brevo: { icon: "brevo", color: "#0b996e" },

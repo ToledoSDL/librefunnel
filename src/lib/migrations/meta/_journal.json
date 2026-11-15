@@ -85,6 +85,13 @@
       "when": 1794695913625,
       "tag": "0011_contacts",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794707848030,
+      "tag": "0012_crypto",
+      "breakpoints": true
     }
   ]
 }

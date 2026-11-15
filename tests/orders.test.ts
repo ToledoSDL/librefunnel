@@ -1,10 +1,18 @@
 import { createHmac, createSign, generateKeyPairSync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { and, eq, sql } from "drizzle-orm";
-import { createOrder, releaseOrder, rotateWebhookSecret } from "@/lib/actions";
-import { pixKey, removeCredentials, saveCredentials } from "@/lib/catalog";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { createOrder, releaseOrder, rotateWebhookSecret, saveWooviCrypto } from "@/lib/actions";
+import { credentials, pixKey, removeCredentials, saveCredentials } from "@/lib/catalog";
 import { db, one } from "@/lib/db";
-import { attachCharges, brCode, checkCharges, expireOrders, getPixOrder, refreshWebhookKeys } from "@/lib/orders";
+import {
+  attachCharges,
+  brCode,
+  checkCharges,
+  convertToCrypto,
+  expireOrders,
+  getPixOrder,
+  refreshWebhookKeys,
+} from "@/lib/orders";
 import { conversion, customer, message, order, payment, product } from "@/lib/schema";
 import { POST as paymentWebhook } from "@/app/api/webhooks/payment/route";
 import { fakeServer, form, freshBrowser, WEBHOOK_SECRET } from "./fakes";
@@ -267,6 +275,16 @@ describe("payment webhook", () => {
     expect((await stored(id)).status).toBe("refunded");
   });
 
+  test("a refund that arrives before its payment keeps the order closed", async () => {
+    const id = await buy({ email: "early-refund@example.com" });
+    const refund = { order: id, status: "refunded", amount: 9700, id: "early-refund" };
+    expect(await (await webhook(refund)).json()).toEqual({ ok: true });
+    expect(await (await pay(id, 9700, "early-payment")).json()).toEqual({ code: "UNDERPAID" });
+    expect((await stored(id)).status).toBe("pending");
+    expect(await accessMessages(id)).toBe(0);
+    expect(await purchases(id)).toBe(0);
+  });
+
   test("owner release requires a positive amount and an open order", async () => {
     const id = await buy({ email: "manual@example.com" });
     await signInAsAdmin();
@@ -291,22 +309,46 @@ describe("Pix providers", () => {
   const forger = generateKeyPairSync("rsa", { modulusLength: 2048 });
 
   beforeEach(async () => {
+    // Orders left open by other tests would compete for the same fake charge ids in attachCharges.
+    await db()
+      .update(order)
+      .set({ status: "canceled" })
+      .where(and(eq(order.status, "pending"), isNull(order.psp)));
     server = await fakeServer({});
     vi.stubGlobal("fetch", (input: string, init?: RequestInit) =>
-      realFetch(input.replace(/^https:\/\/api\.(mercadopago|woovi|abacatepay)\.com/, server.url), init),
+      realFetch(
+        input.replace(
+          /^https:\/\/(api\.(mercadopago|woovi|abacatepay)\.com|depix\.eulen\.app|checkout\.noxpay\.io)/,
+          server.url,
+        ),
+        init,
+      ),
     );
   });
 
   afterEach(async () => {
     vi.unstubAllGlobals();
-    for (const kind of ["mercadopago", "woovi", "abacatepay"] as const) await removeCredentials(kind);
+    for (const kind of ["mercadopago", "woovi", "abacatepay", "depix", "noxpay"] as const)
+      await removeCredentials(kind);
     await saveCredentials("pix", { provider: "static" });
     await server.close();
   });
 
-  async function use(psp: "mercadopago" | "woovi" | "abacatepay", apiKey: string, webhookSecret: string) {
-    await saveCredentials(psp, {}, { apiKey, webhookSecret });
+  async function use(
+    psp: "mercadopago" | "woovi" | "abacatepay" | "depix" | "noxpay",
+    apiKey: string,
+    webhookSecret: string,
+    fields: { clientId?: string; currency?: string } = {},
+  ) {
+    await saveCredentials(psp, fields, { apiKey, webhookSecret });
     await saveCredentials("pix", { provider: psp });
+  }
+
+  async function due(id: string) {
+    await db()
+      .update(order)
+      .set({ pspCheckAt: new Date(Date.now() - 1000) })
+      .where(eq(order.id, id));
   }
 
   function mpNotice(dataId: string, secret = "mp-secret") {
@@ -422,7 +464,8 @@ describe("Pix providers", () => {
       },
     };
     await checkCharges();
-    expect(await stored(id)).toMatchObject({ status: "pending", pspCheckAt: null });
+    // Still open: the next reconciliation is 5 minutes after the order was created.
+    expect(await stored(id)).toMatchObject({ status: "pending", pspCheckAt: new Date(Date.now() + 300_000) });
 
     await mpNotice("ORD01MP");
     server.routes["GET /v1/orders/ORD01MP"] = {
@@ -491,20 +534,23 @@ describe("Pix providers", () => {
     expect(await net(id)).toBe(0);
   });
 
-  test("Mercado Pago: a 429 waits the Retry-After seconds before checking again", async () => {
+  test("Mercado Pago: a 429 pauses every due order of that provider for the Retry-After seconds", async () => {
     await use("mercadopago", "APP_USR-test", "mp-secret");
     const id = await buy({ email: "mp429@example.com" });
+    const other = await buy({ email: "mp429-other@example.com" });
     await db().update(order).set({ psp: "mercadopago", txid: "ORD429" }).where(eq(order.id, id));
-    server.routes["GET /v1/orders/ORD429"] = {
-      status: 429,
-      body: { error: "too_many_requests" },
-      headers: { "Retry-After": "120" },
-    };
+    await db().update(order).set({ psp: "mercadopago", txid: "ORD429B" }).where(eq(order.id, other));
+    const slowDown = { status: 429, body: {}, headers: { "Retry-After": "120" } };
+    server.routes["GET /v1/orders/ORD429"] = slowDown;
+    server.routes["GET /v1/orders/ORD429B"] = slowDown;
     await mpNotice("ORD429");
+    await mpNotice("ORD429B");
     await checkCharges();
+    expect(server.to("GET", "/v1/orders/ORD429").length + server.to("GET", "/v1/orders/ORD429B").length).toBe(1);
     expect((await stored(id)).pspCheckAt).toEqual(new Date(Date.now() + 120_000));
-    await mpNotice("ORD429");
-    expect((await stored(id)).pspCheckAt).toEqual(new Date(Date.now() + 120_000));
+    expect((await stored(other)).pspCheckAt).toEqual(new Date(Date.now() + 120_000));
+    await checkCharges();
+    expect(server.to("GET", "/v1/orders/ORD429").length + server.to("GET", "/v1/orders/ORD429B").length).toBe(1);
   });
 
   test("switching provider keeps checking old orders with the provider that issued them", async () => {
@@ -708,6 +754,431 @@ describe("Pix providers", () => {
     await checkCharges();
     expect((await stored(dev)).status).toBe("pending");
     expect((await stored(short)).status).toBe("pending");
+  });
+
+  const DEPIX_SECRET = "depix-webhook-secret-with-32-chars!!";
+
+  function depixNotice(qrId: string, secret = DEPIX_SECRET) {
+    return paymentWebhook(
+      new Request("https://shop.example/api/webhooks/payment?psp=depix", {
+        method: "POST",
+        body: JSON.stringify({ webhookType: "deposit", qrId, status: "approved", valueInCents: 9700 }),
+        headers: { authorization: `Basic ${secret}` },
+      }),
+    );
+  }
+
+  function depixStatus(qrId: string, status: string) {
+    server.routes["GET /api/deposit-status"] = {
+      status: 200,
+      body: {
+        response: { qrId, status, valueInCents: 9700, expiration: new Date(Date.now() + 3_600_000).toISOString() },
+        async: false,
+      },
+    };
+  }
+
+  test("DePix: login, deposit, polling while open, forged notices, release once, refund revokes", async () => {
+    await use("depix", "depix-client-secret", DEPIX_SECRET, { clientId: "depix-client" });
+    const id = await buy({ email: "depix@example.com" });
+    server.routes["POST /api/v2/auth/login"] = { status: 200, body: { access_token: "depix-token", expires_in: 900 } };
+    server.routes["POST /api/deposit"] = {
+      status: 200,
+      body: { response: { id: "dep_1", qrCopyPaste: "00020126DEPIX", qrImageUrl: "" }, async: false },
+    };
+    await attachCharges();
+    const login = JSON.parse(server.to("POST", "/api/v2/auth/login")[0]?.body ?? "{}");
+    expect(login).toEqual({ client_id: "depix-client", client_secret: "depix-client-secret" });
+    const created = server.to("POST", "/api/deposit")[0];
+    expect(created?.headers["authorization"]).toBe("Bearer depix-token");
+    expect(JSON.parse(created?.body ?? "{}")).toMatchObject({ amountInCents: 9700 });
+    const attached = await stored(id);
+    expect(attached).toMatchObject({ psp: "depix", txid: "dep_1", pixCode: "00020126DEPIX" });
+    expect(attached.pspCheckAt).not.toBeNull();
+
+    expect((await depixNotice("dep_1", "wrong-secret-wrong-secret-wrong-secret")).status).toBe(401);
+    expect(await (await depixNotice("dep_1")).json()).toEqual({ ok: true });
+
+    depixStatus("dep_1", "pending");
+    await due(id);
+    await checkCharges();
+    const open = await stored(id);
+    expect(open.status).toBe("pending");
+    expect(open.pspCheckAt?.getTime()).toBeGreaterThan(Date.now());
+
+    depixStatus("dep_other", "approved");
+    await due(id);
+    await checkCharges();
+    expect((await stored(id)).status).toBe("pending");
+
+    depixStatus("dep_1", "approved");
+    await due(id);
+    await checkCharges();
+    await due(id);
+    await checkCharges();
+    expect((await stored(id)).status).toBe("paid");
+    expect(server.to("POST", "/api/v2/auth/login")).toHaveLength(1);
+
+    depixStatus("dep_1", "refunded");
+    await depixNotice("dep_1");
+    await due(id);
+    await checkCharges();
+    expect((await stored(id)).status).toBe("refunded");
+  });
+
+  function noxNotice(end2end: string, secret = "nox-webhook-secret") {
+    const raw = JSON.stringify({ webhook_version: "v2", end2end, status: { en: "Success" } });
+    return paymentWebhook(
+      new Request("https://shop.example/api/webhooks/payment?psp=noxpay", {
+        method: "POST",
+        body: raw,
+        headers: { "x-signature": createHmac("sha256", secret).update(raw).digest("base64") },
+      }),
+    );
+  }
+
+  function noxCheckout(end2end: string, status: string, amount: number | string = 97) {
+    server.routes["GET /v2/crossramp_checkout/NOXabc123"] = {
+      status: 200,
+      body: { end2end, status: { en: status }, attributes: { amount_payment: amount } },
+    };
+  }
+
+  test("NoxPay: hosted link, signed notice, only a re-fetched paid checkout releases", async () => {
+    await use("noxpay", "nox-api-key", "nox-webhook-secret", { currency: "TRX_USDT_S2UZ" });
+    const id = await buy({ email: "nox@example.com" });
+    server.routes["POST /v2/crossramp_checkout"] = {
+      status: 200,
+      body: { link: "https://checkout.noxpay.io/e2e/NOXabc123" },
+    };
+    await attachCharges();
+    const created = server.to("POST", "/v2/crossramp_checkout")[0];
+    expect(created?.headers["api-key"]).toBe("nox-api-key");
+    const body = JSON.parse(created?.body ?? "{}");
+    expect(body).toMatchObject({ currency_code: "TRX_USDT_S2UZ", amount_fiat: 97 });
+    expect(body.webhook).toMatch(/\/api\/webhooks\/payment\?psp=noxpay$/);
+    expect(await stored(id)).toMatchObject({ psp: "noxpay", txid: "NOXabc123" });
+    const slug = one(await db().select({ product: order.product }).from(order).where(eq(order.id, id))).product;
+    expect((await getPixOrder(id, slug))?.payUrl).toBe("https://checkout.noxpay.io/e2e/NOXabc123");
+
+    expect((await noxNotice("NOXabc123", "forged")).status).toBe(401);
+    noxCheckout("NOXabc123", "Pending");
+    expect(await (await noxNotice("NOXabc123")).json()).toEqual({ ok: true });
+    await checkCharges();
+    expect((await stored(id)).status).toBe("pending");
+
+    noxCheckout("NOXother", "Success");
+    await noxNotice("NOXabc123");
+    await checkCharges();
+    expect((await stored(id)).status).toBe("pending");
+
+    noxCheckout("NOXabc123", "Success", "97.00");
+    await noxNotice("NOXabc123");
+    await checkCharges();
+    await noxNotice("NOXabc123");
+    await checkCharges();
+    expect((await stored(id)).status).toBe("paid");
+    expect(await payments(id)).toBe(1);
+  });
+
+  test("NoxPay: a link outside NoxPay's checkout keeps the static Pix", async () => {
+    await use("noxpay", "nox-api-key", "nox-webhook-secret", { currency: "BTC" });
+    const id = await buy({ email: "nox-link@example.com" });
+    server.routes["POST /v2/crossramp_checkout"] = { status: 200, body: { link: "https://evil.example/e2e/NOXabc" } };
+    await attachCharges();
+    expect((await stored(id)).psp).toBeNull();
+  });
+
+  const WALLET = "0x52908400098527886E0F7030069857D2E4169EE7";
+
+  function stablecoinRoutes(status = 200) {
+    server.routes["POST /api/v1/stablecoin/deposit"] = { status, body: { status: "PENDING", depositId: "d1" } };
+    server.routes["POST /api/v1/stablecoin/deposit/approve"] = { status: 200, body: { status: "PROCESSING" } };
+  }
+
+  async function wooviFields() {
+    return (await credentials("woovi"))("woovi");
+  }
+
+  test("Woovi to crypto: the balance is swept above R$ 50 at most once an hour", async () => {
+    await use("woovi", "woovi-app-id", "");
+    await saveCredentials("woovi", { convertMode: "balance", convertAsset: "USDT:POLYGON", convertWallet: WALLET });
+    server.routes["GET /api/v1/account/"] = {
+      status: 200,
+      body: {
+        accounts: [
+          { isDefault: false, balance: { available: 99_999 } },
+          { isDefault: true, balance: { available: 4000 } },
+        ],
+      },
+    };
+    stablecoinRoutes();
+    await convertToCrypto();
+    expect(server.to("POST", "/api/v1/stablecoin/deposit")).toHaveLength(0);
+
+    await saveCredentials("woovi", { convertNextAt: "" });
+    server.routes["GET /api/v1/account/"] = {
+      status: 200,
+      body: { accounts: [{ isDefault: true, balance: { available: 12_000 } }] },
+    };
+    await convertToCrypto();
+    const deposit = JSON.parse(server.to("POST", "/api/v1/stablecoin/deposit")[0]?.body ?? "{}");
+    expect(deposit).toMatchObject({
+      value: 12_000,
+      currency: "USDT",
+      network: "POLYGON",
+      destinationWalletAddress: WALLET,
+    });
+    const approve = JSON.parse(server.to("POST", "/api/v1/stablecoin/deposit/approve")[0]?.body ?? "{}");
+    expect(approve).toEqual({ correlationId: deposit.correlationId });
+    expect(Number((await wooviFields())("convertNextAt"))).toBeGreaterThan(Date.now() + 3_000_000);
+
+    await convertToCrypto();
+    expect(server.to("POST", "/api/v1/stablecoin/deposit")).toHaveLength(1);
+  });
+
+  test("Woovi to crypto: each paid sale after it was turned on converts once, net of the Pix fee", async () => {
+    await use("woovi", "woovi-app-id", "");
+    const before = await buy({ email: "crypto-before@example.com" });
+    await db()
+      .update(order)
+      .set({ status: "paid", psp: "woovi", createdAt: new Date(Date.now() - 60_000) })
+      .where(eq(order.id, before));
+    await saveCredentials("woovi", {
+      convertMode: "sale",
+      convertAsset: "USDC:BASE",
+      convertWallet: WALLET,
+      convertSince: String(Date.now()),
+    });
+    const sale = await buy({ email: "crypto-sale@example.com" });
+    const open = await buy({ email: "crypto-open@example.com" });
+    await db().update(order).set({ status: "paid", psp: "woovi" }).where(eq(order.id, sale));
+    await db().update(order).set({ psp: "woovi" }).where(eq(order.id, open));
+    server.routes[`GET /api/v1/charge/${sale}`] = {
+      status: 200,
+      body: { charge: { correlationID: sale, paymentMethods: { pix: { fee: 78 } } } },
+    };
+
+    stablecoinRoutes(400);
+    server.routes["POST /api/v1/stablecoin/deposit/approve"] = { status: 400, body: { error: "deposit not found" } };
+    await convertToCrypto();
+    expect((await wooviFields())("convertError")).toBe("CRYPTO_REFUSED");
+    expect(one(await db().select({ at: order.cryptoAt }).from(order).where(eq(order.id, sale))).at).toBeNull();
+
+    await saveCredentials("woovi", { convertNextAt: "" });
+    stablecoinRoutes();
+    await convertToCrypto();
+    expect((await wooviFields())("convertError")).toBe("");
+    const deposits = server.to("POST", "/api/v1/stablecoin/deposit").map((entry) => JSON.parse(entry.body));
+    expect(deposits.at(-1)).toMatchObject({
+      value: 9622,
+      currency: "USDC",
+      network: "BASE",
+      correlationId: `librefunnel-${sale}`,
+    });
+    expect(deposits.every((entry) => entry.correlationId === `librefunnel-${sale}`)).toBe(true);
+
+    const count = deposits.length;
+    await convertToCrypto();
+    expect(server.to("POST", "/api/v1/stablecoin/deposit")).toHaveLength(count);
+  });
+
+  test("Woovi to crypto: turning it on checks the wallet and the AppID permission", async () => {
+    await signInAsAdmin();
+    await use("woovi", "woovi-app-id", "");
+    const save = (fields: Record<string, string>) => saveWooviCrypto({ code: null }, form(fields));
+    expect(await save({ mode: "sale", asset: "USDT:TRON", wallet: WALLET })).toEqual({ code: "INVALID_WALLET" });
+    server.routes["GET /api/v1/stablecoin/quote"] = { status: 401, body: { error: "missing scope" } };
+    expect(await save({ mode: "sale", asset: "USDT:POLYGON", wallet: WALLET })).toEqual({ code: "PSP_REJECTED" });
+    expect((await wooviFields())("convertMode")).toBe("");
+    server.routes["GET /api/v1/stablecoin/quote"] = { status: 200, body: { status: "ok" } };
+    expect(await save({ mode: "sale", asset: "USDT:POLYGON", wallet: WALLET })).toMatchObject({ code: null });
+    expect((await wooviFields())("convertSince")).not.toBe("");
+    expect(await save({ mode: "off" })).toMatchObject({ code: null });
+    expect((await wooviFields())("convertMode")).toBe("off");
+  });
+
+  async function asAbacate(email: string, txid: string) {
+    await use("abacatepay", "abc_prod_key", "abacate-webhook-secret-with-32-chars!");
+    const id = await buy({ email });
+    await db().update(order).set({ psp: "abacatepay", txid }).where(eq(order.id, id));
+    return id;
+  }
+
+  function abacateState(id: string, status: "PENDING" | "PAID" | "REFUNDED", headers?: Record<string, string>) {
+    server.routes["GET /v2/transparents/list"] = {
+      status: 200,
+      headers,
+      body: { data: [{ id, amount: 9700, status, devMode: false }] },
+    };
+  }
+
+  test("provider: duplicated and concurrent notices release once", async () => {
+    const id = await asAbacate("dup-notice@example.com", "pix_dup");
+    abacateState("pix_dup", "PAID");
+    await Promise.all([abacateNotice("pix_dup"), abacateNotice("pix_dup"), abacateNotice("pix_dup")]);
+    await Promise.all([checkCharges(), checkCharges()]);
+    await abacateNotice("pix_dup");
+    await checkCharges();
+    expect((await stored(id)).status).toBe("paid");
+    expect(await payments(id)).toBe(1);
+    expect(await accessMessages(id)).toBe(1);
+    expect(await purchases(id)).toBe(1);
+  });
+
+  test("provider: out-of-order notices follow the provider's current state, not the notice", async () => {
+    const late = await asAbacate("late-notice@example.com", "pix_late");
+    abacateState("pix_late", "REFUNDED");
+    await abacateNotice("pix_late");
+    await checkCharges();
+    expect((await stored(late)).status).toBe("pending");
+    expect(await accessMessages(late)).toBe(0);
+
+    const stale = await asAbacate("stale-notice@example.com", "pix_stale");
+    abacateState("pix_stale", "PAID");
+    await abacateNotice("pix_stale");
+    await checkCharges();
+    abacateState("pix_stale", "REFUNDED");
+    await abacateNotice("pix_stale");
+    await checkCharges();
+    await abacateNotice("pix_stale");
+    await checkCharges();
+    expect((await stored(stale)).status).toBe("refunded");
+    expect(await accessMessages(stale)).toBe(1);
+  });
+
+  test("provider: a notice is not lost when the re-fetch fails or is rate limited", async () => {
+    const id = await asAbacate("busy-notice@example.com", "pix_busy");
+    server.routes["GET /v2/transparents/list"] = { status: 503, body: { error: "unavailable" } };
+    await abacateNotice("pix_busy");
+    await checkCharges();
+    expect((await stored(id)).pspCheckAt?.getTime()).toBeGreaterThan(Date.now());
+
+    server.routes["GET /v2/transparents/list"] = { status: 429, headers: { "retry-after": "120" }, body: {} };
+    await due(id);
+    await checkCharges();
+    expect((await stored(id)).pspCheckAt?.getTime()).toBe(Date.now() + 120_000);
+    await abacateNotice("pix_busy");
+    expect((await stored(id)).pspCheckAt?.getTime()).toBe(Date.now());
+
+    abacateState("pix_busy", "PAID");
+    await checkCharges();
+    expect((await stored(id)).status).toBe("paid");
+    expect(await accessMessages(id)).toBe(1);
+  });
+
+  test("Mercado Pago: each partial refund is debited by its own amount and revokes", async () => {
+    await use("mercadopago", "APP_USR-test", "mp-secret");
+    const id = await buy({ email: "mp-partial@example.com" });
+    await db().update(order).set({ psp: "mercadopago", txid: "ORDPR" }).where(eq(order.id, id));
+
+    const paid = {
+      id: "ORDPR",
+      status: "processed",
+      status_detail: "accredited",
+      external_reference: id,
+      total_amount: "97.00",
+      total_paid_amount: "97.00",
+      transactions: { payments: [{ id: "PAYPR", status: "processed" }] },
+    };
+
+    server.routes["GET /v1/orders/ORDPR"] = { status: 200, body: paid };
+    await mpNotice("ORDPR");
+    await checkCharges();
+    expect((await stored(id)).status).toBe("paid");
+
+    const refund = (refunds: object[]) => ({
+      ...paid,
+      status_detail: "partially_refunded",
+      transactions: { ...paid.transactions, refunds },
+    });
+
+    server.routes["GET /v1/orders/ORDPR"] = {
+      status: 200,
+      body: refund([
+        { id: "R1", amount: "20.00", status: "processed" },
+        { id: "R0", amount: "50.00", status: "rejected" },
+      ]),
+    };
+    await mpNotice("ORDPR");
+    await checkCharges();
+    expect((await stored(id)).status).toBe("refunded");
+    expect(await net(id)).toBe(7700);
+
+    server.routes["GET /v1/orders/ORDPR"] = {
+      status: 200,
+      body: {
+        ...refund([
+          { id: "R1", amount: "20.00", status: "processed" },
+          { id: "R2", amount: "77.00", status: "processed" },
+        ]),
+        status: "refunded",
+      },
+    };
+    await mpNotice("ORDPR");
+    await checkCharges();
+    expect(await net(id)).toBe(0);
+  });
+
+  test("DePix: a token revoked before it expires is replaced by one new login", async () => {
+    await use("depix", "depix-client-secret", DEPIX_SECRET, { clientId: "depix-client" });
+    const id = await buy({ email: "depix-401@example.com" });
+    await db().update(order).set({ psp: "depix", txid: "dep_401" }).where(eq(order.id, id));
+    server.routes["POST /api/v2/auth/login"] = { status: 200, body: { access_token: "fresh-token", expires_in: 900 } };
+    server.routes["GET /api/deposit-status"] = { status: 401, body: {} };
+    await depixNotice("dep_401");
+    await checkCharges();
+    expect(server.to("POST", "/api/v2/auth/login")).toHaveLength(1);
+    expect(server.to("GET", "/api/deposit-status")).toHaveLength(2);
+    expect((await stored(id)).pspCheckAt?.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  test("Woovi to crypto: a conversion approved on an earlier run is not retried forever", async () => {
+    await use("woovi", "woovi-app-id", "");
+    await saveCredentials("woovi", {
+      convertMode: "sale",
+      convertAsset: "USDT:POLYGON",
+      convertWallet: WALLET,
+      convertSince: String(Date.now()),
+    });
+    const sale = await buy({ email: "crypto-again@example.com" });
+    await db().update(order).set({ status: "paid", psp: "woovi" }).where(eq(order.id, sale));
+    server.routes[`GET /api/v1/charge/${sale}`] = { status: 200, body: { charge: { correlationID: sale } } };
+    stablecoinRoutes();
+    server.routes["POST /api/v1/stablecoin/deposit/approve"] = {
+      status: 400,
+      body: { error: "Stablecoin cashout already completed", correlationId: `librefunnel-${sale}` },
+    };
+    await convertToCrypto();
+    expect((await wooviFields())("convertError")).toBe("");
+    expect(one(await db().select({ at: order.cryptoAt }).from(order).where(eq(order.id, sale))).at).not.toBeNull();
+  });
+
+  test("provider: with every webhook lost, reconciliation still releases, then catches a MED during its window", async () => {
+    const start = new Date();
+    const id = await asAbacate("lost-notice@example.com", "pix_lost");
+    await db()
+      .update(order)
+      .set({ pspCheckAt: new Date(start.getTime() + 300_000) })
+      .where(eq(order.id, id));
+    abacateState("pix_lost", "PAID");
+    try {
+      vi.setSystemTime(new Date(start.getTime() + 301_000));
+      await checkCharges();
+      const paid = await stored(id);
+      expect(paid.status).toBe("paid");
+      expect(paid.pspCheckAt).toEqual(new Date(start.getTime() + 86_400_000));
+
+      abacateState("pix_lost", "REFUNDED");
+      vi.setSystemTime(new Date(start.getTime() + 86_401_000));
+      await checkCharges();
+      const revoked = await stored(id);
+      expect(revoked.status).toBe("refunded");
+      expect(revoked.pspCheckAt).toBeNull();
+      expect(await accessMessages(id)).toBe(1);
+    } finally {
+      vi.setSystemTime(start);
+    }
   });
 
   test("a provider webhook is a 404 until its keys are saved", async () => {

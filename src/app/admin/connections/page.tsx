@@ -7,6 +7,7 @@ import styles from "./connections.module.css";
 import { Section } from "./parts";
 import { PixProviders } from "./pix";
 import { Storage } from "./storage";
+import { WooviCrypto } from "./woovi-crypto";
 
 export default async function ConnectionsPage() {
   await requireAdmin();
@@ -19,6 +20,10 @@ export default async function ConnectionsPage() {
       <div className={styles.page}>
         <Section title="Recebimento">
           <PixProviders providers={links.pix.providers} />
+          <WooviCrypto
+            crypto={links.pix.crypto}
+            woovi={links.pix.providers.some((provider) => provider.id === "woovi" && provider.configured)}
+          />
         </Section>
         <Section title="Entrega e mensagens">
           <Email email={links.email} />

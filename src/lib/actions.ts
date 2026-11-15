@@ -64,6 +64,8 @@ const REMOVABLE = [
   "mercadopago",
   "woovi",
   "abacatepay",
+  "depix",
+  "noxpay",
   "webhook",
   "evolution",
   "whatsapp",
@@ -392,7 +394,7 @@ export async function disconnectWhatsApp(): Promise<ActionState> {
   return done(await messages.disconnectWhatsApp());
 }
 
-// The form field "kind" is smtp, meta, evolution, whatsapp, mercadopago, woovi or abacatepay.
+// The form field "kind" is smtp, meta, evolution, whatsapp, storage or a Pix provider id.
 export async function testConnection(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
@@ -494,15 +496,60 @@ export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
   if (provider !== "static") {
     const apiKey = credential(field(form, "apiKey"));
     const webhookSecret = credential(field(form, "webhookSecret"));
-    if (apiKey === undefined || webhookSecret === undefined) return { code: "INVALID_CREDENTIAL" };
-    if (provider === "abacatepay" && webhookSecret && webhookSecret.length < 32)
+    const clientId = field(form, "clientId").trim();
+    if (apiKey === undefined || webhookSecret === undefined || (clientId && !CREDENTIAL.test(clientId)))
+      return { code: "INVALID_CREDENTIAL" };
+    if ((provider === "abacatepay" || provider === "depix") && webhookSecret && webhookSecret.length < 32)
       return { code: "INVALID_WEBHOOK_SECRET" };
-    const stored = (await catalog.credentials(provider))(provider);
-    const ready = (apiKey || stored("apiKey")) && (provider === "woovi" || webhookSecret || stored("webhookSecret"));
+
+    const fields =
+      provider === "depix" ? { clientId } : provider === "noxpay" ? { currency: field(form, "currency") } : {};
+
+    const stored = orders.pspKeys((await catalog.credentials(provider))(provider));
+
+    const ready = orders.pspConfigured(provider, {
+      ...stored,
+      ...fields,
+      apiKey: apiKey || stored.apiKey,
+      webhookSecret: webhookSecret || stored.webhookSecret,
+    });
+
     if (!ready) return { code: "PIX_PROVIDER_NOT_CONFIGURED" };
-    await catalog.saveCredentials(provider, {}, { apiKey, webhookSecret });
+    await catalog.saveCredentials(provider, fields, { apiKey, webhookSecret });
   }
   await catalog.saveCredentials("pix", { provider });
+  return done(null);
+}
+
+// Turning conversion on checks the AppID against Woovi's quote, which needs the same permission as the conversion.
+export async function saveWooviCrypto(...[, form]: FormArgs): Promise<ActionState> {
+  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
+  const mode = field(form, "mode");
+  if (mode !== "off" && mode !== "balance" && mode !== "sale") return { code: "INVALID_PAYLOAD" };
+  if (mode === "off") {
+    await catalog.saveCredentials("woovi", { convertMode: "off", convertError: "" });
+    return done(null);
+  }
+  const asset = orders.wooviAsset(field(form, "asset"));
+  if (!asset) return { code: "INVALID_PAYLOAD" };
+  const wallet = orders.cryptoWallet(asset, field(form, "wallet"));
+  if (!wallet) return { code: "INVALID_WALLET" };
+  if (limited("test", "woovi-crypto", 10, 600)) return { code: "RATE_LIMITED" };
+  const code = await orders.testConversion(asset);
+  if (code) return { code };
+  const previous = (await catalog.credentials("woovi"))("woovi")("convertMode");
+
+  await catalog.saveCredentials("woovi", {
+    convertMode: mode,
+    convertAsset: asset,
+    convertWallet: wallet,
+    convertNextAt: "",
+    convertError: "",
+    // Sales made before conversion per sale was turned on stay in reais.
+    ...(mode === "sale" && previous !== "sale" ? { convertSince: String(Date.now()) } : {}),
+  });
+
   return done(null);
 }
 

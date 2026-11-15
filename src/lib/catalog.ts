@@ -170,14 +170,28 @@ const ITEMS: Record<Kind, Item> = {
   },
 };
 
-// The three Pix providers share field names; the panel labels them Access Token, AppID or API key.
+// The Pix providers share field names; the panel labels them Access Token, AppID, API key or Client Secret.
 const INTEGRATIONS = {
   smtp: { fields: ["host", "port", "user", "from"], secrets: ["password"] },
   meta: { fields: ["pixelId", "testEventCode"], secrets: ["token"] },
   pix: { fields: ["provider"], secrets: [] },
   mercadopago: { fields: [], secrets: ["apiKey", "webhookSecret"] },
-  woovi: { fields: ["publicKeys", "keysAt"], secrets: ["apiKey", "webhookSecret"] },
+  woovi: {
+    fields: [
+      "publicKeys",
+      "keysAt",
+      "convertMode",
+      "convertAsset",
+      "convertWallet",
+      "convertSince",
+      "convertNextAt",
+      "convertError",
+    ],
+    secrets: ["apiKey", "webhookSecret"],
+  },
   abacatepay: { fields: [], secrets: ["apiKey", "webhookSecret"] },
+  depix: { fields: ["clientId"], secrets: ["apiKey", "webhookSecret"] },
+  noxpay: { fields: ["currency"], secrets: ["apiKey", "webhookSecret"] },
   webhook: { fields: [], secrets: ["secret"] },
   storage: { fields: ["endpoint", "bucket", "region", "accessKey"], secrets: ["secret"] },
   evolution: { fields: ["url"], secrets: ["key"] },

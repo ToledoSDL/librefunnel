@@ -1,9 +1,12 @@
 import { CopyField } from "@/components/action/copy-field";
+import { Field } from "@/components/form/field";
+import { Select } from "@/components/form/select";
 import { BrandLogo } from "@/components/media/brand-logo";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { savePix } from "@/lib/actions";
-import { OUTLINE, PRIMARY, type Links } from "../shared";
+import { NOXPAY_CURRENCIES } from "@/lib/orders";
+import { OUTLINE, PRIMARY, TextField, type Links } from "../shared";
 import { ActionButton, SaveForm } from "../ui";
 import styles from "./connections.module.css";
 import { RemoveButton, SecretInput, Steps, TestButton } from "./parts";
@@ -33,6 +36,21 @@ const HELP: Record<Paid, { apiKey: string; webhookSecret: string; panel: string;
     keys: "Em Integração > API > Nova chave, escolha API v2 e copie a chave.",
     webhook:
       "Em Integração > Webhooks > Criar webhook (v2), cole este endereço, invente um segredo e marque os eventos.",
+  },
+  depix: {
+    apiKey: "Client Secret",
+    webhookSecret: "Segredo do webhook (32 caracteres ou mais)",
+    panel: "https://depix.info/#partners",
+    keys: "Peça acesso de parceiro à Eulen. No seu canal do Telegram com ela, em #Bot, envie /addclientcredentials librefunnel e copie o Client ID e o Client Secret. O DePix vai para o endereço Liquid padrão da sua conta Eulen.",
+    webhook:
+      "No mesmo canal, invente um segredo de 32 caracteres ou mais e envie /registerwebhook deposit, este endereço e o segredo, separados por espaço. Repita com med no lugar de deposit.",
+  },
+  noxpay: {
+    apiKey: "API Key",
+    webhookSecret: "Webhook Secret",
+    panel: "https://noxpay.io",
+    keys: "Em Settings > API Keys, crie uma chave e copie a API Key e o Webhook Secret. Não precisa cadastrar webhook: a loja envia o endereço em cada cobrança.",
+    webhook: "",
   },
 };
 
@@ -73,6 +91,21 @@ function Setup({ provider, help }: { provider: Provider; help: (typeof HELP)[Pai
           button={PRIMARY}
         >
           <input type="hidden" name="provider" value={provider.id} />
+          {provider.id === "depix" ? (
+            <TextField label="Client ID" name="clientId" autoComplete="off" defaultValue={provider.clientId} />
+          ) : null}
+          {provider.id === "noxpay" ? (
+            <Field label="Moeda que você recebe">
+              {(control) => (
+                <Select
+                  {...control}
+                  name="currency"
+                  defaultValue={provider.currency || NOXPAY_CURRENCIES[0].code}
+                  options={NOXPAY_CURRENCIES.map((currency) => ({ value: currency.code, label: currency.label }))}
+                />
+              )}
+            </Field>
+          ) : null}
           <SecretInput name="apiKey" label={help.apiKey} set={provider.apiKeySet} />
           <SecretInput name="webhookSecret" label={help.webhookSecret} set={provider.webhookSecretSet} />
         </SaveForm>

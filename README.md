@@ -110,7 +110,7 @@ bun run dev     # http://localhost:3000
 bun run build   # static export in site/out, with deploy/install.sh and install.ps1 copied to site/out/install and install.ps1
 ```
 
-On Cloudflare Pages, set the root directory to `site`, the build command to `bun install && bun run build` and the output directory to `out`. `site/public/_headers` serves `/install` and `/install.ps1` as plain text.
+The site is the Cloudflare Pages project `librefunnel` (direct upload, not linked to GitHub), with `librefunnel.com` and `www.librefunnel.com` as custom domains. Publish it after changing `site/` or either installer: `bunx wrangler@4.162.0 login` once, then `bun run build` and `bunx wrangler@4.162.0 pages deploy out --project-name librefunnel --branch main` from `site/`. `site/public/_headers` serves `/install` and `/install.ps1` as plain text; check both with `curl -sI` after publishing.
 
 ## License
 

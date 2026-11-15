@@ -175,9 +175,10 @@ function Eyebrow({ children }: { children: ReactNode }) {
   return <p className="font-mono text-xs tracking-[0.08em] text-fd-primary uppercase">{children}</p>;
 }
 
-function Heading({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
+// side: the heading has a column of its own, so it stays in view while the other column scrolls.
+function Heading({ eyebrow, title, lead, side }: { eyebrow: string; title: string; lead?: string; side?: boolean }) {
   return (
-    <div className="reveal grid max-w-2xl content-start gap-3 self-start md:sticky md:top-12">
+    <div className={`reveal grid max-w-2xl content-start gap-3 ${side ? "self-start md:sticky md:top-12" : ""}`}>
       <Eyebrow>{eyebrow}</Eyebrow>
       <h2 className="text-3xl font-medium tracking-[-0.03em] text-balance md:text-5xl">{title}</h2>
       {lead ? <p className="text-lg text-fd-muted-foreground">{lead}</p> : null}
@@ -369,7 +370,7 @@ export default function HomePage() {
 
       <main className="mx-auto max-w-[1200px] px-4 md:px-8">
         <section className="grid gap-6 py-20 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:py-32">
-          <Heading eyebrow="O que é" title="Você vende. A loja trabalha." />
+          <Heading eyebrow="O que é" title="Você vende. A loja trabalha." side />
           <div className="reveal grid content-end gap-5 text-lg md:text-xl">
             <p>
               O LibreFunnel é para quem vende curso, mentoria ou outro produto digital no Brasil. Ele junta a página de
@@ -424,7 +425,7 @@ export default function HomePage() {
         </section>
 
         <section className="grid gap-10 border-t border-fd-border py-20 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:py-32">
-          <div className="grid content-start gap-6">
+          <div className="grid content-start gap-6 self-start md:sticky md:top-12">
             <Heading
               eyebrow="Seu Pix, sem intermediário"
               title={`Numa venda de ${brl(PRICE)}, quanto fica com você.`}
@@ -467,7 +468,7 @@ export default function HomePage() {
         </section>
 
         <section className="grid gap-10 border-t border-fd-border py-20 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:py-32">
-          <Heading eyebrow="Incluído" title="O que vem junto." />
+          <Heading eyebrow="Incluído" title="O que vem junto." side />
           <dl className="reveal border-t border-fd-border">
             {INCLUDED.map(([term, text], index) => (
               <div
@@ -485,7 +486,7 @@ export default function HomePage() {
         </section>
 
         <section className="grid gap-10 border-t border-fd-border py-20 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:py-32">
-          <Heading eyebrow="Limites" title="O que ainda não faz." lead="Melhor saber antes de instalar." />
+          <Heading eyebrow="Limites" title="O que ainda não faz." lead="Melhor saber antes de instalar." side />
           <ul className="reveal border-t border-fd-border">
             {LIMITS.map((limit) => (
               <li key={limit} className="flex gap-4 border-b border-fd-border py-4">
@@ -499,7 +500,7 @@ export default function HomePage() {
         </section>
 
         <section className="grid gap-10 border-t border-fd-border py-20 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:py-32">
-          <Heading eyebrow="Perguntas" title="Antes de instalar." />
+          <Heading eyebrow="Perguntas" title="Antes de instalar." side />
           <div className="reveal">
             <div className="border-t border-fd-border">
               {FAQ.map((item) => (

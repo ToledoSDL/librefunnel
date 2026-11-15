@@ -1,16 +1,16 @@
-import { Button } from "@/components/action/button";
 import { CopyField } from "@/components/action/copy-field";
 import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
 import { BrandLogo } from "@/components/media/brand-logo";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
-import { savePix } from "@/lib/actions";
+import { savePix, savePixKey } from "@/lib/actions";
 import { NOXPAY_CURRENCIES } from "@/lib/orders";
 import type { ReactNode } from "react";
-import { href, OUTLINE, PRIMARY, TextField, type Links } from "../shared";
+import { OUTLINE, PRIMARY, TextField, type Links } from "../shared";
 import { ActionButton, SaveForm } from "../ui";
 import styles from "./connections.module.css";
+import { PixFields } from "../products/pix-fields";
 import { RemoveButton, SecretInput, Steps, TestButton } from "./parts";
 
 type Provider = Links["pix"]["providers"][number];
@@ -116,7 +116,15 @@ function Setup({ provider, help }: { provider: Provider; help: (typeof HELP)[Pai
   );
 }
 
-function ProviderTile({ provider }: { provider: Provider }) {
+export function PixKeyForm({ pix }: { pix?: Links["pix"]["account"] }) {
+  return (
+    <SaveForm action={savePixKey} label="Salvar chave" pendingLabel="Salvando" done="Chave salva." button={PRIMARY}>
+      <PixFields pix={pix ?? undefined} />
+    </SaveForm>
+  );
+}
+
+function ProviderTile({ provider, account }: { provider: Provider; account: Links["pix"]["account"] }) {
   return (
     <div className={styles.tile} data-active={provider.active}>
       <div className={styles.tileHead}>
@@ -125,22 +133,27 @@ function ProviderTile({ provider }: { provider: Provider }) {
       </div>
       <strong>{provider.id === "static" ? "Pix na sua chave" : provider.name}</strong>
       <span className={styles.description}>
-        {provider.fee} {provider.needsCnpj ? "Exige CNPJ (MEI serve)." : "Funciona com CPF."}
+        {provider.id === "static" && account
+          ? `Cai em ${account.key}. Sem taxa: você libera cada pedido ao ver o valor no extrato.`
+          : `${provider.fee} ${provider.needsCnpj ? "Exige CNPJ (MEI serve)." : "Funciona com CPF."}`}
       </span>
       <div className={styles.tileActions}>
         {provider.id === "static" ? (
           <>
-            <Button href={href("products")} size="sm">
-              Editar chaves nos produtos
-            </Button>
-            {provider.active ? null : (
+            <Dialog
+              trigger={{ label: account ? "Trocar chave" : "Cadastrar chave", size: "sm" }}
+              title="Chave Pix da loja"
+              description="Vale para todos os produtos. Com um provedor conectado, é a chave de reserva."
+              body={<PixKeyForm pix={account} />}
+            />
+            {provider.active || !account ? null : (
               <ActionButton
                 action={savePix}
                 fields={{ provider: "static" }}
                 button={OUTLINE}
                 label="Usar"
                 pendingLabel="Salvando"
-                done="Pronto: os próximos pedidos usam o Pix na chave do produto."
+                done="Pronto: os próximos pedidos usam o Pix na chave da loja."
               />
             )}
           </>
@@ -167,11 +180,19 @@ function ProviderTile({ provider }: { provider: Provider }) {
   );
 }
 
-export function PixProviders({ providers, children }: { providers: Provider[]; children?: ReactNode }) {
+export function PixProviders({
+  providers,
+  account,
+  children,
+}: {
+  providers: Provider[];
+  account: Links["pix"]["account"];
+  children?: ReactNode;
+}) {
   return (
     <div className={styles.tiles}>
       {providers.map((provider) => (
-        <ProviderTile key={provider.id} provider={provider} />
+        <ProviderTile key={provider.id} provider={provider} account={account} />
       ))}
       {children}
     </div>

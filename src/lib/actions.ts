@@ -48,7 +48,7 @@ export type Code =
 export type ActionState = { code: Code | null; ok?: boolean; secret?: string };
 export type WhatsAppState = ActionState & { qr?: string; pairingCode?: string };
 type FormArgs = [state: ActionState, form: FormData];
-type Pix = Pick<catalog.ProductFields, "pixKey" | "pixName" | "pixCity">;
+type Pix = catalog.Product["pix"];
 
 const ORDER_ID = /^[a-z0-9]{20}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,59}$/;
@@ -144,12 +144,12 @@ function slugify(name: string): string {
 }
 
 function pixFields(form: FormData): Pix | { code: Code } {
-  const pixKey = catalog.pixKey(field(form, "pixKey"));
-  if (!pixKey) return { code: "INVALID_PIX_KEY" };
-  const pixName = catalog.pixText(field(form, "pixName"), 25);
-  const pixCity = catalog.pixText(field(form, "pixCity"), 15);
-  if (!pixName || !pixCity) return { code: "INVALID_PIX_HOLDER" };
-  return { pixKey, pixName, pixCity };
+  const key = catalog.pixKey(field(form, "pixKey"));
+  if (!key) return { code: "INVALID_PIX_KEY" };
+  const name = catalog.pixText(field(form, "pixName"), 25);
+  const city = catalog.pixText(field(form, "pixCity"), 15);
+  if (!name || !city) return { code: "INVALID_PIX_HOLDER" };
+  return { key, name, city };
 }
 
 function productFields(form: FormData): catalog.ProductFields | { code: Code } {
@@ -157,8 +157,6 @@ function productFields(form: FormData): catalog.ProductFields | { code: Code } {
   if (!name) return { code: "INVALID_TITLE" };
   const cents = price(field(form, "price"));
   if (!cents) return { code: "INVALID_PRICE" };
-  const pix = pixFields(form);
-  if ("code" in pix) return pix;
   const tagline = line(field(form, "tagline"));
   const ctaText = line(field(form, "ctaText"), 80);
   const bumpHeadline = line(field(form, "bumpHeadline"));
@@ -219,7 +217,6 @@ function productFields(form: FormData): catalog.ProductFields | { code: Code } {
     name,
     price: cents,
     tagline,
-    ...pix,
     offerEndsAt,
     guaranteeDays,
     bumpProduct,
@@ -521,6 +518,19 @@ export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
   return done(null);
 }
 
+// The store's key: where the money of "Pix na sua chave" lands, and the fallback code if a provider is down.
+export async function savePixKey(...[, form]: FormArgs): Promise<ActionState> {
+  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
+  if (demoMode()) return { code: "DEMO_BLOCKED" };
+  const pix = pixFields(form);
+  if ("code" in pix) return pix;
+  await catalog.saveStorePix(pix);
+  // A first key in a store that never chose how to receive means receiving on it.
+  if (!(await catalog.credentials("pix"))("pix")("provider"))
+    await catalog.saveCredentials("pix", { provider: "static" });
+  return done(null);
+}
+
 // Turning conversion on checks the AppID against Woovi's quote, which needs the same permission as the conversion.
 export async function saveWooviCrypto(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
@@ -615,9 +625,15 @@ export async function createProduct(...[, form]: FormArgs): Promise<ActionState>
   if (!SLUG.test(slug)) return { code: "INVALID_SLUG" };
   const cents = price(field(form, "price"));
   if (!cents) return { code: "INVALID_PRICE" };
-  const pix = pixFields(form);
-  if ("code" in pix) return pix;
-  const code = await catalog.createProduct(slug, { name, price: cents, ...pix });
+  // The second step asks for the store's key only when the store has none yet, and saves it for every product.
+  let pix = await catalog.storePix();
+  if (!pix) {
+    const typed = pixFields(form);
+    if ("code" in typed) return typed;
+    await catalog.saveStorePix(typed);
+    pix = typed;
+  }
+  const code = await catalog.createProduct(slug, { name, price: cents }, pix);
   if (code) return { code };
   revalidatePath("/", "layout");
   redirect(`/admin?tab=products&product=${slug}`);

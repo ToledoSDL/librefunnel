@@ -22,9 +22,6 @@ function storedFields(product: Product): Record<FormSection, [string, string][]>
       ["name", product.name],
       ["price", (product.price / 100).toFixed(2)],
       ["tagline", product.tagline ?? ""],
-      ["pixKey", product.pix.key],
-      ["pixName", product.pix.name],
-      ["pixCity", product.pix.city],
     ],
     sales: [
       ["vslVideo", product.vsl?.video ?? ""],

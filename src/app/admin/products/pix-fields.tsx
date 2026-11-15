@@ -7,7 +7,7 @@ export function PixFields({ pix }: { pix?: Product["pix"] }) {
     <div className={styles.grid}>
       <TextField
         label="Chave Pix"
-        hint="Celular com +55, como +5548999990000."
+        hint="E-mail, CPF, CNPJ, chave aleatória ou celular com +55."
         name="pixKey"
         required
         defaultValue={pix?.key}
@@ -15,7 +15,7 @@ export function PixFields({ pix }: { pix?: Product["pix"] }) {
       />
       <TextField
         label="Nome do recebedor"
-        hint="Sem acentos, até 25 letras."
+        hint="Como aparece no banco, sem acentos."
         name="pixName"
         required
         maxLength={60}

@@ -3,7 +3,6 @@ import type { Product } from "@/lib/catalog";
 import styles from "../admin.module.css";
 import { TextField } from "../shared";
 import { MoneyField } from "./money-field";
-import { PixFields } from "./pix-fields";
 import { ProductForm } from "./product-form";
 
 export function GeneralSection({ product }: { product: Product }) {
@@ -15,9 +14,6 @@ export function GeneralSection({ product }: { product: Product }) {
           <MoneyField label="Preço" name="price" required defaultCents={product.price} />
         </div>
         <TextField label="Frase de apresentação" name="tagline" maxLength={300} defaultValue={product.tagline} />
-      </Section>
-      <Section title="Pix" description="Para onde vai o dinheiro das vendas deste produto.">
-        <PixFields pix={product.pix} />
       </Section>
     </ProductForm>
   );

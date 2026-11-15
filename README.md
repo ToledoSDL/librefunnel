@@ -112,13 +112,18 @@ bun run build   # static export in site/out, with deploy/install.sh and install.
 
 The site is the Cloudflare Pages project `librefunnel` (direct upload, not linked to GitHub), with `librefunnel.com` and `www.librefunnel.com` as custom domains. Every release publishes it (the `site` job in `.github/workflows/release.yml`), which needs two repository secrets: `CLOUDFLARE_API_TOKEN` (a token with **Cloudflare Pages: Edit**) and `CLOUDFLARE_ACCOUNT_ID`. To publish between releases: `bunx wrangler@4.162.0 login` once, then `bun run build` and `bunx wrangler@4.162.0 pages deploy out --project-name librefunnel --branch main` from `site/`. `site/public/_headers` serves `/install` and `/install.ps1` as plain text; check both with `curl -sI` after publishing.
 
-Every release also publishes the demo image (`ghcr.io/toledosdl/librefunnel-demo`). The demo server pulls it on its own with this crontab line, so it needs no inbound access from GitHub:
+Every release also publishes the demo image (`ghcr.io/toledosdl/librefunnel-demo`) and deploys it, right after the release, like the site: the `demo` job in `.github/workflows/release.yml` connects over SSH and runs `deploy/demo-deploy.sh` with the new tag. The script copies that release's `compose.yaml`, `compose.demo.yaml`, `Caddyfile` and `evolution.sql`, pulls the image, recreates the app and fails the job if it does not answer its health check in 3 minutes.
 
-```sh
-*/10 * * * * cd /opt/librefunnel && docker compose -f compose.yaml -f compose.demo.yaml pull -q app && docker compose -f compose.yaml -f compose.demo.yaml up -d app db caddy
-```
+One-time setup on the demo server (the store lives in `/opt/librefunnel`):
 
-`up -d` recreates the app only when the pulled image changed. Changes to `compose.yaml`, `compose.demo.yaml` or the `Caddyfile` still need copying to the server.
+1. Copy `deploy/demo-deploy.sh` to `/opt/librefunnel/demo-deploy.sh` and `chmod 755` it.
+2. Create a key for GitHub only: `ssh-keygen -t ed25519 -N "" -C librefunnel-release -f demo-release`.
+3. Pin it to the script in `~/.ssh/authorized_keys` of a user that can run `docker`, so the key can do nothing else:
+   `command="/opt/librefunnel/demo-deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA... librefunnel-release`
+4. Add three repository secrets: `DEMO_SSH_HOST` (`user@demo.librefunnel.com`), `DEMO_SSH_KEY` (the private file `demo-release`) and `DEMO_SSH_KNOWN_HOSTS` (the output of `ssh-keyscan demo.librefunnel.com`).
+5. Remove any old crontab line that pulled the demo image.
+
+To deploy a release again by hand: `ssh -i demo-release user@demo.librefunnel.com v1.2.3`.
 
 ## License
 

@@ -12,13 +12,14 @@ import {
   moveItem,
   saveLesson,
   saveModule,
+  savePixKey,
   saveProduct,
   saveRecoveryStep,
   saveReply,
   saveSettings,
 } from "@/lib/actions";
 import { and, eq } from "drizzle-orm";
-import { getProduct, products, settings } from "@/lib/catalog";
+import { getProduct, products, removeCredentials, settings } from "@/lib/catalog";
 import { db, migrate, one } from "@/lib/db";
 import { derive } from "@/lib/guard";
 import { completedLessons, currentMember, memberProducts } from "@/lib/members";
@@ -94,15 +95,8 @@ function mediaFiles(): string[] {
 }
 
 describe("products", () => {
-  test("creation validates name, slug, price and Pix, and opens the editor", async () => {
-    const valid = {
-      name: "Curso de Confeitaria",
-      price: "1.234,50",
-      slug: "",
-      pixKey: "+55 48 99999-0000",
-      pixName: "Doces da Ana",
-      pixCity: "São José",
-    };
+  test("creation validates name, slug and price, takes the store's Pix and opens the editor", async () => {
+    const valid = { name: "Curso de Confeitaria", price: "1.234,50", slug: "" };
 
     expect((await createProduct({ code: null }, form(valid))).code).toBe("NOT_SIGNED_IN");
     await signInAsAdmin();
@@ -112,16 +106,45 @@ describe("products", () => {
     expect((await create({ price: "0,50" })).code).toBe("INVALID_PRICE");
     expect((await create({ price: "97,999" })).code).toBe("INVALID_PRICE");
     expect((await create({ price: "100000,01" })).code).toBe("INVALID_PRICE");
-    expect((await create({ pixKey: "48999990000" })).code).toBe("INVALID_PIX_KEY");
-    expect((await create({ pixName: "  " })).code).toBe("INVALID_PIX_HOLDER");
     expect((await create({ slug: "metodo-demo" })).code).toBe("SLUG_TAKEN");
     expect(await redirected(create({}))).toBe("/admin?tab=products&product=curso-de-confeitaria");
     expect(await getProduct("curso-de-confeitaria")).toMatchObject({
       price: 123450,
-      pix: { key: "+5548999990000", name: "Doces da Ana", city: "Sao Jose" },
+      pix: { key: "demo@exemplo.com", name: "LibreFunnel Demo", city: "Florianopolis" },
       guaranteeDays: 7,
       archived: false,
     });
+  });
+
+  test("the store's Pix key is set once in Conexões and every product receives on it", async () => {
+    await signInAsAdmin();
+
+    const pix = (fields: Record<string, string>) =>
+      savePixKey(
+        { code: null },
+        form({ pixKey: "+55 48 99999-0000", pixName: "Doces da Ana", pixCity: "São José", ...fields }),
+      );
+
+    expect((await pix({ pixKey: "48999990000" })).code).toBe("INVALID_PIX_KEY");
+    expect((await pix({ pixName: "  " })).code).toBe("INVALID_PIX_HOLDER");
+    const before = await products(true);
+
+    try {
+      expect(await pix({})).toEqual({ code: null, ok: true });
+      for (const item of await products(true))
+        expect(item.pix).toEqual({ key: "+5548999990000", name: "Doces da Ana", city: "Sao Jose" });
+      await redirected(
+        createProduct({ code: null }, form({ name: "Curso de Bolos", price: "47,00", slug: "", pixKey: "x@y.com" })),
+      );
+      expect((await getProduct("curso-de-bolos"))?.pix.key).toBe("+5548999990000");
+    } finally {
+      await removeCredentials("pix");
+      for (const item of before)
+        await db()
+          .update(product)
+          .set({ pixKey: item.pix.key, pixName: item.pix.name, pixCity: item.pix.city })
+          .where(eq(product.slug, item.slug));
+    }
   });
 
   test("editing validates every field and stores FAQ and testimonials", async () => {

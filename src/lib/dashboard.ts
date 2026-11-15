@@ -18,7 +18,7 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/pg-core";
-import { credentials, productNames } from "./catalog";
+import { credentials, productNames, storePix } from "./catalog";
 import { addSeconds, db, one } from "./db";
 import { baseUrl } from "./guard";
 import { cloudOf, cloudStatus, evolutionOf, messageCode, replyOpen, SMTP_PRESETS, whatsappState } from "./messages";
@@ -595,6 +595,7 @@ export async function integrations() {
   const meta = stored("meta");
   const panelEvolution = stored("evolution");
   const active = pixProvider(stored("pix")("provider")) ?? "static";
+  const account = await storePix();
   const webhookUrl = `${baseUrl()}/api/webhooks/payment`;
 
   return {
@@ -616,6 +617,7 @@ export async function integrations() {
     pix: {
       provider: active,
       chosen: stored("pix")("provider") !== "",
+      account: account ?? null,
       crypto: {
         mode: cryptoMode(stored("woovi")("convertMode")),
         asset: stored("woovi")("convertAsset"),
@@ -627,7 +629,7 @@ export async function integrations() {
           return {
             ...provider,
             active: active === "static",
-            configured: true,
+            configured: account !== undefined,
             apiKeySet: false,
             webhookSecretSet: false,
             clientId: "",

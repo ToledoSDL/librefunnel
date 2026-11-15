@@ -76,9 +76,6 @@ export type ProductFields = {
   name: string;
   price: number;
   tagline: string | null;
-  pixKey: string;
-  pixName: string;
-  pixCity: string;
   offerEndsAt: Date | null;
   guaranteeDays: number;
   bumpProduct: string | null;
@@ -174,7 +171,7 @@ const ITEMS: Record<Kind, Item> = {
 const INTEGRATIONS = {
   smtp: { fields: ["host", "port", "user", "from"], secrets: ["password"] },
   meta: { fields: ["pixelId", "testEventCode"], secrets: ["token"] },
-  pix: { fields: ["provider"], secrets: [] },
+  pix: { fields: ["provider", "key", "name", "city"], secrets: [] },
   mercadopago: { fields: [], secrets: ["apiKey", "webhookSecret"] },
   woovi: {
     fields: [
@@ -351,9 +348,32 @@ export async function orderBump(offer: Product): Promise<OrderBump | undefined> 
   return { ...extra, bumpPrice: bump.price ?? extra.price, headline: bump.headline };
 }
 
+// The store's own Pix key, set once in Conexões. Stores from before it existed have it only on their products.
+export async function storePix(): Promise<Product["pix"] | undefined> {
+  const stored = (await credentials("pix"))("pix");
+  if (stored("key")) return { key: stored("key"), name: stored("name"), city: stored("city") };
+
+  const [newest] = await db()
+    .select({ key: product.pixKey, name: product.pixName, city: product.pixCity })
+    .from(product)
+    .orderBy(desc(product.position))
+    .limit(1);
+
+  return newest;
+}
+
+// Every product keeps a copy of the key, so the static BR Code and a previous version running alongside still work.
+export async function saveStorePix(pix: Product["pix"]) {
+  await db().transaction(async (tx) => {
+    await tx.update(product).set({ pixKey: pix.key, pixName: pix.name, pixCity: pix.city });
+    await saveCredentials("pix", { key: pix.key, name: pix.name, city: pix.city }, {}, tx);
+  });
+}
+
 export async function createProduct(
   slug: string,
-  fields: Pick<ProductFields, "name" | "price" | "pixKey" | "pixName" | "pixCity">,
+  fields: Pick<ProductFields, "name" | "price">,
+  pix: Product["pix"],
 ): Promise<CatalogCode | null> {
   const inserted = await db()
     .insert(product)
@@ -361,9 +381,9 @@ export async function createProduct(
       slug,
       name: fields.name,
       priceCents: fields.price,
-      pixKey: fields.pixKey,
-      pixName: fields.pixName,
-      pixCity: fields.pixCity,
+      pixKey: pix.key,
+      pixName: pix.name,
+      pixCity: pix.city,
       position: sql`(SELECT COALESCE(MAX(${product.position}), 0) + 1 FROM ${product})`,
     })
     .onConflictDoNothing({ target: product.slug })
@@ -390,9 +410,6 @@ export function updateProduct(slug: string, fields: ProductFields): Promise<Cata
         name: fields.name,
         priceCents: fields.price,
         tagline: fields.tagline,
-        pixKey: fields.pixKey,
-        pixName: fields.pixName,
-        pixCity: fields.pixCity,
         offerEndsAt: fields.offerEndsAt,
         guaranteeDays: fields.guaranteeDays,
         bumpProduct: fields.bumpProduct,
@@ -596,6 +613,7 @@ export async function saveCredentials<K extends IntegrationKind>(
   kind: K,
   fields: Partial<Record<FieldName<K>, string>>,
   secrets: Partial<Record<SecretName<K>, string>> = {},
+  executor: Database = db(),
 ) {
   const plain: Record<string, string> = {};
   for (const [name, value] of Object.entries<string | undefined>(fields)) if (value !== undefined) plain[name] = value;
@@ -603,7 +621,7 @@ export async function saveCredentials<K extends IntegrationKind>(
   for (const [name, value] of Object.entries<string | undefined>(secrets))
     if (value) sealed[name] = seal(value, `${kind}.${name}`);
 
-  await db()
+  await executor
     .insert(integration)
     .values({ kind, fields: plain, secrets: sealed, updatedAt: new Date() })
     .onConflictDoUpdate({

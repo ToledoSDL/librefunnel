@@ -144,7 +144,7 @@ export const PIX_PROVIDERS: { id: PixProvider; name: string; needsCnpj: boolean;
     id: "static",
     name: "Pix direto na sua chave",
     needsCnpj: false,
-    fee: "Sem taxa. O Pix cai na chave cadastrada em cada produto e você libera o pedido ao ver o valor no extrato.",
+    fee: "Sem taxa. O Pix cai na chave da loja e você libera o pedido ao ver o valor no extrato.",
     events: [],
   },
   {

@@ -14,13 +14,11 @@ beforeEach(async () => {
   ip += 1;
   slug = `retencao-${ip}`;
   freshBrowser(`192.0.2.${ip}`);
-  await createProduct(slug, {
-    name: "Curso de retenção",
-    price: 4700,
-    pixKey: "loja@example.com",
-    pixName: "Loja",
-    pixCity: "Florianopolis",
-  });
+  await createProduct(
+    slug,
+    { name: "Curso de retenção", price: 4700 },
+    { key: "loja@example.com", name: "Loja", city: "Florianopolis" },
+  );
 });
 
 function watch(seconds: object | string, product = slug) {

@@ -1,0 +1,13 @@
+.git
+.github
+.next
+node_modules
+data
+media
+site
+tests
+coverage
+.env
+.env.*
+*.tsbuildinfo
+next-env.d.ts

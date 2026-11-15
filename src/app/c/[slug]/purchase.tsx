@@ -5,16 +5,8 @@ import type { OrderBump } from "@/lib/catalog";
 import { Money } from "@/app/format";
 import { CheckoutForm, CheckoutTotal, FieldMessage, FormMessage, SubmitLabel } from "@/app/ui";
 import { ConfirmEmail } from "./confirm";
+import { EmailInput } from "./email-input";
 import styles from "./page.module.css";
-
-function Step({ number, title }: { number: number; title: string }) {
-  return (
-    <h2 className={styles.step}>
-      <span aria-hidden>{number}</span>
-      {title}
-    </h2>
-  );
-}
 
 export function Purchase({
   slug,
@@ -45,12 +37,11 @@ export function Purchase({
   button: string;
   trust: boolean;
   seal: boolean;
-  prefill: { name: string; email: string; phone: string };
+  prefill: { name: string; email: string; phone: string; document: string };
 }) {
   return (
     <CheckoutForm slug={slug} touch={touch} bumpDefault={bumpDefault}>
       <div className={styles.panel}>
-        <Step number={1} title="Seus dados" />
         <Field label="Nome completo" hint={<FieldMessage code="INVALID_NAME" />}>
           {(control) => (
             <Input
@@ -67,10 +58,9 @@ export function Purchase({
         </Field>
         <Field label="E-mail" hint={<FieldMessage code="INVALID_EMAIL" />}>
           {(control) => (
-            <Input
+            <EmailInput
               {...control}
               name="email"
-              type="email"
               required
               maxLength={200}
               autoComplete="email"
@@ -121,7 +111,7 @@ export function Purchase({
           </Field>
         )}
         {document ? (
-          <Field label="CPF ou CNPJ para a nota fiscal (opcional)" hint={<FieldMessage code="INVALID_DOCUMENT" />}>
+          <Field label="CPF ou CNPJ na nota (opcional)" hint={<FieldMessage code="INVALID_DOCUMENT" />}>
             {(control) => (
               <Input
                 {...control}
@@ -130,44 +120,32 @@ export function Purchase({
                 maxLength={18}
                 autoComplete="off"
                 placeholder="000.000.000-00"
+                defaultValue={prefill.document}
               />
             )}
           </Field>
         ) : null}
-      </div>
-
-      <div className={styles.panel}>
-        <Step number={2} title="Pagamento" />
-        <div className={styles.method} aria-current="true">
-          <Icon name="qr-code" />
-          <strong className={styles.methodText}>Pix</strong>
-          <Icon name="circle-check" />
-        </div>
 
         {bump ? (
           <label className={styles.bump}>
-            <span className={styles.bumpHead}>
-              <Icon name="arrow-right" size={16} />
-              Sim, eu quero levar junto!
-            </span>
             <span className={styles.bumpBody}>
               <input type="checkbox" name="bump" value="1" defaultChecked={bumpDefault} className={styles.bumpCheck} />
               {bump.cover ? (
                 <img className={styles.bumpCover} src={bump.cover} alt="" width={64} height={64} loading="lazy" />
               ) : null}
               <span className={styles.bumpText}>
-                <strong>{bump.headline ?? bump.name}</strong>
+                <strong>{bump.headline ?? `Adicionar ${bump.name}`}</strong>
                 {bump.tagline ? <span>{bump.tagline}</span> : null}
-                <span className={styles.bumpPrice}>
-                  {bump.price > bump.bumpPrice ? (
-                    <s>
-                      <Money cents={bump.price} />
-                    </s>
-                  ) : null}
-                  <strong>
-                    + <Money cents={bump.bumpPrice} />
-                  </strong>
-                </span>
+              </span>
+              <span className={styles.bumpPrice}>
+                <strong>
+                  + <Money cents={bump.bumpPrice} />
+                </strong>
+                {bump.price > bump.bumpPrice ? (
+                  <s>
+                    <Money cents={bump.price} />
+                  </s>
+                ) : null}
               </span>
             </span>
           </label>
@@ -175,7 +153,7 @@ export function Purchase({
 
         <div className={styles.total}>
           <span>Total</span>
-          <CheckoutTotal price={price} bump={bump ? { name: bump.name, price: bump.bumpPrice } : undefined} />
+          <CheckoutTotal price={price} bump={bump?.bumpPrice} />
         </div>
         <FormMessage />
         <button type="submit" className={styles.buy}>
@@ -201,7 +179,7 @@ export function Purchase({
           </ul>
         ) : null}
         <p className={styles.legal}>
-          Ao clicar em {button}, você concorda com os{" "}
+          Ao pagar, você aceita os{" "}
           {termsUrl ? (
             <a href={termsUrl} target="_blank" rel="noopener noreferrer">
               termos de compra

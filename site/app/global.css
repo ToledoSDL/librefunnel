@@ -46,3 +46,69 @@
 html {
   scrollbar-gutter: stable;
 }
+
+@theme {
+  --color-brand: #254ccb;
+  --color-paid: #1f7a4d;
+  --color-paid-soft: #e5f2ea;
+  --color-fee: #b3261e;
+}
+
+.dark {
+  --color-paid: #7ccf9f;
+  --color-paid-soft: #1d2a21;
+  --color-fee: #f08a80;
+}
+
+.dots {
+  background-image: radial-gradient(rgb(255 255 255 / 0.14) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    scale: 0.9;
+    translate: 0 0.75rem;
+  }
+}
+
+@keyframes grow {
+  from {
+    scale: 0 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    animation-delay: var(--delay, 0s);
+  }
+
+  .pop {
+    animation: pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) backwards;
+    animation-delay: var(--delay, 0s);
+  }
+
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: rise linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+
+    .bar-grow {
+      transform-origin: left;
+      animation: grow linear backwards;
+      animation-timeline: view();
+      animation-range: entry 20% cover 45%;
+    }
+  }
+}

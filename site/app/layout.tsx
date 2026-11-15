@@ -13,9 +13,12 @@ export const metadata: Metadata = {
   },
   description:
     "Página de vendas com vídeo, checkout Pix, área de membros e recuperação de carrinho num app de código aberto que você instala no seu servidor. Sem taxa por venda.",
+  applicationName: "LibreFunnel",
   icons: { icon: "/icon.svg" },
+  robots: { index: true, follow: true, googleBot: { "max-image-preview": "large", "max-snippet": -1 } },
   openGraph: {
     type: "website",
+    url: "/",
     siteName: "LibreFunnel",
     locale: "pt_BR",
     images: [{ url: "/og.png", width: 1200, height: 630 }],

@@ -2,30 +2,18 @@ import "server-only";
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import nodemailer from "nodemailer";
-import { credentials, productNames, saveCredentials, settings } from "./catalog";
+import { credentials, fillSettings, productNames, saveCredentials, settings } from "./catalog";
 import type { Credentials } from "./catalog";
 import { addSeconds, db, one } from "./db";
 import type { Database } from "./db";
-import {
-  baseUrl,
-  demoMode,
-  derive,
-  firstName,
-  hmacHex,
-  isObject,
-  jsonObject,
-  maskEmail,
-  printable,
-  readBody,
-  safeEqual,
-  sign,
-  verify,
-} from "./guard";
+import { baseUrl, demoMode, derive, hmacHex, isObject, jsonObject, readBody, safeEqual, sign, verify } from "./guard";
 import type { Json, JsonObject } from "./guard";
 import { mintLogin } from "./members";
 import { contact, customer, message, order, recoveryStep, reply } from "./schema";
 import { GRAPH } from "./tracking";
 import { switchWhatsApp } from "./updates";
+import { parsePhone, parsePrintable } from "./input";
+import { formatFirstName, formatMaskedEmail, formatMoney } from "@/format";
 
 export type MessageCode =
   | "CHANNEL_NOT_CONFIGURED"
@@ -132,7 +120,6 @@ const PHOTO_TTL = 7 * 86400;
 const PHOTO_ACTIVE = 30 * 86400;
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const BOT_LIMIT = 64 * 1024;
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export const RECOVERY_FIELDS = ["name", "product", "amount", "link", "pix"];
 export const REPLY_FIELDS = ["base"];
@@ -156,12 +143,30 @@ export const SMTP_PRESETS = [
   { id: "mailjet", name: "Mailjet", host: "in-v3.mailjet.com", port: 587, user: "API Key", password: "Secret Key" },
 ] as const;
 
-export function messageCode(value: string | null): MessageCode | null {
-  return MESSAGE_CODES.find((code) => code === value) ?? null;
+const GMAIL = { host: "smtp.gmail.com", port: 587 };
+const YAHOO = { host: "smtp.mail.yahoo.com", port: 587 };
+const ICLOUD = { host: "smtp.mail.me.com", port: 587 };
+const ZOHO = { host: "smtp.zoho.com", port: 587 };
+
+// Mailboxes whose SMTP server follows from the address, so the server field can be left blank.
+const SMTP_BY_DOMAIN: Record<string, { host: string; port: number }> = {
+  "gmail.com": GMAIL,
+  "googlemail.com": GMAIL,
+  "yahoo.com": YAHOO,
+  "yahoo.com.br": YAHOO,
+  "icloud.com": ICLOUD,
+  "me.com": ICLOUD,
+  "mac.com": ICLOUD,
+  "zoho.com": ZOHO,
+  "zohomail.com": ZOHO,
+};
+
+export function smtpServer(address: string): { host: string; port: number } | undefined {
+  return SMTP_BY_DOMAIN[address.split("@")[1] ?? ""];
 }
 
-export function brl(cents: number): string {
-  return BRL.format(cents / 100);
+export function messageCode(value: string | null): MessageCode | null {
+  return MESSAGE_CODES.find((code) => code === value) ?? null;
 }
 
 function fill(text: string, values: Record<string, string>): string {
@@ -243,7 +248,7 @@ export async function enqueueSale(tx: Database, sale: Sale) {
   const names = await productNames(tx);
   const owner = await settings(tx);
   const title = [sale.product, sale.bump].flatMap((slug) => (slug ? [names.get(slug) ?? slug] : [])).join(" + ");
-  const notice = `Nova venda: ${title} (${brl(sale.amount)})\n\n${sale.name} (${sale.email}) pagou o pedido ${sale.id}.\n${baseUrl()}/admin?tab=orders&q=${sale.id}`;
+  const notice = `Nova venda: ${title} (${formatMoney(sale.amount)})\n\n${sale.name} (${sale.email}) pagou o pedido ${sale.id}.\n${baseUrl()}/admin?tab=orders&q=${sale.id}`;
 
   const drafts: Pick<typeof message.$inferInsert, "channel" | "address" | "kind" | "customerId" | "body">[] = [
     {
@@ -251,7 +256,7 @@ export async function enqueueSale(tx: Database, sale: Sale) {
       address: sale.email,
       kind: "access",
       customerId: sale.customerId,
-      body: `Seu acesso ao ${title} está liberado\n\nOi ${firstName(sale.name)}, o pagamento foi confirmado.\n\nEntre na área de membros por este link (vale 7 dias e funciona uma vez): {login_link}\n\nDepois disso, peça um link novo em ${baseUrl()}/m com este e-mail.`,
+      body: `Seu acesso ao ${title} está liberado\n\nOi ${formatFirstName(sale.name)}, o pagamento foi confirmado.\n\nEntre na área de membros por este link (vale 7 dias e funciona uma vez): {login_link}\n\nDepois disso, peça um link novo em ${baseUrl()}/m com este e-mail.`,
     },
   ];
 
@@ -261,7 +266,7 @@ export async function enqueueSale(tx: Database, sale: Sale) {
       address: sale.phone,
       kind: "paid",
       customerId: sale.customerId,
-      body: `Oi ${firstName(sale.name)}! O pagamento do ${title} foi confirmado. O link de acesso foi enviado para o seu e-mail ${maskEmail(sale.email)}.`,
+      body: `Oi ${formatFirstName(sale.name)}! O pagamento do ${title} foi confirmado. O link de acesso foi enviado para o seu e-mail ${formatMaskedEmail(sale.email)}.`,
     });
   }
   if (owner.ownerEmail) drafts.push({ channel: "email", address: owner.ownerEmail, kind: "owner", body: notice });
@@ -345,9 +350,9 @@ export async function queueRecovery() {
               : null;
 
       const body = fill(current.text, {
-        name: firstName(row.name),
+        name: formatFirstName(row.name),
         product: names.get(row.product) ?? row.product,
-        amount: brl(row.amount),
+        amount: formatMoney(row.amount),
         link: `${baseUrl()}/c/${row.product}?order=${row.id}`,
         pix: row.pixCode,
       });
@@ -1074,6 +1079,7 @@ export async function connectCloud(link: {
     }
 
     await saveCredentials("whatsapp", { phoneId: number.id, wabaId, number: number.label }, { token, appSecret });
+    await fillSettings({ support_whatsapp: parsePhone(number.label) });
     return null;
   } catch {
     return "PROVIDER_UNREACHABLE";
@@ -1160,7 +1166,7 @@ async function storeInbound(phone: string, raw: string | undefined, externalId: 
   const text = raw?.slice(0, 4096);
   if (!/^\d{10,15}$/.test(phone) || !text) return;
   const t = new Date();
-  const name = printable(profile.replace(/\s+/g, " "), 80);
+  const name = parsePrintable(profile.replace(/\s+/g, " "), 80);
   await db().transaction(async (tx) => {
     if (name)
       await tx

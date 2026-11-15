@@ -13,16 +13,26 @@ export function MediaField({
   kind,
   value,
   label,
+  titleField,
 }: {
   name: string;
   kind: "video" | "image" | "captions";
   value?: string;
   label: string;
+  titleField?: string;
 }) {
   return (
     <Field label={label} hint={HINTS[kind]}>
       {(control) => (
-        <MediaUpload {...control} name={name} kind={kind} value={value} button={OUTLINE} remove={OUTLINE} />
+        <MediaUpload
+          {...control}
+          name={name}
+          kind={kind}
+          value={value}
+          button={OUTLINE}
+          remove={OUTLINE}
+          titleField={titleField}
+        />
       )}
     </Field>
   );

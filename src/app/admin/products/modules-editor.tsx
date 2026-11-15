@@ -20,7 +20,7 @@ export function ModulesEditor({ product }: { product: Product }) {
       }}
       title="Novo módulo"
       description="Entra no fim da lista. Depois adicione as aulas dele."
-      body={<ModuleForm product={product.slug} />}
+      body={<ModuleForm product={product.slug} number={count + 1} />}
     />
   );
 

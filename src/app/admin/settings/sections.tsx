@@ -175,17 +175,6 @@ export function LegalSection({ current }: { current: Settings }) {
       </Card>
       <Card title="Dados de quem vende">
         <div>
-          <SettingRow
-            title="Nome ou razão social"
-            description="Como no seu CPF ou CNPJ. O Código de Defesa do Consumidor pede a identificação de quem vende."
-          >
-            <Input
-              aria-label="Nome ou razão social"
-              name="legalName"
-              maxLength={120}
-              defaultValue={current.legalName}
-            />
-          </SettingRow>
           <SettingRow title="CPF ou CNPJ" description="Só números ou com pontos, barra e traço.">
             <Input
               aria-label="CPF ou CNPJ"
@@ -193,6 +182,17 @@ export function LegalSection({ current }: { current: Settings }) {
               inputMode="numeric"
               maxLength={18}
               defaultValue={current.document}
+            />
+          </SettingRow>
+          <SettingRow
+            title="Nome ou razão social"
+            description="Como no seu CPF ou CNPJ; com CNPJ, em branco vem do cadastro da Receita. O Código de Defesa do Consumidor pede a identificação de quem vende."
+          >
+            <Input
+              aria-label="Nome ou razão social"
+              name="legalName"
+              maxLength={120}
+              defaultValue={current.legalName}
             />
           </SettingRow>
           <SettingRow

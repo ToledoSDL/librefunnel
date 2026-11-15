@@ -6,18 +6,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import * as catalog from "./catalog";
 import type { CatalogCode } from "./catalog";
-import {
-  cleanEmail,
-  cleanName,
-  cleanPhone,
-  clientIp,
-  demoMode,
-  isAdmin,
-  limited,
-  printable,
-  signInAdmin,
-  signOutAdmin,
-} from "./guard";
+import { clientIp, demoMode, isAdmin, limited, signInAdmin, signOutAdmin } from "./guard";
 import type { GuardCode } from "./guard";
 import * as invoices from "./invoices";
 import type { InvoiceCode } from "./invoices";
@@ -33,6 +22,33 @@ import { fbcFor, metaCookie, recordTouch, sendMetaTest, visitor } from "./tracki
 import type { ConversionCode, TrackCode } from "./tracking";
 import * as updates from "./updates";
 import type { UpdateCode } from "./updates";
+import {
+  BUCKET,
+  CREDENTIAL,
+  HOST,
+  ID,
+  LINK,
+  SLUG,
+  parseCents,
+  parseCpfCnpj,
+  parseCredential,
+  parseEmail,
+  parseInteger,
+  parseLine,
+  parseMedia,
+  parseName,
+  parsePhone,
+  parsePixKey,
+  parsePixText,
+  parsePrice,
+  parsePrintable,
+  parseRate,
+  parseRowId,
+  parseText,
+  parseTitle,
+} from "./input";
+import { formatSlug } from "@/format";
+import { company } from "./registry";
 
 export type Code =
   | UpdateCode
@@ -53,14 +69,6 @@ export type WhatsAppState = ActionState & { qr?: string; pairingCode?: string };
 type FormArgs = [state: ActionState, form: FormData];
 type Pix = catalog.Product["pix"];
 
-const ORDER_ID = /^[a-z0-9]{20}$/;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,59}$/;
-const MEDIA = /^\/(media|demo)\/[\w.-]{1,100}$/;
-const ROW_ID = /^\d{1,12}$/;
-const MULTILINE_CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/;
-const CREDENTIAL = /^[\x21-\x7e]{1,4000}$/;
-const HOST = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/i;
-
 const REMOVABLE = [
   "smtp",
   "meta",
@@ -77,7 +85,6 @@ const REMOVABLE = [
 ] as const;
 
 const CERTIFICATE_LIMIT = 64 * 1024;
-const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
 // AWS and Backblaze put the region in the host (s3.us-east-2.amazonaws.com); R2 and most others take "auto".
 const REGION = /^s3[.-]([a-z]{2}-[a-z]+-\d{1,3})\.(?:amazonaws\.com|backblazeb2\.com)$/;
 
@@ -95,96 +102,50 @@ function done(code: Code | null): ActionState {
   return code ? { code } : { code: null, ok: true };
 }
 
-function title(raw: string): string | undefined {
-  const value = printable(raw.replace(/\s+/g, " "), 120);
-  return value.length >= 2 ? value : undefined;
-}
-
-// Optional one-line text: null when left blank, undefined when it cannot be accepted.
-function line(raw: string, max = 300): string | null | undefined {
-  if (!raw.trim()) return null;
-  return printable(raw, max) || undefined;
-}
-
-function text(raw: string, max: number): string | undefined {
-  const value = raw.replace(/\r\n?/g, "\n").trim();
-  return value.length <= max && !MULTILINE_CONTROL.test(value) ? value : undefined;
-}
-
-function media(raw: string): string | null | undefined {
-  const value = raw.trim();
-  if (!value) return null;
-  return MEDIA.test(value) ? value : undefined;
-}
-
-function integer(raw: string, min: number, max: number): number | undefined {
-  const value = Number(raw.trim());
-  return raw.trim() !== "" && Number.isInteger(value) && value >= min && value <= max ? value : undefined;
-}
-
-function price(raw: string): number | undefined {
-  const cents = orders.parseCents(raw);
-  return cents !== undefined && cents >= 100 && cents <= 10_000_000 ? cents : undefined;
-}
-
-// Blank keeps the stored secret; undefined when it cannot be a key (spaces, accents, control characters).
-function credential(raw: string): string | undefined {
-  const value = raw.trim();
-  return !value || CREDENTIAL.test(value) ? value : undefined;
-}
-
-function rowId(raw: string): number | undefined {
-  return ROW_ID.test(raw) ? Number(raw) : undefined;
-}
-
-function slugify(name: string): string {
-  return name
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .slice(0, 60)
-    .replace(/-+$/, "");
-}
-
-function pixFields(form: FormData): Pix | { code: Code } {
-  const key = catalog.pixKey(field(form, "pixKey"));
+// Name and city only label the payment in the payer's bank app, so blank ones come from the CNPJ registry (the key's own
+// CNPJ, or the store's) and the store's legal name.
+async function pixFields(form: FormData): Promise<Pix | { code: Code }> {
+  const key = parsePixKey(field(form, "pixKey"));
   if (!key) return { code: "INVALID_PIX_KEY" };
-  const name = catalog.pixText(field(form, "pixName"), 25);
-  const city = catalog.pixText(field(form, "pixCity"), 15);
+  const typedName = field(form, "pixName").trim();
+  const typedCity = field(form, "pixCity").trim();
+  const store = await catalog.settings();
+  const cnpj = [key, store.document].find((value) => value && /^\d{14}$/.test(value));
+  const found = (!typedName || !typedCity) && cnpj ? await company(cnpj) : undefined;
+  const name = parsePixText(typedName || (cnpj === key ? found?.name : "") || store.legalName || store.brand, 25);
+  const city = parsePixText(typedCity || found?.town || "", 15);
   if (!name || !city) return { code: "INVALID_PIX_HOLDER" };
   return { key, name, city };
 }
 
 function productFields(form: FormData): catalog.ProductFields | { code: Code } {
-  const name = title(field(form, "name"));
+  const name = parseTitle(field(form, "name"));
   if (!name) return { code: "INVALID_TITLE" };
-  const cents = price(field(form, "price"));
+  const cents = parsePrice(field(form, "price"));
   if (!cents) return { code: "INVALID_PRICE" };
-  const tagline = line(field(form, "tagline"));
-  const ctaText = line(field(form, "ctaText"), 80);
-  const bumpHeadline = line(field(form, "bumpHeadline"));
+  const tagline = parseLine(field(form, "tagline"));
+  const ctaText = parseLine(field(form, "ctaText"), 80);
+  const bumpHeadline = parseLine(field(form, "bumpHeadline"));
   if (tagline === undefined || ctaText === undefined || bumpHeadline === undefined) return { code: "INVALID_TEXT" };
   const offer = field(form, "offerEndsAt").trim();
   const offerEndsAt = offer ? new Date(offer) : null;
   if (offerEndsAt && Number.isNaN(offerEndsAt.getTime())) return { code: "INVALID_DATE" };
-  const guaranteeDays = integer(field(form, "guaranteeDays"), 7, 365);
+  const guaranteeDays = parseInteger(field(form, "guaranteeDays"), 7, 365);
   if (guaranteeDays === undefined) return { code: "INVALID_GUARANTEE" };
-  const ctaSeconds = integer(field(form, "ctaSeconds") || "0", 0, 7200);
+  const ctaSeconds = parseInteger(field(form, "ctaSeconds") || "0", 0, 7200);
   if (ctaSeconds === undefined) return { code: "INVALID_CTA_SECONDS" };
   const bumpProduct = field(form, "bumpProduct") || null;
-  const bumpPrice = field(form, "bumpPrice").trim() ? price(field(form, "bumpPrice")) : null;
+  const bumpPrice = field(form, "bumpPrice").trim() ? parsePrice(field(form, "bumpPrice")) : null;
   if (bumpPrice === undefined || (bumpProduct !== null && !SLUG.test(bumpProduct))) return { code: "INVALID_BUMP" };
-  const vslVideo = media(field(form, "vslVideo"));
-  const banner = media(field(form, "banner"));
-  const cover = media(field(form, "cover"));
+  const vslVideo = parseMedia(field(form, "vslVideo"));
+  const banner = parseMedia(field(form, "banner"));
+  const cover = parseMedia(field(form, "cover"));
   if (vslVideo === undefined || banner === undefined || cover === undefined) return { code: "INVALID_MEDIA" };
   const answers = column(form, "faq_a");
   const faq: catalog.Faq[] = [];
   for (const [index, raw] of column(form, "faq_q").entries()) {
-    const q = line(raw);
-    const a = text(answers[index] ?? "", 2000);
+    const q = parseLine(raw);
+    const a = parseText(answers[index] ?? "", 2000);
     if (q === null && !a) continue;
     if (!q || !a) return { code: "INVALID_FAQ" };
     faq.push({ q, a });
@@ -193,9 +154,9 @@ function productFields(form: FormData): catalog.ProductFields | { code: Code } {
   const stars = column(form, "testimonial_stars");
   const testimonials: catalog.Testimonial[] = [];
   for (const [index, raw] of column(form, "testimonial_name").entries()) {
-    const author = title(raw);
-    const quote = text(quotes[index] ?? "", 1000);
-    const rating = integer(stars[index] ?? "", 1, 5);
+    const author = parseTitle(raw);
+    const quote = parseText(quotes[index] ?? "", 1000);
+    const rating = parseInteger(stars[index] ?? "", 1, 5);
     if (!raw.trim() && !quote) continue;
     if (!author || !quote || rating === undefined) return { code: "INVALID_TESTIMONIAL" };
     testimonials.push({ name: author, text: quote, stars: rating });
@@ -205,18 +166,18 @@ function productFields(form: FormData): catalog.ProductFields | { code: Code } {
   const kinds = column(form, "trigger_kind");
   const triggers: catalog.Trigger[] = [];
   for (const [index, raw] of column(form, "trigger_text").entries()) {
-    const label = line(raw, 80);
-    const at = integer(starts[index] ?? "", 0, 7200);
-    const until = integer(ends[index] ?? "", 1, 7200);
+    const label = parseLine(raw, 80);
+    const at = parseInteger(starts[index] ?? "", 0, 7200);
+    const until = parseInteger(ends[index] ?? "", 1, 7200);
     if (label === null && !starts[index]?.trim() && !ends[index]?.trim()) continue;
     if (!label || at === undefined || until === undefined || until <= at) return { code: "INVALID_TRIGGER" };
     triggers.push({ at, until, text: label, button: kinds[index] === "button" });
   }
-  const barText = line(field(form, "barText"), 120);
+  const barText = parseLine(field(form, "barText"), 120);
   if (barText === undefined) return { code: "INVALID_TEXT" };
   const barColor = field(form, "barColor").trim().toLowerCase() || null;
   if (barColor !== null && !/^#[0-9a-f]{6}$/.test(barColor)) return { code: "INVALID_COLOR" };
-  const captions = media(field(form, "captions"));
+  const captions = parseMedia(field(form, "captions"));
   if (captions === undefined) return { code: "INVALID_MEDIA" };
   return {
     name,
@@ -253,23 +214,23 @@ function item(form: FormData): { kind: "product" | "module" | "lesson"; key: str
   const kind = field(form, "kind");
   const raw = field(form, "key");
   if (kind === "product" || kind === "lesson") return SLUG.test(raw) ? { kind, key: raw } : undefined;
-  const key = rowId(raw);
+  const key = parseRowId(raw);
   return kind === "module" && key !== undefined ? { kind, key } : undefined;
 }
 
 export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
   const product = await catalog.getProduct(field(form, "slug"));
   if (!product) return { code: "PRODUCT_NOT_FOUND" };
-  const name = cleanName(field(form, "name"));
+  const name = parseName(field(form, "name"));
   if (!name) return { code: "INVALID_NAME" };
-  const email = cleanEmail(field(form, "email"));
+  const email = parseEmail(field(form, "email"));
   if (!email) return { code: "INVALID_EMAIL" };
   const { checkoutPhone } = await catalog.settings();
   const rawPhone = checkoutPhone === "hidden" ? "" : field(form, "phone").trim();
   if (!rawPhone && checkoutPhone === "required") return { code: "INVALID_PHONE" };
-  const phone = rawPhone ? cleanPhone(rawPhone) : null;
+  const phone = rawPhone ? parsePhone(rawPhone) : null;
   if (phone === undefined) return { code: "INVALID_PHONE" };
-  const document = (await invoices.invoicesOn()) ? invoices.buyerDocument(field(form, "document")) : null;
+  const document = (await invoices.invoicesOn()) ? parseCpfCnpj(field(form, "document")) : null;
   if (document === undefined) return { code: "INVALID_DOCUMENT" };
   const requestHeaders = await headers();
   const ip = clientIp(requestHeaders);
@@ -300,7 +261,7 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
 }
 
 export async function requestLogin(...[, form]: FormArgs): Promise<ActionState> {
-  const email = cleanEmail(field(form, "email"));
+  const email = parseEmail(field(form, "email"));
   if (!email) return { code: "INVALID_EMAIL" };
   const code = await members.requestLogin(email, clientIp(await headers()));
   return code ? { code } : { code: null, ok: true };
@@ -320,7 +281,7 @@ export async function enterFromOrder(): Promise<ActionState> {
 
 export async function simulatePayment(...[, form]: FormArgs): Promise<ActionState> {
   const orderId = field(form, "orderId");
-  if (!ORDER_ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
+  if (!ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
   return done(await orders.simulatePayment(orderId));
 }
 
@@ -354,8 +315,8 @@ export async function adminSignOut(): Promise<ActionState> {
 export async function releaseOrder(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   const orderId = field(form, "orderId");
-  if (!ORDER_ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
-  const amount = orders.parseCents(field(form, "amount"));
+  if (!ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
+  const amount = parseCents(field(form, "amount"));
   if (!amount) return { code: "INVALID_AMOUNT" };
   return done(await orders.releaseOrder(orderId, amount));
 }
@@ -375,7 +336,7 @@ export async function sendReply(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   const address = field(form, "address");
   if (!/^\d{10,15}$/.test(address)) return { code: "INVALID_ADDRESS" };
-  const body = text(field(form, "text"), 2000);
+  const body = parseText(field(form, "text"), 2000);
   if (!body) return { code: "INVALID_TEXT" };
   return done(await messages.sendManual(address, body));
 }
@@ -421,17 +382,21 @@ export async function saveSmtp(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
   const preset = messages.SMTP_PRESETS.find((entry) => entry.id === field(form, "preset"));
-  const host = preset?.host ?? field(form, "host").trim().toLowerCase();
+  const typedHost = field(form, "host").trim().toLowerCase();
+  const known = preset || typedHost ? undefined : messages.smtpServer(field(form, "user").trim().toLowerCase());
+  const host = preset?.host ?? known?.host ?? typedHost;
   if (!HOST.test(host)) return { code: "INVALID_HOST" };
-  const port = preset?.port ?? integer(field(form, "port") || "587", 1, 65_535);
+  const port = preset?.port ?? known?.port ?? parseInteger(field(form, "port") || "587", 1, 65_535);
   if (port === undefined) return { code: "INVALID_PORT" };
   const user = field(form, "user").trim();
-  const password = credential(field(form, "password"));
+  const password = parseCredential(field(form, "password"));
   if (password === undefined || (user && !CREDENTIAL.test(user))) return { code: "INVALID_CREDENTIAL" };
   const rawFrom = field(form, "from").trim();
-  const from = rawFrom ? cleanEmail(rawFrom) : "";
-  if (from === undefined || (!from && !cleanEmail(user))) return { code: "INVALID_EMAIL" };
+  const from = rawFrom ? parseEmail(rawFrom) : "";
+  if (from === undefined || (!from && !parseEmail(user))) return { code: "INVALID_EMAIL" };
   await catalog.saveCredentials("smtp", { host, port: String(port), user, from }, { password });
+  const address = from || parseEmail(user);
+  await catalog.fillSettings({ support_email: address, owner_email: address });
   return done(null);
 }
 
@@ -460,7 +425,7 @@ export async function saveStorage(...[, form]: FormArgs): Promise<ActionState> {
     REGION.exec(endpoint.hostname)?.[1] ?? (endpoint.hostname === "s3.amazonaws.com" ? "us-east-1" : "auto");
 
   const accessKey = field(form, "accessKey").trim();
-  const secret = credential(field(form, "secret"));
+  const secret = parseCredential(field(form, "secret"));
   if (!CREDENTIAL.test(accessKey) || secret === undefined) return { code: "INVALID_CREDENTIAL" };
   const kept = secret || (await catalog.credentials("storage"))("storage")("secret");
   if (!kept) return { code: "INVALID_CREDENTIAL" };
@@ -486,7 +451,7 @@ export async function saveMeta(...[, form]: FormArgs): Promise<ActionState> {
   if (!/^\d{5,20}$/.test(pixelId)) return { code: "INVALID_PIXEL_ID" };
   const testEventCode = field(form, "testEventCode").trim();
   if (testEventCode && !/^[A-Za-z0-9]{1,40}$/.test(testEventCode)) return { code: "INVALID_TEST_EVENT_CODE" };
-  const token = credential(field(form, "token"));
+  const token = parseCredential(field(form, "token"));
   if (token === undefined || (!token && !(await catalog.credentials("meta"))("meta")("token")))
     return { code: "INVALID_CREDENTIAL" };
   await catalog.saveCredentials("meta", { pixelId, testEventCode }, { token });
@@ -500,8 +465,8 @@ export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
   const provider = orders.pixProvider(field(form, "provider"));
   if (!provider) return { code: "INVALID_PAYLOAD" };
   if (provider !== "static") {
-    const apiKey = credential(field(form, "apiKey"));
-    const webhookSecret = credential(field(form, "webhookSecret"));
+    const apiKey = parseCredential(field(form, "apiKey"));
+    const webhookSecret = parseCredential(field(form, "webhookSecret"));
     const clientId = field(form, "clientId").trim();
     if (apiKey === undefined || webhookSecret === undefined || (clientId && !CREDENTIAL.test(clientId)))
       return { code: "INVALID_CREDENTIAL" };
@@ -531,7 +496,7 @@ export async function savePix(...[, form]: FormArgs): Promise<ActionState> {
 export async function savePixKey(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
-  const pix = pixFields(form);
+  const pix = await pixFields(form);
   if ("code" in pix) return pix;
   await catalog.saveStorePix(pix);
   // A first key in a store that never chose how to receive means receiving on it.
@@ -582,7 +547,7 @@ export async function saveEvolution(...[, form]: FormArgs): Promise<ActionState>
     return done(null);
   }
   if (!/^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(url) || url.length > 300) return { code: "INVALID_EVOLUTION_URL" };
-  const key = credential(field(form, "key"));
+  const key = parseCredential(field(form, "key"));
   const stored = (await catalog.credentials("evolution"))("evolution");
   // The kept key goes only to the address it was typed for, never to a new one.
   if (key === undefined || (!key && (!stored("key") || stored("url") !== url))) return { code: "INVALID_CREDENTIAL" };
@@ -594,7 +559,7 @@ export async function saveCloud(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
   const stored = (await catalog.credentials("whatsapp"))("whatsapp");
-  const token = credential(field(form, "token")) || stored("token");
+  const token = parseCredential(field(form, "token")) || stored("token");
   if (!token) return { code: "INVALID_CREDENTIAL" };
   const appSecret = field(form, "appSecret").trim().toLowerCase() || stored("appSecret");
   if (!/^[0-9a-f]{32}$/.test(appSecret)) return { code: "CLOUD_APP_SECRET_INVALID" };
@@ -607,25 +572,15 @@ export async function saveCloud(...[, form]: FormArgs): Promise<ActionState> {
 }
 
 // The certificate is read once here: only its key and chain are kept, sealed; the file and its password are not.
+// Blank fiscal fields come from the CNPJ registry, so a first connection needs only the certificate.
 export async function saveNfse(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
-  const city = field(form, "city").trim();
-  if (!/^\d{7}$/.test(city)) return { code: "INVALID_CITY" };
-  const regime = invoices.regime(field(form, "regime"));
-  if (!regime) return { code: "INVALID_PAYLOAD" };
-  const service = field(form, "service").replace(/\D/g, "");
-  if (!/^\d{6}$/.test(service)) return { code: "INVALID_SERVICE" };
-  const registration = field(form, "registration").trim();
-  if (registration && !/^[A-Za-z0-9.\-/]{1,15}$/.test(registration)) return { code: "INVALID_PAYLOAD" };
-  const taxRate = regime === "mei" ? "" : invoices.rate(field(form, "taxRate"));
-  const issRate = regime === "normal" ? invoices.rate(field(form, "issRate")) : "";
-  if (taxRate === undefined || issRate === undefined) return { code: "INVALID_RATE" };
-
   const file = form.get("certificate");
   const fresh = file instanceof File && file.size > 0;
   if (fresh && file.size > CERTIFICATE_LIMIT) return { code: "CERTIFICATE_UNREADABLE" };
-  if (!fresh && !(await invoices.invoicesOn())) return { code: "CERTIFICATE_UNREADABLE" };
+  const stored = (await catalog.credentials("nfse"))("nfse");
+  if (!fresh && !stored("chain")) return { code: "CERTIFICATE_UNREADABLE" };
   if (limited("test", "nfse", 10, 600)) return { code: "RATE_LIMITED" };
 
   const certificate = fresh
@@ -633,11 +588,30 @@ export async function saveNfse(...[, form]: FormArgs): Promise<ActionState> {
     : undefined;
 
   if (typeof certificate === "string") return { code: certificate };
+  // A certificate of another company drops the fields typed for the previous one.
+  const same = !certificate || certificate.cnpj === stored("cnpj");
+  const typedCity = same ? field(form, "city").trim() : "";
+  const typedRegime = same ? invoices.regime(field(form, "regime")) : undefined;
+  const cnpj = certificate?.cnpj ?? stored("cnpj");
+  const found = typedCity && typedRegime ? undefined : await company(cnpj);
+  const city = typedCity || found?.city;
+  const regime = typedRegime ?? (found && invoices.regimeOf(found));
+  if (!city || !regime) return { code: "CNPJ_LOOKUP_FAILED" };
+  if (!/^\d{7}$/.test(city)) return { code: "INVALID_CITY" };
+  const service = (same ? field(form, "service") : "").replace(/\D/g, "") || "080201";
+  if (!/^\d{6}$/.test(service)) return { code: "INVALID_SERVICE" };
+  const registration = same ? field(form, "registration").trim() : "";
+  if (registration && !/^[A-Za-z0-9.\-/]{1,15}$/.test(registration)) return { code: "INVALID_PAYLOAD" };
+  const defaults = invoices.DEFAULT_RATES[regime];
+  const taxRate = regime === "mei" ? "" : parseRate((same && field(form, "taxRate")) || defaults.taxRate);
+  const issRate = regime === "normal" ? parseRate((same && field(form, "issRate")) || defaults.issRate) : "";
+  if (taxRate === undefined || issRate === undefined) return { code: "INVALID_RATE" };
 
   await catalog.saveCredentials(
     "nfse",
     {
       city,
+      place: found ? `${found.town}/${found.uf}` : city === stored("city") ? stored("place") : "",
       regime,
       service,
       registration,
@@ -649,6 +623,7 @@ export async function saveNfse(...[, form]: FormArgs): Promise<ActionState> {
     },
     certificate ? { key: certificate.key, chain: certificate.chain } : {},
   );
+  await catalog.fillSettings({ legal_name: found?.name ?? certificate?.holder, document: cnpj });
   return done(await invoices.testNfse());
 }
 
@@ -656,7 +631,7 @@ export async function retryInvoice(...[, form]: FormArgs): Promise<ActionState> 
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
   const orderId = field(form, "orderId");
-  if (!ORDER_ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
+  if (!ID.test(orderId)) return { code: "ORDER_NOT_FOUND" };
   return done(await invoices.retryInvoice(orderId));
 }
 
@@ -682,16 +657,16 @@ export async function removeConnection(...[, form]: FormArgs): Promise<ActionSta
 
 export async function createProduct(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  const name = title(field(form, "name"));
+  const name = parseTitle(field(form, "name"));
   if (!name) return { code: "INVALID_TITLE" };
-  const slug = field(form, "slug").trim() || slugify(name);
+  const slug = field(form, "slug").trim() || formatSlug(name);
   if (!SLUG.test(slug)) return { code: "INVALID_SLUG" };
-  const cents = price(field(form, "price"));
+  const cents = parsePrice(field(form, "price"));
   if (!cents) return { code: "INVALID_PRICE" };
   // The second step asks for the store's key only when the store has none yet, and saves it for every product.
   let pix = await catalog.storePix();
   if (!pix) {
-    const typed = pixFields(form);
+    const typed = await pixFields(form);
     if ("code" in typed) return typed;
     await catalog.saveStorePix(typed);
     pix = typed;
@@ -724,25 +699,25 @@ export async function archiveItem(...[, form]: FormArgs): Promise<ActionState> {
 
 export async function saveModule(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  const name = title(field(form, "title"));
+  const name = parseTitle(field(form, "title"));
   if (!name) return { code: "INVALID_TITLE" };
-  const cover = media(field(form, "cover"));
+  const cover = parseMedia(field(form, "cover"));
   if (cover === undefined) return { code: "INVALID_MEDIA" };
-  const id = rowId(field(form, "id"));
+  const id = parseRowId(field(form, "id"));
   const target = id === undefined ? { product: field(form, "product") } : { id };
   return done((await catalog.saveModule(target, name, cover)) ? null : "INVALID_TRANSITION");
 }
 
 export async function saveLesson(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  const name = title(field(form, "title"));
+  const name = parseTitle(field(form, "title"));
   if (!name) return { code: "INVALID_TITLE" };
-  const video = media(field(form, "video"));
+  const video = parseMedia(field(form, "video"));
   if (video === undefined) return { code: "INVALID_MEDIA" };
-  const body = text(field(form, "text"), 20_000);
+  const body = parseText(field(form, "text"), 20_000);
   if (body === undefined) return { code: "INVALID_TEXT" };
   const slug = field(form, "lesson");
-  const target = SLUG.test(slug) ? { slug } : { module: rowId(field(form, "module")) ?? 0 };
+  const target = SLUG.test(slug) ? { slug } : { module: parseRowId(field(form, "module")) ?? 0 };
   return done(
     (await catalog.saveLesson(target, { title: name, video: video ?? "", text: body })) ? null : "INVALID_TRANSITION",
   );
@@ -750,16 +725,16 @@ export async function saveLesson(...[, form]: FormArgs): Promise<ActionState> {
 
 export async function saveRecoveryStep(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  const unit = integer(field(form, "unit"), 1, 1440) ?? 1;
-  const afterMinutes = (integer(field(form, "delay"), 1, 43_200) ?? 0) * unit;
+  const unit = parseInteger(field(form, "unit"), 1, 1440) ?? 1;
+  const afterMinutes = (parseInteger(field(form, "delay"), 1, 43_200) ?? 0) * unit;
   if (afterMinutes < 1 || afterMinutes >= (await catalog.settings()).orderHours * 60) return { code: "INVALID_DELAY" };
   const channel = field(form, "channel");
   if (channel !== "email" && channel !== "whatsapp") return { code: "INVALID_PAYLOAD" };
-  const body = text(field(form, "text"), 2000);
+  const body = parseText(field(form, "text"), 2000);
   if (!body) return { code: "INVALID_TEXT" };
   if (!messages.validTemplate(body, messages.RECOVERY_FIELDS)) return { code: "INVALID_TEMPLATE" };
 
-  const saved = await messages.saveRecoveryStep(rowId(field(form, "id")) ?? null, {
+  const saved = await messages.saveRecoveryStep(parseRowId(field(form, "id")) ?? null, {
     afterMinutes,
     channel,
     text: body,
@@ -770,7 +745,7 @@ export async function saveRecoveryStep(...[, form]: FormArgs): Promise<ActionSta
 
 export async function deleteRecoveryStep(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  return done((await messages.deleteRecoveryStep(rowId(field(form, "id")) ?? 0)) ? null : "INVALID_TRANSITION");
+  return done((await messages.deleteRecoveryStep(parseRowId(field(form, "id")) ?? 0)) ? null : "INVALID_TRANSITION");
 }
 
 export async function saveReply(...[, form]: FormArgs): Promise<ActionState> {
@@ -781,21 +756,19 @@ export async function saveReply(...[, form]: FormArgs): Promise<ActionState> {
     .map((word) => word.trim())
     .filter(Boolean);
 
-  if (keywords.length === 0 || keywords.some((word) => !printable(word, 60))) return { code: "INVALID_KEYWORDS" };
-  const body = text(field(form, "text"), 1000);
+  if (keywords.length === 0 || keywords.some((word) => !parsePrintable(word, 60))) return { code: "INVALID_KEYWORDS" };
+  const body = parseText(field(form, "text"), 1000);
   if (!body) return { code: "INVALID_TEXT" };
   if (!messages.validTemplate(body, messages.REPLY_FIELDS)) return { code: "INVALID_TEMPLATE" };
   return done(
-    (await messages.saveReply(rowId(field(form, "id")) ?? null, keywords, body)) ? null : "INVALID_TRANSITION",
+    (await messages.saveReply(parseRowId(field(form, "id")) ?? null, keywords, body)) ? null : "INVALID_TRANSITION",
   );
 }
 
 export async function deleteReply(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  return done((await messages.deleteReply(rowId(field(form, "id")) ?? 0)) ? null : "INVALID_TRANSITION");
+  return done((await messages.deleteReply(parseRowId(field(form, "id")) ?? 0)) ? null : "INVALID_TRANSITION");
 }
-
-const URL_PATTERN = /^https?:\/\/[^\s/]+\.[^\s]{2,500}$/;
 
 // Each settings screen posts only its own fields, so only the keys present in the form are validated and saved.
 export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> {
@@ -805,7 +778,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
   const sent = (name: string) => form.has(name);
 
   if (sent("brand")) {
-    const brand = title(field(form, "brand"));
+    const brand = parseTitle(field(form, "brand"));
     if (!brand) return { code: "INVALID_TITLE" };
     values.brand = brand;
   }
@@ -816,7 +789,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
   ] satisfies [string, keyof catalog.SettingValues][]) {
     if (!sent(name)) continue;
     const raw = field(form, name).trim();
-    const email = raw ? cleanEmail(raw) : "";
+    const email = raw ? parseEmail(raw) : "";
     if (raw && !email) return { code: "INVALID_EMAIL" };
     values[key] = email ?? "";
   }
@@ -827,7 +800,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
   ] satisfies [string, keyof catalog.SettingValues][]) {
     if (!sent(name)) continue;
     const raw = field(form, name).trim();
-    const phone = raw ? cleanPhone(raw) : "";
+    const phone = raw ? parsePhone(raw) : "";
     if (raw && !phone) return { code: "INVALID_PHONE" };
     values[key] = phone ?? "";
   }
@@ -839,7 +812,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
   ] satisfies [string, keyof catalog.SettingValues][]) {
     if (!sent(name)) continue;
     const url = field(form, name).trim();
-    if (url && !URL_PATTERN.test(url)) return { code: "INVALID_URL" };
+    if (url && !LINK.test(url)) return { code: "INVALID_URL" };
     values[key] = url;
   }
 
@@ -852,7 +825,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
     ["thanksLabel", "thanks_label", 40],
   ] satisfies [string, keyof catalog.SettingValues, number][]) {
     if (!sent(name)) continue;
-    const text = line(field(form, name), max);
+    const text = parseLine(field(form, name), max);
     if (text === undefined) return { code: "INVALID_TEXT" };
     values[key] = text ?? "";
   }
@@ -863,7 +836,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
     ["shareImage", "share_image"],
   ] satisfies [string, keyof catalog.SettingValues][]) {
     if (!sent(name)) continue;
-    const path = media(field(form, name));
+    const path = parseMedia(field(form, name));
     if (path === undefined) return { code: "INVALID_MEDIA" };
     values[key] = path ?? "";
   }
@@ -880,7 +853,7 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
   }
 
   if (sent("orderHours")) {
-    const orderHours = integer(field(form, "orderHours"), 1, 720);
+    const orderHours = parseInteger(field(form, "orderHours"), 1, 720);
     const lastStep = (await messages.recoverySteps()).at(-1)?.afterMinutes ?? 0;
     if (orderHours === undefined || lastStep >= orderHours * 60) return { code: "INVALID_ORDER_HOURS" };
     values.order_hours = String(orderHours);
@@ -893,9 +866,12 @@ export async function saveSettings(...[, form]: FormArgs): Promise<ActionState> 
   }
 
   if (sent("document")) {
-    const document = field(form, "document").replace(/\D/g, "");
-    if (document && document.length !== 11 && document.length !== 14) return { code: "INVALID_DOCUMENT" };
-    values.document = document;
+    const document = parseCpfCnpj(field(form, "document"));
+    if (document === undefined) return { code: "INVALID_DOCUMENT" };
+    values.document = document ?? "";
+    // A CNPJ brings its legal name when that field was left blank.
+    if (document?.length === 14 && sent("legalName") && !values.legal_name)
+      values.legal_name = (await company(document))?.name ?? "";
   }
 
   if (sent("home")) {

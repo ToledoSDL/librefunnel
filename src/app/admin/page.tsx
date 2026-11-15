@@ -13,7 +13,6 @@ import { Stat } from "@/components/text/stat";
 import { Text } from "@/components/text/text";
 import { productStates, settings } from "@/lib/catalog";
 import { funnel, integrations, orders, revenueByDay, sources, summary } from "@/lib/dashboard";
-import { brl } from "@/lib/messages";
 import { redirect } from "next/navigation";
 import styles from "./admin.module.css";
 import { Setup } from "./setup/setup";
@@ -31,6 +30,7 @@ import {
   requireAdmin,
   TABS,
 } from "./shared";
+import { formatMoney } from "@/format";
 
 type Model = "last" | "first";
 
@@ -146,7 +146,7 @@ async function Overview({ days, model }: { days: Days; model: Model }) {
           kind="bars"
           title="Receita por dia"
           data={daily.map((point) => ({ label: shortDay(point.day), value: point.amount }))}
-          format={brl}
+          format={formatMoney}
           empty="A receita de cada dia aparece aqui quando o primeiro Pix for pago."
         />
       </Card>

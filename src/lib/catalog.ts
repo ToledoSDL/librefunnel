@@ -5,7 +5,7 @@ import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import { cache } from "react";
 import { db, newId } from "./db";
 import type { Database } from "./db";
-import { cleanEmail, seal, unseal } from "./guard";
+import { seal, unseal } from "./guard";
 import { integration, lesson, module, product, setting } from "./schema";
 
 export type CatalogCode =
@@ -194,7 +194,7 @@ const INTEGRATIONS = {
   evolution: { fields: ["url"], secrets: ["key"] },
   whatsapp: { fields: ["phoneId", "wabaId", "number"], secrets: ["token", "appSecret"] },
   nfse: {
-    fields: ["cnpj", "holder", "expiresAt", "city", "regime", "service", "registration", "taxRate", "issRate"],
+    fields: ["cnpj", "holder", "expiresAt", "city", "place", "regime", "service", "registration", "taxRate", "issRate"],
     secrets: ["key", "chain"],
   },
 } as const satisfies Record<IntegrationKind, { fields: readonly string[]; secrets: readonly string[] }>;
@@ -569,7 +569,7 @@ export const settings = cache(async (executor: Database = db()): Promise<Setting
     shareImage: values.get("share_image") || undefined,
     home: values.get("home") || undefined,
     checkoutPhone: CHECKOUT_PHONE.find((mode) => mode === values.get("checkout_phone")) ?? "optional",
-    confirmEmail: values.get("confirm_email") !== "0",
+    confirmEmail: values.get("confirm_email") === "1",
     checkoutTheme: CHECKOUT_THEME.find((theme) => theme === values.get("checkout_theme")) ?? "light",
     checkoutButton: values.get("checkout_button") || CHECKOUT_LABELS.button,
     checkoutNotice: values.get("checkout_notice") || undefined,
@@ -581,6 +581,15 @@ export const settings = cache(async (executor: Database = db()): Promise<Setting
     thanksLabel: values.get("thanks_label") || CHECKOUT_LABELS.thanks,
   };
 });
+
+// Fills keys the seller never saved, with what the store learned elsewhere; a value cleared on purpose stays cleared.
+export async function fillSettings(values: SettingValues) {
+  const rows = Object.entries(values).flatMap(([key, value]) =>
+    SETTING_KEYS.flatMap((known) => (known === key && value ? [{ key: known, value }] : [])),
+  );
+
+  if (rows.length) await db().insert(setting).values(rows).onConflictDoNothing();
+}
 
 // Only the keys given are written, so each settings screen saves its own fields without touching the rest.
 export async function saveSettings(values: SettingValues) {
@@ -640,41 +649,4 @@ export async function saveCredentials<K extends IntegrationKind>(
 
 export async function removeCredentials(kind: IntegrationKind) {
   await db().delete(integration).where(eq(integration.kind, kind));
-}
-
-export function cpfValid(digits: string): boolean {
-  const check = (length: number) => {
-    let sum = 0;
-    for (let index = 0; index < length; index += 1) sum += Number(digits[index]) * (length + 1 - index);
-    return ((sum * 10) % 11) % 10 === Number(digits[length]);
-  };
-
-  return !/^(\d)\1{10}$/.test(digits) && check(9) && check(10);
-}
-
-// DICT key formats (BCB API-DICT): e-mail, EVP, +E.164 phone, CPF with check digits, alphanumeric CNPJ.
-export function pixKey(raw: string): string | undefined {
-  const value = raw.trim();
-  if (value.includes("@")) {
-    const email = cleanEmail(value);
-    return email && email.length <= 77 ? email : undefined;
-  }
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return value.toLowerCase();
-  if (value.startsWith("+")) {
-    const phone = `+${value.replace(/\D/g, "")}`;
-    return /^\+[1-9]\d{1,14}$/.test(phone) ? phone : undefined;
-  }
-  const document = value.replace(/[.\-/\s]/g, "").toUpperCase();
-  if (/^\d{11}$/.test(document)) return cpfValid(document) ? document : undefined;
-  return /^[A-Z0-9]{12}\d{2}$/.test(document) ? document : undefined;
-}
-
-// The BR Code only carries ASCII, 25 characters for the holder and 15 for the city.
-export function pixText(value: string, max: number): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[^\x20-\x7e]/g, "")
-    .trim()
-    .slice(0, max)
-    .trim();
 }

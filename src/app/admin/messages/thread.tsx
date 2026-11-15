@@ -8,9 +8,10 @@ import { resendMessage } from "@/lib/actions";
 import type { inbox, InboxFilter } from "@/lib/dashboard";
 import { ActionButton } from "../ui";
 import { Composer } from "./composer";
-import { contactLabel, conversationHref, day, KIND_LABEL, photoHref, time } from "./labels";
+import { conversationHref, day, KIND_LABEL, photoHref, time } from "./labels";
 import { Profile } from "./profile";
 import styles from "./messages.module.css";
+import { formatContact } from "@/format";
 
 type Thread = NonNullable<Awaited<ReturnType<typeof inbox>>["thread"]>;
 type Message = Thread["messages"][number];
@@ -89,7 +90,7 @@ function Bubble({ row, email }: { row: Message; email: boolean }) {
 
 export function Thread({ thread, filter }: { thread: Thread; filter: InboxFilter }) {
   const email = thread.channel === "email";
-  const title = thread.name ?? contactLabel(thread.address);
+  const title = thread.name ?? formatContact(thread.address);
 
   return (
     <section className={styles.thread} aria-label={`Conversa com ${title}`}>
@@ -105,7 +106,7 @@ export function Thread({ thread, filter }: { thread: Thread; filter: InboxFilter
             {title}
           </Text>
           <Text variant="caption" tone="muted">
-            {thread.name ? `${email ? thread.address : contactLabel(thread.address)} · ` : ""}
+            {thread.name ? `${email ? thread.address : formatContact(thread.address)} · ` : ""}
             {email ? "E-mail" : "WhatsApp"}
           </Text>
         </div>

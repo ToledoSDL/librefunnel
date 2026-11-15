@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { products, settings } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
-import { brl } from "@/lib/messages";
 import { offerOpen } from "@/lib/orders";
+import { formatMoney } from "@/format";
 
 // The store as plain Markdown, the format AI assistants read best when they answer about it (https://llmstxt.org).
 export async function GET() {
@@ -19,7 +19,7 @@ export async function GET() {
     "",
     ...items.map(
       (product) =>
-        `- [${product.name}](${base}/v/${product.slug}): ${brl(product.price)} no Pix, garantia de ${product.guaranteeDays} dias${offerOpen(product) ? "" : ", inscrições encerradas"}.${product.tagline ? ` ${product.tagline}` : ""}`,
+        `- [${product.name}](${base}/v/${product.slug}): ${formatMoney(product.price)} no Pix, garantia de ${product.guaranteeDays} dias${offerOpen(product) ? "" : ", inscrições encerradas"}.${product.tagline ? ` ${product.tagline}` : ""}`,
     ),
     ...items
       .filter((product) => product.faq.length)

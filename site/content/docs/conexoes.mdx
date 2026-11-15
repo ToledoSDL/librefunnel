@@ -48,14 +48,13 @@ Opcional. A loja emite a NFS-e de cada venda paga direto no Emissor Nacional (go
 cancela a nota quando o pedido é reembolsado. Com a nota ligada, o checkout ganha o campo CPF ou CNPJ, opcional; sem
 ele, a nota sai sem tomador e o nome do comprador vai nas informações complementares.
 
-Precisa de:
+Basta enviar o **certificado A1 da empresa** (e-CNPJ, arquivo .pfx ou .p12) e a senha, e clicar em Conectar. A loja
+guarda só a chave e o certificado, criptografados; o arquivo e a senha não ficam salvos.
 
-- **Certificado A1 da empresa** (e-CNPJ, arquivo .pfx ou .p12) e a senha. A loja guarda só a chave e o certificado,
-  criptografados; o arquivo e a senha não ficam salvos.
-- **Código IBGE do município** do CNPJ, em [cidades.ibge.gov.br](https://cidades.ibge.gov.br).
-- **Código de tributação nacional** do serviço. Para curso online costuma ser 080201; confirme com o seu contador.
-- **Tributos aproximados**: no Simples, a alíquota efetiva do DAS; no Lucro Presumido ou Real, os tributos federais e o
-  ISS. MEI deixa em branco.
+Pelo CNPJ do certificado, a loja busca no cadastro público da Receita o município e o regime (MEI, Simples ou Lucro
+Presumido/Real). O serviço vai como 080201 (treinamento e ensino) e os tributos aproximados como 6% no Simples, ou
+11,33% de federais mais 5% de ISS no Lucro Presumido. Para mudar qualquer um, ou informar a inscrição municipal, abra
+**Ajustar dados fiscais** e confirme com o seu contador.
 
 Funciona para MEI e Simples Nacional em qualquer município, e para Lucro Presumido ou Real nos municípios que usam o
 Emissor Nacional. O botão Testar confere o município e o certificado sem emitir nota.

@@ -1,0 +1,155 @@
+import "server-only";
+
+// Everything that comes from outside (forms, links, webhooks) is parsed here: what passes is normalized, the rest is
+// undefined, and the caller answers with its error code.
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+const EMAIL =
+  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+const NAME = /^[\p{L}\p{M}'’. -]+$/u;
+// Order and visitor ids.
+export const ID = /^[a-z0-9]{20}$/;
+export const SLUG = /^[a-z0-9][a-z0-9-]{0,59}$/;
+const MEDIA = /^\/(media|demo)\/[\w.-]{1,100}$/;
+const ROW_ID = /^\d{1,12}$/;
+const MULTILINE_CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/;
+export const CREDENTIAL = /^[\x21-\x7e]{1,4000}$/;
+export const HOST = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/i;
+export const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
+export const LINK = /^https?:\/\/[^\s/]+\.[^\s]{2,500}$/;
+
+export function parseEmail(raw: string): string | undefined {
+  const email = raw.trim().toLowerCase();
+  return email.length <= 200 && EMAIL.test(email) ? email : undefined;
+}
+
+export function parseName(raw: string): string | undefined {
+  const name = raw.trim().replace(/\s+/g, " ");
+  const letters = name.replace(/[^\p{L}]/gu, "").length;
+  return name.length <= 120 && letters >= 2 && NAME.test(name) ? name : undefined;
+}
+
+export function parsePhone(raw: string): string | undefined {
+  if (CONTROL.test(raw) || /[^\d\s().+-]/.test(raw)) return undefined;
+  const digits = raw.replace(/\D/g, "").replace(/^0+/, "");
+  if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
+  return /^55\d{10,11}$/.test(digits) ? digits : undefined;
+}
+
+export function parsePrintable(value: string, max: number): string {
+  const trimmed = value.trim();
+  return trimmed.length <= max && !CONTROL.test(trimmed) ? trimmed : "";
+}
+
+function isCpf(digits: string): boolean {
+  const check = (length: number) => {
+    let sum = 0;
+    for (let index = 0; index < length; index += 1) sum += Number(digits[index]) * (length + 1 - index);
+    return ((sum * 10) % 11) % 10 === Number(digits[length]);
+  };
+
+  return !/^(\d)\1{10}$/.test(digits) && check(9) && check(10);
+}
+
+// DICT key formats (BCB API-DICT): e-mail, EVP, +E.164 phone, CPF with check digits, alphanumeric CNPJ.
+export function parsePixKey(raw: string): string | undefined {
+  const value = raw.trim();
+  if (value.includes("@")) {
+    const email = parseEmail(value);
+    return email && email.length <= 77 ? email : undefined;
+  }
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return value.toLowerCase();
+  if (value.startsWith("+")) {
+    const phone = `+${value.replace(/\D/g, "")}`;
+    return /^\+[1-9]\d{1,14}$/.test(phone) ? phone : undefined;
+  }
+  const document = value.replace(/[.\-/\s]/g, "").toUpperCase();
+  if (/^\d{11}$/.test(document)) return isCpf(document) ? document : undefined;
+  return /^[A-Z0-9]{12}\d{2}$/.test(document) ? document : undefined;
+}
+
+// The BR Code only carries ASCII, 25 characters for the holder and 15 for the city.
+export function parsePixText(value: string, max: number): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7e]/g, "")
+    .trim()
+    .slice(0, max)
+    .trim();
+}
+
+function isCnpj(digits: string): boolean {
+  const check = (length: number) => {
+    let sum = 0;
+    for (let index = 0; index < length; index += 1) sum += Number(digits[length - 1 - index]) * ((index % 8) + 2);
+    const rest = sum % 11;
+    return (rest < 2 ? 0 : 11 - rest) === Number(digits[length]);
+  };
+
+  return !/^(\d)\1{13}$/.test(digits) && check(12) && check(13);
+}
+
+// A CPF or CNPJ with valid check digits, digits only: null when left blank, undefined when it cannot be one.
+export function parseCpfCnpj(raw: string): string | null | undefined {
+  const digits = raw.replace(/[.\-/\s]/g, "");
+  if (!digits) return null;
+  if (/^\d{11}$/.test(digits)) return isCpf(digits) ? digits : undefined;
+  return /^\d{14}$/.test(digits) && isCnpj(digits) ? digits : undefined;
+}
+
+// A percentage typed as 6, 6,5 or 6.50, kept as the two-decimal text the layout takes.
+export function parseRate(raw: string): string | undefined {
+  const match = /^(\d{1,2})(?:[.,](\d{1,2}))?$/.exec(raw.trim());
+  return match ? `${Number(match[1])}.${(match[2] ?? "").padEnd(2, "0")}` : undefined;
+}
+
+export function parseCents(raw: string): number | undefined {
+  const compact = raw.trim().replace(/^R\$\s*/i, "");
+  const decimal = compact.includes(",") ? compact.replace(/\./g, "").replace(",", ".") : compact;
+  const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(decimal);
+  if (!match) return undefined;
+  return Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+}
+
+export function parseTitle(raw: string): string | undefined {
+  const value = parsePrintable(raw.replace(/\s+/g, " "), 120);
+  return value.length >= 2 ? value : undefined;
+}
+
+// Optional one-line text: null when left blank, undefined when it cannot be accepted.
+export function parseLine(raw: string, max = 300): string | null | undefined {
+  if (!raw.trim()) return null;
+  return parsePrintable(raw, max) || undefined;
+}
+
+export function parseText(raw: string, max: number): string | undefined {
+  const value = raw.replace(/\r\n?/g, "\n").trim();
+  return value.length <= max && !MULTILINE_CONTROL.test(value) ? value : undefined;
+}
+
+export function parseMedia(raw: string): string | null | undefined {
+  const value = raw.trim();
+  if (!value) return null;
+  return MEDIA.test(value) ? value : undefined;
+}
+
+export function parseInteger(raw: string, min: number, max: number): number | undefined {
+  const value = Number(raw.trim());
+  return raw.trim() !== "" && Number.isInteger(value) && value >= min && value <= max ? value : undefined;
+}
+
+export function parsePrice(raw: string): number | undefined {
+  const cents = parseCents(raw);
+  return cents !== undefined && cents >= 100 && cents <= 10_000_000 ? cents : undefined;
+}
+
+// Blank keeps the stored secret; undefined when it cannot be a key (spaces, accents, control characters).
+export function parseCredential(raw: string): string | undefined {
+  const value = raw.trim();
+  return !value || CREDENTIAL.test(value) ? value : undefined;
+}
+
+export function parseRowId(raw: string): number | undefined {
+  return ROW_ID.test(raw) ? Number(raw) : undefined;
+}

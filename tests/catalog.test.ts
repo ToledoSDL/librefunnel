@@ -126,7 +126,8 @@ describe("products", () => {
       );
 
     expect((await pix({ pixKey: "48999990000" })).code).toBe("INVALID_PIX_KEY");
-    expect((await pix({ pixName: "  " })).code).toBe("INVALID_PIX_HOLDER");
+    // A phone key in a store without a CNPJ leaves no city to find.
+    expect((await pix({ pixCity: "" })).code).toBe("INVALID_PIX_HOLDER");
     const before = await products(true);
 
     try {
@@ -404,7 +405,7 @@ describe("automations and settings", () => {
       orderHours: 48,
       poweredBy: true,
       checkoutPhone: "optional",
-      confirmEmail: true,
+      confirmEmail: false,
       checkoutTheme: "light",
       checkoutButton: "Pagar com Pix",
       checkoutCountdown: true,

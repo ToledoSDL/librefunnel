@@ -4,7 +4,7 @@ import { PRIMARY, TextField } from "../shared";
 import { SaveForm } from "../ui";
 import { MediaField } from "./media-field";
 
-export function ModuleForm({ product, module }: { product?: string; module?: Module }) {
+export function ModuleForm({ product, module, number }: { product?: string; module?: Module; number?: number }) {
   return (
     <SaveForm
       action={saveModule}
@@ -24,8 +24,7 @@ export function ModuleForm({ product, module }: { product?: string; module?: Mod
         name="title"
         required
         maxLength={120}
-        defaultValue={module?.title}
-        placeholder="Módulo 1: comece aqui"
+        defaultValue={module?.title ?? `Módulo ${number}`}
       />
       <MediaField name="cover" kind="image" label="Capa (retrato, 420 x 584)" value={module?.cover} />
     </SaveForm>

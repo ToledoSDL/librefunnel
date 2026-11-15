@@ -6,8 +6,9 @@ import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import type { inbox } from "@/lib/dashboard";
 import { STATUS_LABEL, STATUS_TONE } from "../shared";
-import { contactLabel, device, duration, photoHref } from "./labels";
+import { device, duration, photoHref } from "./labels";
 import styles from "./messages.module.css";
+import { formatContact } from "@/format";
 
 type Thread = NonNullable<Awaited<ReturnType<typeof inbox>>["thread"]>;
 type Journey = Thread["profile"]["journeys"][number];
@@ -77,7 +78,7 @@ function JourneySteps({ journey }: { journey: Journey }) {
 
 export function Profile({ thread }: { thread: Pick<Thread, "name" | "photo" | "address" | "profile"> }) {
   const { profile } = thread;
-  const title = thread.name ?? contactLabel(thread.address);
+  const title = thread.name ?? formatContact(thread.address);
   const paid = profile.orders.filter((row) => row.status === "paid");
   const spent = paid.reduce((sum, row) => sum + row.amount, 0);
   const pending = profile.orders.some((row) => row.status === "pending");
@@ -93,7 +94,7 @@ export function Profile({ thread }: { thread: Pick<Thread, "name" | "photo" | "a
         <div className={styles.profileContacts}>
           {profile.phone ? (
             <Text variant="caption" tone="muted">
-              {contactLabel(profile.phone)}
+              {formatContact(profile.phone)}
             </Text>
           ) : null}
           {profile.email ? (

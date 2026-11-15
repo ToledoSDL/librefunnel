@@ -40,6 +40,7 @@ import {
   progress,
   touch,
 } from "./schema";
+import { formatDecimal } from "@/format";
 
 type Days = 7 | 30 | 90;
 export type InboxFilter = "all" | "waiting" | "failed";
@@ -707,8 +708,9 @@ export async function integrations() {
       holder: stored("nfse")("holder"),
       expiresAt: stored("nfse")("expiresAt") ? new Date(stored("nfse")("expiresAt")) : null,
       city: stored("nfse")("city"),
-      regime: regime(stored("nfse")("regime")) ?? "simples",
-      service: stored("nfse")("service") || "080201",
+      place: stored("nfse")("place"),
+      regime: regime(stored("nfse")("regime")) ?? null,
+      service: stored("nfse")("service"),
       registration: stored("nfse")("registration"),
       taxRate: stored("nfse")("taxRate"),
       issRate: stored("nfse")("issRate"),
@@ -720,10 +722,6 @@ export async function integrations() {
 function csvCell(value: string): string {
   const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
-
-function reais(cents: number): string {
-  return `${cents < 0 ? "-" : ""}${Math.floor(Math.abs(cents) / 100)},${String(Math.abs(cents) % 100).padStart(2, "0")}`;
 }
 
 export async function ordersCsv(params: URLSearchParams): Promise<string> {
@@ -818,8 +816,8 @@ export async function ordersCsv(params: URLSearchParams): Promise<string> {
         row.phone ?? "",
         row.product,
         row.bump ?? "",
-        reais(row.amount),
-        reais(row.received),
+        formatDecimal(row.amount, ","),
+        formatDecimal(row.received, ","),
         row.status,
         row.txid,
         row.source ?? "(direto)",

@@ -9,10 +9,10 @@ import { TextLink } from "@/components/text/text-link";
 import { productNames } from "@/lib/catalog";
 import { orderDetail } from "@/lib/dashboard";
 import { Profile } from "../../messages/profile";
-import { contactLabel } from "../../messages/labels";
 import { href, OrderActions, Release, requireAdmin, STATUS_LABEL, STATUS_TONE } from "../../shared";
 import styles from "../orders.module.css";
 import { Invoice } from "./invoice";
+import { formatContact } from "@/format";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -118,7 +118,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               {found.phone ? (
                 <Fact label="WhatsApp">
                   <TextLink href={href("messages", { c: `whatsapp:${found.phone}` })}>
-                    {contactLabel(found.phone)}
+                    {formatContact(found.phone)}
                   </TextLink>
                 </Fact>
               ) : null}

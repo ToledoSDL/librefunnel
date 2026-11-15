@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { products } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
-import { brl, RECOVERY_FIELDS, recoverySteps, replies, REPLY_FIELDS } from "@/lib/messages";
+import { RECOVERY_FIELDS, recoverySteps, replies, REPLY_FIELDS } from "@/lib/messages";
 import { requireAdmin } from "../shared";
 import { Recovery } from "./recovery";
 import { Replies } from "./replies";
+import { formatMoney } from "@/format";
 
 const FIELD_LABEL: Record<string, string> = {
   name: "primeiro nome",
@@ -24,7 +25,7 @@ export default async function AutomationsPage() {
   const samples: Record<string, string> = {
     name: "Ana",
     product: sample?.name ?? "Seu produto",
-    amount: brl(sample?.price ?? 9700),
+    amount: formatMoney(sample?.price ?? 9700),
     link: `${baseUrl()}/c/${sample?.slug ?? "produto"}?order=...`,
     pix: "00020126580014br.gov.bcb.pix...",
     base: baseUrl(),

@@ -42,7 +42,11 @@ A change is done only when `bun run check` passes. CI runs the same plus a Docke
 - `src/components/`: the component library, one component per file in folders by responsibility (see
   `docs/design-system.md`)
 - `src/lib/`: business rules, one file per domain: `actions` (the only server action edge), `orders`, `invoices` (NFS-e
-  Nacional), `members`, `messages`, `tracking`, `dashboard`, `guard`, `db`, catalog
+  Nacional), `members`, `messages`, `tracking`, `dashboard`, `guard`, `db`, catalog; `input` parses and validates every
+  value that comes from outside (`parse*` returns the normalized value or `undefined`), and `registry` is the only
+  caller of public registries (CNPJ through BrasilAPI)
+- `src/format.ts`: every text the store formats for people, server and browser alike (`format*`: money, CPF and CNPJ,
+  phones, names); a new formatter or validator goes there or in `input`, never inline in a screen or action
 - `src/lib/schema.ts`, `src/lib/migrations/`: Drizzle schema and the SQL migrations generated from it
   (`bun run migration`), applied at startup; a fresh install starts empty (`0001_demo.sql` is an empty placeholder kept
   for the journal)

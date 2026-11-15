@@ -11,7 +11,7 @@ INSERT INTO product (slug, name, price_cents, tagline, pix_key, pix_name, pix_ci
   'bolo-no-pote', 'Bolo no Pote: da receita à primeira venda', 9700,
   'Massa, recheios e o preço certo para vender bolo no pote no seu bairro, com encomendas pelo WhatsApp.',
   'demo@exemplo.com', 'LibreFunnel Demo', 'Florianopolis', NULL, 7,
-  'planilha-preco', 1990, 'Sim, quero a Planilha de Preço por R$ 19,90',
+  'planilha-preco', 1990, 'Leve também a Planilha de Preço',
   '/demo/vsl-demo.mp4', 8, 'Quero garantir minha vaga', '/demo/course-banner.webp', '/demo/course-cover.webp',
   jsonb_build_array(
     jsonb_build_object('q', 'Como recebo o acesso?', 'a', 'Assim que o Pix é confirmado, o link da área de membros chega no seu e-mail. Se informar o WhatsApp, você recebe também o aviso de pagamento confirmado.'),

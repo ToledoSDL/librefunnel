@@ -3,12 +3,14 @@ import { createHash, createPrivateKey, createSign, X509Certificate } from "node:
 import { request } from "node:https";
 import { gzipSync } from "node:zlib";
 import { and, asc, eq, isNotNull, lte, sql } from "drizzle-orm";
-import { cpfValid, credentials, productNames } from "./catalog";
+import { credentials, productNames } from "./catalog";
 import { addSeconds, db } from "./db";
 import type { Database } from "./db";
-import { demoMode, firstName, isObject, jsonObject } from "./guard";
+import { demoMode, isObject, jsonObject } from "./guard";
 import type { Json, JsonObject } from "./guard";
 import { customer, integration, invoice, message, order } from "./schema";
+import { formatDecimal, formatFirstName } from "@/format";
+import type { Company } from "./registry";
 
 export type InvoiceCode = (typeof INVOICE_CODES)[number];
 export type Regime = (typeof REGIMES)[number];
@@ -67,6 +69,7 @@ const INVOICE_CODES = [
   "INVALID_CITY",
   "INVALID_SERVICE",
   "INVALID_RATE",
+  "CNPJ_LOOKUP_FAILED",
 ] as const;
 
 const SEFIN = "https://sefin.nfse.gov.br/SefinNacional";
@@ -105,6 +108,18 @@ const REJECTIONS: [InvoiceCode, string[]][] = [
   ["NFSE_CANCEL_FORBIDDEN", ["E0824"]],
 ];
 
+// The "aproximado" taxes of Lei 12.741 when the seller sets none: Simples Anexo III's first bracket, and Lucro
+// Presumido on services (PIS, COFINS, IRPJ and CSLL) with the highest ISS.
+export const DEFAULT_RATES: Record<Regime, { taxRate: string; issRate: string }> = {
+  mei: { taxRate: "", issRate: "" },
+  simples: { taxRate: "6.00", issRate: "" },
+  normal: { taxRate: "11.33", issRate: "5.00" },
+};
+
+export function regimeOf(company: Company): Regime {
+  return company.mei ? "mei" : company.simples ? "simples" : "normal";
+}
+
 export function regime(value: string): Regime | undefined {
   return REGIMES.find((entry) => entry === value);
 }
@@ -113,37 +128,8 @@ export function invoiceCode(value: string | null): InvoiceCode | null {
   return INVOICE_CODES.find((code) => code === value) ?? null;
 }
 
-export function reais(cents: number): string {
-  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
-}
-
-// A percentage typed as 6, 6,5 or 6.50, kept as the two-decimal text the layout takes.
-export function rate(raw: string): string | undefined {
-  const match = /^(\d{1,2})(?:[.,](\d{1,2}))?$/.exec(raw.trim());
-  return match ? `${Number(match[1])}.${(match[2] ?? "").padEnd(2, "0")}` : undefined;
-}
-
 export function publicLink(key: string): string {
   return `${PUBLIC_QUERY}${key}`;
-}
-
-function cnpjValid(digits: string): boolean {
-  const check = (length: number) => {
-    let sum = 0;
-    for (let index = 0; index < length; index += 1) sum += Number(digits[length - 1 - index]) * ((index % 8) + 2);
-    const rest = sum % 11;
-    return (rest < 2 ? 0 : 11 - rest) === Number(digits[length]);
-  };
-
-  return !/^(\d)\1{13}$/.test(digits) && check(12) && check(13);
-}
-
-// The buyer's CPF or CNPJ, digits only: null when left blank, undefined when it cannot be one.
-export function buyerDocument(raw: string): string | null | undefined {
-  const digits = raw.replace(/[.\-/\s]/g, "");
-  if (!digits) return null;
-  if (/^\d{11}$/.test(digits)) return cpfValid(digits) ? digits : undefined;
-  return /^\d{14}$/.test(digits) && cnpjValid(digits) ? digits : undefined;
 }
 
 // e-CNPJ certificates carry the CNPJ under OID 2.16.76.1.3.3 in the subject alternative name.
@@ -337,7 +323,7 @@ function dps(nfse: Nfse, row: Due, number: string, description: string, at: Date
     `<serv><locPrest><cLocPrestacao>${nfse.city}</cLocPrestacao></locPrest>` +
     `<cServ><cTribNac>${nfse.service}</cTribNac><xDescServ>${escape(description.slice(0, 2000))}</xDescServ></cServ>` +
     `<infoCompl><xInfComp>${escape(extra.slice(0, 2000))}</xInfComp></infoCompl></serv>` +
-    `<valores><vServPrest><vServ>${reais(row.amount)}</vServ></vServPrest>` +
+    `<valores><vServPrest><vServ>${formatDecimal(row.amount)}</vServ></vServPrest>` +
     `<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><totTrib>${totals(nfse)}</totTrib></trib></valores>` +
     `</infDPS>`;
 
@@ -488,7 +474,7 @@ async function settle(row: Due, outcome: Outcome, t: Date, names: Map<string, st
           kind: "invoice",
           orderId: row.orderId,
           customerId: row.customerId,
-          body: `Nota fiscal do ${title}\n\nOi ${firstName(row.name)}, a nota fiscal da sua compra foi emitida. Veja e baixe em:\n${publicLink(outcome.issued)}`,
+          body: `Nota fiscal do ${title}\n\nOi ${formatFirstName(row.name)}, a nota fiscal da sua compra foi emitida. Veja e baixe em:\n${publicLink(outcome.issued)}`,
           status: "queued",
           nextAt: t,
           createdAt: t,

@@ -49,7 +49,13 @@ export function Email({ email }: { email: Links["email"] }) {
               )}
             </Field>
             <div className={styles.pair}>
-              <TextField label="Servidor SMTP" name="host" defaultValue={email.host} placeholder="smtp.gmail.com" />
+              <TextField
+                label="Servidor SMTP"
+                name="host"
+                defaultValue={email.host}
+                placeholder="smtp.gmail.com"
+                hint="Em branco com Gmail, Yahoo, iCloud ou Zoho."
+              />
               <TextField
                 label="Porta"
                 name="port"

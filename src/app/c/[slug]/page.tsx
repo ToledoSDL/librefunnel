@@ -24,7 +24,7 @@ const SURFACE: Record<Settings["checkoutTheme"], string> = {
 };
 
 // Contact data prefilled from the link never goes into the attribution query.
-const UNTRACKED = ["bump", "name", "email", "phone"];
+const UNTRACKED = ["bump", "name", "email", "phone", "document"];
 
 export async function generateMetadata({ params, searchParams }: Props) {
   const product = await getProduct((await params).slug);
@@ -175,6 +175,7 @@ export default async function Checkout({ params, searchParams }: Props) {
                     name: prefill(query.name, 120),
                     email: prefill(query.email, 200),
                     phone: prefill(query.phone, 20),
+                    document: prefill(query.document, 18),
                   }}
                 />
               </>

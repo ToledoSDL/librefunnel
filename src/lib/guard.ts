@@ -24,12 +24,7 @@ export type JsonObject = { [key: string]: Json };
 
 const ADMIN_COOKIE = "lf_admin";
 const ADMIN_TTL = 12 * 3600;
-const CONTROL = /[\u0000-\u001f\u007f]/;
 
-const EMAIL =
-  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
-
-const NAME = /^[\p{L}\p{M}'’. -]+$/u;
 const WINDOW_LIMIT = 50_000;
 const windows = new Map<string, { count: number; resetAt: number }>();
 let adminHash: { password: string; digest: Buffer } | undefined;
@@ -191,38 +186,6 @@ export function jsonObject(text: string): JsonObject | undefined {
   } catch {
     return undefined;
   }
-}
-
-export function cleanEmail(raw: string): string | undefined {
-  const email = raw.trim().toLowerCase();
-  return email.length <= 200 && EMAIL.test(email) ? email : undefined;
-}
-
-export function cleanName(raw: string): string | undefined {
-  const name = raw.trim().replace(/\s+/g, " ");
-  const letters = name.replace(/[^\p{L}]/gu, "").length;
-  return name.length <= 120 && letters >= 2 && NAME.test(name) ? name : undefined;
-}
-
-export function cleanPhone(raw: string): string | undefined {
-  if (CONTROL.test(raw) || /[^\d\s().+-]/.test(raw)) return undefined;
-  const digits = raw.replace(/\D/g, "").replace(/^0+/, "");
-  if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
-  return /^55\d{10,11}$/.test(digits) ? digits : undefined;
-}
-
-export function printable(value: string, max: number): string {
-  const trimmed = value.trim();
-  return trimmed.length <= max && !CONTROL.test(trimmed) ? trimmed : "";
-}
-
-export function firstName(name: string): string {
-  return (name.split(" ")[0] ?? "").replace(/[^\p{L}'-]/gu, "").slice(0, 30);
-}
-
-export function maskEmail(email: string): string {
-  const [local = "", domain = ""] = email.split("@");
-  return `${local.slice(0, 1)}***@${domain}`;
 }
 
 // The only place the admin password is hashed: scrypt, slow on purpose. What it returns is a derived key, safe to

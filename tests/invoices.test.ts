@@ -4,13 +4,14 @@ import type { RequestOptions } from "node:https";
 import { gunzipSync } from "node:zlib";
 import { eq } from "drizzle-orm";
 import forge from "node-forge";
-import { afterEach, beforeAll, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { refundOrder, retryInvoice, saveNfse, testConnection } from "@/lib/actions";
 import { removeCredentials } from "@/lib/catalog";
+import { integrations } from "@/lib/dashboard";
 import { db, one } from "@/lib/db";
 import { issueInvoices } from "@/lib/invoices";
 import { invoice, message, order } from "@/lib/schema";
-import { fakeServer, form } from "./fakes";
+import { fakeServer, form, redirectFetch } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
 
 const CNPJ = "11222333000181";
@@ -59,11 +60,11 @@ function certificate(cnpj: string | null, password = PASSWORD): Buffer {
 
 function nfseForm(fields: Record<string, string>, file?: Buffer): FormData {
   const data = form({
-    regime: "simples",
-    city: CITY,
-    service: "08.02.01",
+    regime: "",
+    city: "",
+    service: "",
     registration: "",
-    taxRate: "6",
+    taxRate: "",
     issRate: "",
     password: PASSWORD,
     ...fields,
@@ -125,17 +126,29 @@ describe("NFS-e", () => {
     return id;
   }
 
-  beforeAll(() => {
-    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
-  });
+  // Each test runs 20 minutes after the previous one, so the panel's limit on connection tests starts over.
+  let now = new Date();
 
   beforeEach(async () => {
     notes += 1;
+    now = new Date(Date.parse("2026-11-14T12:00:00-03:00") + notes * 20 * 60_000);
+    setSystemTime(now);
     KEY = `${CITY}2${String(notes).padStart(42, "0")}`;
     server = await fakeServer({
       [`GET /parametrizacao/${CITY}/convenio`]: {
         status: 200,
         body: { parametrosConvenio: { aderenteEmissorNacional: 1 } },
+      },
+      [`GET /api/cnpj/v1/${CNPJ}`]: {
+        status: 200,
+        body: {
+          razao_social: "LOJA TESTE LTDA",
+          codigo_municipio_ibge: 3550308,
+          municipio: "SAO PAULO",
+          uf: "SP",
+          opcao_pelo_simples: true,
+          opcao_pelo_mei: false,
+        },
       },
       "HEAD *": { status: 404, body: "" },
       "GET *": { status: 404, body: { erro: { codigo: "E0000" } } },
@@ -143,14 +156,57 @@ describe("NFS-e", () => {
       [`POST /SefinNacional/nfse/${KEY}/eventos`]: { status: 201, body: { eventoXmlGZipB64: "" } },
     });
     target = server.url;
+    redirectFetch("https://brasilapi.com.br", server.url);
     sent.length = 0;
     await signInAsAdmin();
     expect(await saveNfse({ code: null }, nfseForm({}, pfx))).toEqual({ code: null, ok: true });
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await removeCredentials("nfse");
     await server.close();
+  });
+
+  test("the certificate alone fills the city, the regime and the taxes from the CNPJ registry", async () => {
+    expect(await integrations()).toMatchObject({
+      nfse: {
+        cnpj: CNPJ,
+        city: CITY,
+        place: "Sao Paulo/SP",
+        regime: "simples",
+        taxRate: "6.00",
+        issRate: "",
+        service: "080201",
+      },
+    });
+
+    server.routes[`GET /api/cnpj/v1/${CNPJ}`] = {
+      status: 200,
+      body: {
+        razao_social: "LOJA TESTE LTDA",
+        codigo_municipio_ibge: 3550308,
+        municipio: "SAO PAULO",
+        uf: "SP",
+        opcao_pelo_simples: false,
+        opcao_pelo_mei: false,
+      },
+    };
+    expect(await saveNfse({ code: null }, nfseForm({}, pfx))).toEqual({ code: null, ok: true });
+    expect((await integrations()).nfse).toMatchObject({ regime: "normal", taxRate: "11.33", issRate: "5.00" });
+
+    server.routes["GET /parametrizacao/4205407/convenio"] = {
+      status: 200,
+      body: { parametrosConvenio: { aderenteEmissorNacional: 1 } },
+    };
+    expect(await saveNfse({ code: null }, nfseForm({ regime: "mei", city: "4205407" }))).toEqual({
+      code: null,
+      ok: true,
+    });
+    expect((await integrations()).nfse).toMatchObject({ regime: "mei", city: "4205407", place: "", taxRate: "" });
+
+    server.routes[`GET /api/cnpj/v1/${CNPJ}`] = { status: 503, body: "" };
+    expect(await saveNfse({ code: null }, nfseForm({}, pfx))).toEqual({ code: "CNPJ_LOOKUP_FAILED" });
   });
 
   test("the certificate is checked, its key goes only to Sefin over mutual TLS, and the city is confirmed", async () => {
@@ -158,8 +214,10 @@ describe("NFS-e", () => {
       code: "CERTIFICATE_UNREADABLE",
     });
     expect(await saveNfse({ code: null }, nfseForm({}, certificate(null)))).toEqual({ code: "CERTIFICATE_NOT_CNPJ" });
-    expect(await saveNfse({ code: null }, nfseForm({ city: "355030" }))).toEqual({ code: "INVALID_CITY" });
-    expect(await saveNfse({ code: null }, nfseForm({ taxRate: "" }))).toEqual({ code: "INVALID_RATE" });
+    expect(await saveNfse({ code: null }, nfseForm({ city: "355030", regime: "simples" }))).toEqual({
+      code: "INVALID_CITY",
+    });
+    expect(await saveNfse({ code: null }, nfseForm({ taxRate: "seis" }))).toEqual({ code: "INVALID_RATE" });
     expect(sent.every((call) => call.options.key && call.options.cert)).toBe(true);
 
     server.routes[`GET /parametrizacao/${CITY}/convenio`] = { status: 404, body: { parametrosConvenio: null } };
@@ -176,7 +234,8 @@ describe("NFS-e", () => {
     expect(xml).toMatch(
       /^<DPS xmlns="http:\/\/www\.sped\.fazenda\.gov\.br\/nfse" versao="1\.01"><infDPS Id="DPS3550308211222333000181471010\d{14}">/,
     );
-    expect(xml).toContain("<dhEmi>2026-11-14T11:59:50-03:00</dhEmi>");
+    const issuedAt = new Date(now.getTime() - 3 * 3600_000 - 10_000).toISOString().slice(0, 19);
+    expect(xml).toContain(`<dhEmi>${issuedAt}-03:00</dhEmi>`);
     expect(xml).toContain("<dCompet>2026-11-14</dCompet>");
     expect(xml).toContain("<toma><CPF>52998224725</CPF><xNome>Ana Souza</xNome></toma>");
     expect(xml).toContain("<cTribNac>080201</cTribNac>");
@@ -218,9 +277,9 @@ describe("NFS-e", () => {
     const dpsId = /Id="(DPS\d{42})"/.exec(xml)?.[1] ?? "";
 
     server.routes[`GET /SefinNacional/dps/${dpsId}`] = { status: 200, body: { chaveAcesso: KEY } };
-    setSystemTime(new Date("2026-11-14T12:05:00-03:00"));
+    setSystemTime(new Date(now.getTime() + 5 * 60_000));
     await issueInvoices();
-    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+    setSystemTime(now);
     expect(await stored(id)).toMatchObject({ status: "issued", key: KEY });
     expect(server.to("POST", "/SefinNacional/nfse")).toHaveLength(1);
   });

@@ -29,7 +29,7 @@ export function LessonForm({ module, lesson }: { module?: number; lesson?: Modul
         defaultValue={lesson?.title}
         placeholder="Boas-vindas"
       />
-      <MediaField name="video" kind="video" label="Vídeo da aula" value={lesson?.video} />
+      <MediaField name="video" kind="video" label="Vídeo da aula" value={lesson?.video} titleField="title" />
       <Field label="Texto da aula" hint="Sem vídeo, a aula vira uma aula de leitura.">
         {(control) => <Textarea {...control} name="text" rows={6} maxLength={20000} defaultValue={lesson?.text} />}
       </Field>

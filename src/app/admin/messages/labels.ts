@@ -34,12 +34,6 @@ export const KIND_LABEL: Record<string, string> = {
   invoice: "Nota fiscal",
 };
 
-export function contactLabel(address: string): string {
-  const phone = /^55(\d{2})(\d{4,5})(\d{4})$/.exec(address);
-
-  return phone ? `(${phone[1]}) ${phone[2]}-${phone[3]}` : address;
-}
-
 export function conversationHref(filter: InboxFilter, open?: Conversation) {
   return href("messages", {
     ...(filter === "all" ? {} : { show: filter }),

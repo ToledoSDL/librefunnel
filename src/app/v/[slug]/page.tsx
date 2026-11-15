@@ -7,7 +7,6 @@ import { DEFAULT_BAR, getProduct, settings } from "@/lib/catalog";
 import type { Product } from "@/lib/catalog";
 import { baseUrl } from "@/lib/guard";
 import { streamFor } from "@/lib/media";
-import { brl } from "@/lib/messages";
 import { offerOpen } from "@/lib/orders";
 import { Footer, JsonLd, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
@@ -17,6 +16,7 @@ import { Countdown } from "./countdown";
 import styles from "./page.module.css";
 import { VslPlayer } from "./player";
 import { StickyOffer } from "./sticky";
+import { formatMoney } from "@/format";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -26,7 +26,7 @@ type Props = {
 function description(product: Product): string {
   return (
     product.tagline ??
-    `${product.name}: pagamento único de ${brl(product.price)} no Pix, acesso imediato e garantia de ${product.guaranteeDays} dias.`
+    `${product.name}: pagamento único de ${formatMoney(product.price)} no Pix, acesso imediato e garantia de ${product.guaranteeDays} dias.`
   );
 }
 
@@ -226,12 +226,6 @@ export default async function SalesPage({ params, searchParams }: Props) {
       ) : null}
       <main className={styles.main}>
         <header className={styles.hero}>
-          {video && open ? (
-            <p className={styles.eyebrow}>
-              <Icon name="volume-2" size={16} />
-              Assista com o som ligado
-            </p>
-          ) : null}
           <h1 className={styles.headline}>{product.name}</h1>
           {product.tagline ? <p className={styles.sub}>{product.tagline}</p> : null}
         </header>

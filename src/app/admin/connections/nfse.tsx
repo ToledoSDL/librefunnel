@@ -1,24 +1,24 @@
 import { Field } from "@/components/form/field";
 import { Input } from "@/components/form/input";
 import { Select } from "@/components/form/select";
+import { Disclosure } from "@/components/layout/disclosure";
 import { Dialog } from "@/components/overlay/dialog";
 import { saveNfse } from "@/lib/actions";
+import type { Regime } from "@/lib/invoices";
 import { PRIMARY, TextField, type Links } from "../shared";
 import { SaveForm } from "../ui";
 import styles from "./connections.module.css";
 import { configured, Integration, RemoveButton, SecretInput, TestButton } from "./parts";
+import { formatDocument } from "@/format";
 
 const DATE = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" });
 
-const REGIME_OPTIONS = [
-  { value: "mei", label: "MEI" },
-  { value: "simples", label: "Simples Nacional (ME ou EPP)" },
-  { value: "normal", label: "Lucro Presumido ou Real" },
-];
+const REGIMES: Record<Regime, string> = { mei: "MEI", simples: "Simples Nacional", normal: "Lucro Presumido ou Real" };
 
-function cnpj(digits: string): string {
-  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-}
+const REGIME_OPTIONS = [
+  { value: "", label: "Pelo CNPJ" },
+  ...Object.entries(REGIMES).map(([value, label]) => ({ value, label })),
+];
 
 export function Nfse({ nfse }: { nfse: Links["nfse"] }) {
   return (
@@ -27,7 +27,7 @@ export function Nfse({ nfse }: { nfse: Links["nfse"] }) {
       name="Nota fiscal"
       description={
         nfse.configured
-          ? `${nfse.holder} (${cnpj(nfse.cnpj)}). Certificado vence em ${nfse.expiresAt ? DATE.format(nfse.expiresAt) : "data desconhecida"}.`
+          ? `${nfse.holder} (${formatDocument(nfse.cnpj)}), ${nfse.regime ? REGIMES[nfse.regime] : ""}${nfse.place ? ` em ${nfse.place}` : ""}. Certificado vence em ${nfse.expiresAt ? DATE.format(nfse.expiresAt) : "data desconhecida"}.`
           : "Emite a NFS-e Nacional de cada venda paga e cancela no reembolso."
       }
       status={configured(nfse.configured)}
@@ -38,8 +38,8 @@ export function Nfse({ nfse }: { nfse: Links["nfse"] }) {
         body={
           <SaveForm
             action={saveNfse}
-            label="Salvar e testar"
-            pendingLabel="Testando com o gov.br"
+            label={nfse.configured ? "Salvar e testar" : "Conectar"}
+            pendingLabel="Conectando com o gov.br"
             done="Nota fiscal ligada. Cada venda paga a partir de agora recebe nota."
             button={PRIMARY}
           >
@@ -54,50 +54,56 @@ export function Nfse({ nfse }: { nfse: Links["nfse"] }) {
               set={false}
               hint={nfse.configured ? "Só se enviar um certificado novo." : undefined}
             />
-            <Field label="Regime">
-              {(control) => <Select {...control} name="regime" defaultValue={nfse.regime} options={REGIME_OPTIONS} />}
-            </Field>
-            <div className={styles.pair}>
+            <Disclosure label="Ajustar dados fiscais">
+              <Field label="Regime">
+                {(control) => (
+                  <Select {...control} name="regime" defaultValue={nfse.regime ?? ""} options={REGIME_OPTIONS} />
+                )}
+              </Field>
+              <div className={styles.pair}>
+                <TextField
+                  label="Código IBGE do município"
+                  name="city"
+                  inputMode="numeric"
+                  maxLength={7}
+                  defaultValue={nfse.city}
+                  placeholder="Pelo CNPJ"
+                />
+                <TextField
+                  label="Inscrição municipal"
+                  name="registration"
+                  defaultValue={nfse.registration}
+                  hint="Em branco se a empresa não tem."
+                />
+              </div>
               <TextField
-                label="Código IBGE do município"
-                name="city"
+                label="Código de tributação nacional"
+                name="service"
                 inputMode="numeric"
-                maxLength={7}
-                defaultValue={nfse.city}
-                placeholder="3550308"
-                hint="A cidade do CNPJ, em cidades.ibge.gov.br."
+                maxLength={8}
+                defaultValue={nfse.service}
+                placeholder="080201"
+                hint="080201 é treinamento e ensino. Confirme com o seu contador."
               />
-              <TextField
-                label="Inscrição municipal"
-                name="registration"
-                defaultValue={nfse.registration}
-                hint="Em branco se a empresa não tem."
-              />
-            </div>
-            <TextField
-              label="Código de tributação nacional"
-              name="service"
-              inputMode="numeric"
-              maxLength={8}
-              defaultValue={nfse.service}
-              hint="080201 é treinamento e ensino. Confirme com o seu contador."
-            />
-            <div className={styles.pair}>
-              <TextField
-                label="Tributos aproximados (%)"
-                name="taxRate"
-                inputMode="decimal"
-                defaultValue={nfse.taxRate}
-                hint="Simples: alíquota efetiva do DAS. Presumido ou Real: tributos federais. MEI: em branco."
-              />
-              <TextField
-                label="ISS (%)"
-                name="issRate"
-                inputMode="decimal"
-                defaultValue={nfse.issRate}
-                hint="Só Presumido ou Real."
-              />
-            </div>
+              <div className={styles.pair}>
+                <TextField
+                  label="Tributos aproximados (%)"
+                  name="taxRate"
+                  inputMode="decimal"
+                  defaultValue={nfse.taxRate}
+                  placeholder="Padrão do regime"
+                  hint="Simples: alíquota efetiva do DAS (padrão 6). Presumido ou Real: tributos federais (padrão 11,33)."
+                />
+                <TextField
+                  label="ISS (%)"
+                  name="issRate"
+                  inputMode="decimal"
+                  defaultValue={nfse.issRate}
+                  placeholder="5"
+                  hint="Só Presumido ou Real."
+                />
+              </div>
+            </Disclosure>
           </SaveForm>
         }
       />

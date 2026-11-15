@@ -2,7 +2,7 @@ import { createHmac, createSign, generateKeyPairSync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { createOrder, releaseOrder, rotateWebhookSecret, saveWooviCrypto } from "@/lib/actions";
-import { credentials, pixKey, removeCredentials, saveCredentials } from "@/lib/catalog";
+import { credentials, removeCredentials, saveCredentials } from "@/lib/catalog";
 import { db, one } from "@/lib/db";
 import {
   attachCharges,
@@ -17,6 +17,7 @@ import { conversion, customer, message, order, payment, product } from "@/lib/sc
 import { POST as paymentWebhook } from "@/app/api/webhooks/payment/route";
 import { fakeServer, form, freshBrowser, redirectFetch, WEBHOOK_SECRET } from "./fakes";
 import { buy, pay, signInAsAdmin, webhook } from "./flows";
+import { parsePixKey } from "@/lib/input";
 
 // Published on AbacatePay's webhook security page.
 const ABACATEPAY_PUBLIC_KEY =
@@ -79,12 +80,12 @@ describe("BR Code", () => {
   });
 
   test("keys are normalized to the DICT formats", () => {
-    expect(pixKey("+55 (48) 99999-0000")).toBe("+5548999990000");
-    expect(pixKey("123.456.789-09")).toBe("12345678909");
-    expect(pixKey("48999990000")).toBeUndefined();
-    expect(pixKey("Shop@Example.com")).toBe("shop@example.com");
-    expect(pixKey("123E4567-E12B-12D1-A456-426655440000")).toBe("123e4567-e12b-12d1-a456-426655440000");
-    expect(pixKey("12.ABC.345/01DE-35")).toBe("12ABC34501DE35");
+    expect(parsePixKey("+55 (48) 99999-0000")).toBe("+5548999990000");
+    expect(parsePixKey("123.456.789-09")).toBe("12345678909");
+    expect(parsePixKey("48999990000")).toBeUndefined();
+    expect(parsePixKey("Shop@Example.com")).toBe("shop@example.com");
+    expect(parsePixKey("123E4567-E12B-12D1-A456-426655440000")).toBe("123e4567-e12b-12d1-a456-426655440000");
+    expect(parsePixKey("12.ABC.345/01DE-35")).toBe("12ABC34501DE35");
   });
 });
 

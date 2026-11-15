@@ -15,6 +15,7 @@ import type { Json } from "@/lib/guard";
 import { ErrorText, RefreshWhilePending } from "@/app/ui";
 import copyStyles from "@/components/action/copy-field.module.css";
 import styles from "./admin.module.css";
+import { formatFileTitle } from "@/format";
 
 type Look = ReturnType<typeof buttonAttributes>;
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
@@ -181,6 +182,7 @@ export function MediaUpload({
   value,
   button,
   remove,
+  titleField,
 }: {
   id: string;
   "aria-describedby"?: string;
@@ -189,6 +191,7 @@ export function MediaUpload({
   value?: string;
   button: Look;
   remove: Look;
+  titleField?: string;
 }) {
   const [path, setPath] = useState(value ?? "");
   const [progress, setProgress] = useState<number | null>(null);
@@ -321,8 +324,13 @@ export function MediaUpload({
               disabled={progress !== null}
               onChange={(event) => {
                 const file = event.target.files?.[0];
+                const title = titleField ? event.target.form?.elements.namedItem(titleField) : null;
 
                 event.target.value = "";
+                if (file && title instanceof HTMLInputElement && !title.value.trim()) {
+                  title.value = formatFileTitle(file.name);
+                  title.dispatchEvent(new Event("input", { bubbles: true }));
+                }
                 if (file) upload(file);
               }}
             />

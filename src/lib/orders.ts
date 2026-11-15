@@ -7,12 +7,14 @@ import { credentials, orderBump, saveCredentials, settings } from "./catalog";
 import type { Credentials, Product } from "./catalog";
 import { addSeconds, db, newId, one } from "./db";
 import type { Database } from "./db";
-import { baseUrl, demoMode, firstName, hmacHex, isObject, jsonObject, maskEmail, readBody, safeEqual } from "./guard";
+import { baseUrl, demoMode, hmacHex, isObject, jsonObject, readBody, safeEqual } from "./guard";
 import type { GuardCode, Json, JsonObject } from "./guard";
-import { cancelInvoice, queueInvoice, reais } from "./invoices";
+import { cancelInvoice, queueInvoice } from "./invoices";
 import { enqueueSale, recoverySteps } from "./messages";
 import { customer, order, payment } from "./schema";
 import { orderStep } from "./tracking";
+import { ID, parseCents } from "./input";
+import { formatDecimal, formatFirstName, formatMaskedEmail } from "@/format";
 
 export type OrderStatus = (typeof order.$inferSelect)["status"];
 export type OrderCode =
@@ -93,7 +95,6 @@ type Adapter = {
   test: (keys: PspKeys) => Promise<OrderCode | null>;
 };
 
-const ORDER_ID = /^[a-z0-9]{20}$/;
 const WEBHOOK_LIMIT = 64 * 1024;
 const PSPS = ["mercadopago", "woovi", "abacatepay", "depix", "noxpay"] as const;
 
@@ -195,14 +196,6 @@ export function offerOpen(product: Product): boolean {
   return product.offerEndsAt === undefined || product.offerEndsAt > new Date();
 }
 
-export function parseCents(raw: string): number | undefined {
-  const compact = raw.trim().replace(/^R\$\s*/i, "");
-  const decimal = compact.includes(",") ? compact.replace(/\./g, "").replace(",", ".") : compact;
-  const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(decimal);
-  if (!match) return undefined;
-  return Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
-}
-
 function tlv(id: string, value: string): string {
   return `${id}${String(value.length).padStart(2, "0")}${value}`;
 }
@@ -241,7 +234,7 @@ export function pixQrSvg(pixCode: string): Promise<string> {
 }
 
 export async function getPixOrder(id: string, slug: string): Promise<PixOrder | undefined> {
-  if (!ORDER_ID.test(id)) return undefined;
+  if (!ID.test(id)) return undefined;
 
   const [row] = await db()
     .select({
@@ -266,8 +259,8 @@ export async function getPixOrder(id: string, slug: string): Promise<PixOrder | 
     product: row.product,
     bump: row.bump,
     amount: row.amount,
-    firstName: firstName(row.name),
-    maskedEmail: maskEmail(row.email),
+    firstName: formatFirstName(row.name),
+    maskedEmail: formatMaskedEmail(row.email),
     status: row.status === "pending" && row.expiresAt <= new Date() ? "expired" : row.status,
     txid: row.txid,
     pixCode: row.pixCode,
@@ -800,7 +793,7 @@ function noxCents(value: Json | undefined): number | undefined {
 const ADAPTERS: Record<Psp, Adapter> = {
   mercadopago: {
     async create(row, keys, seconds) {
-      const value = reais(row.amount);
+      const value = formatDecimal(row.amount);
 
       const response = await callPsp(
         "mercadopago",
@@ -811,7 +804,7 @@ const ADAPTERS: Record<Psp, Adapter> = {
           processing_mode: "automatic",
           total_amount: value,
           external_reference: row.id,
-          payer: { email: row.email, first_name: firstName(row.name) },
+          payer: { email: row.email, first_name: formatFirstName(row.name) },
           transactions: {
             payments: [
               {

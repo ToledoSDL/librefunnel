@@ -174,23 +174,6 @@ function Home({ member, products, done }: { member: Member; products: Product[];
     <Shell member={member}>
       <main className={styles.main}>
         <Stack gap={7}>
-          {member.scope === "order" ? (
-            <Card title="Você entrou pelo pedido que acabou de pagar.">
-              <Text variant="body-sm" tone="muted">
-                Para ver todas as suas compras em qualquer aparelho, receba o link de acesso no seu e-mail.
-              </Text>
-              <ActionForm action={requestLogin} fields={{ email: member.email }}>
-                <Stack gap={2}>
-                  <Row>
-                    <Button type="submit" icon="mail">
-                      <SubmitLabel idle="Enviar link para meu e-mail" pending="Enviando" />
-                    </Button>
-                  </Row>
-                  <FormMessage done={`O link chega em instantes em ${member.email} e vale por 1 hora.`} />
-                </Stack>
-              </ActionForm>
-            </Card>
-          ) : null}
           <Stack gap={3}>
             <Text variant="body-sm" tone="muted">
               {firstName ? `Olá, ${firstName}` : "Sua área de membros"}
@@ -248,6 +231,21 @@ function Home({ member, products, done }: { member: Member; products: Product[];
               description="Comprou com outro e-mail? Toque em Sair e entre com ele. Pagou agora? A liberação aparece aqui assim que o Pix for confirmado."
             />
           )}
+          {member.scope === "order" ? (
+            <ActionForm action={requestLogin} fields={{ email: member.email }}>
+              <Stack gap={2}>
+                <Row gap={2}>
+                  <Text variant="body-sm" tone="muted">
+                    Para entrar de outros aparelhos:
+                  </Text>
+                  <Button type="submit" variant="ghost" size="sm" icon="mail">
+                    <SubmitLabel idle="receber o link por e-mail" pending="Enviando" />
+                  </Button>
+                </Row>
+                <FormMessage done={`O link chega em instantes em ${member.email} e vale por 1 hora.`} />
+              </Stack>
+            </ActionForm>
+          ) : null}
         </Stack>
       </main>
     </Shell>

@@ -5,21 +5,10 @@ import { cookies } from "next/headers";
 import { credentials, productNames } from "./catalog";
 import { addSeconds, db, newId } from "./db";
 import type { Database } from "./db";
-import {
-  baseUrl,
-  clientIp,
-  demoMode,
-  isObject,
-  jsonObject,
-  limited,
-  now,
-  printable,
-  readBody,
-  setCookie,
-  sha256,
-} from "./guard";
+import { baseUrl, clientIp, demoMode, isObject, jsonObject, limited, now, readBody, setCookie, sha256 } from "./guard";
 import type { JsonObject } from "./guard";
 import { conversion, customer, event, order, payment, product, retention, signal, touch } from "./schema";
+import { ID, SLUG, parsePrintable } from "./input";
 
 export type TrackCode = "INVALID_EVENT" | "RATE_LIMITED";
 export type ConversionCode = "META_NOT_CONFIGURED" | "META_REJECTED" | "META_UNREACHABLE";
@@ -86,18 +75,16 @@ async function recordEvent(visitorId: string, products: string[], name: EventNam
 // The members area reads the cookie the proxy set and never sets one: server components cannot.
 export async function recordAccess(products: string[]) {
   const id = (await cookies()).get(VISITOR_COOKIE)?.value ?? "";
-  if (VISITOR.test(id)) await recordEvent(id, products, "member_access");
+  if (ID.test(id)) await recordEvent(id, products, "member_access");
 }
 
 const CLICK_KINDS: Exclude<ClickKind, "">[] = ["fbclid", "gclid", "ttclid"];
-const VISITOR = /^[a-z0-9]{20}$/;
 const VISITOR_COOKIE = "lf_vid";
 const VISITOR_TTL = 400 * 86400;
 export const GRAPH = "https://graph.facebook.com/v27.0";
 const META_RETRYABLE = [1, 2, 4, 17, 341, 613];
 const MAX_EVENT_AGE = 7 * 86400 - 3600;
 const MAX_ATTEMPTS = 5;
-const SLUG = /^[a-z0-9][a-z0-9-]{0,59}$/;
 const RETENTION_BATCH = 120;
 // High because mobile carriers put many buyers behind one address.
 const NEW_VISITORS_PER_HOUR = 600;
@@ -105,7 +92,7 @@ const TOUCHES_PER_DAY = 20;
 
 export async function visitor(): Promise<string> {
   const current = (await cookies()).get(VISITOR_COOKIE)?.value;
-  if (current && VISITOR.test(current)) return current;
+  if (current && ID.test(current)) return current;
   const id = newId();
   await setCookie(VISITOR_COOKIE, id, VISITOR_TTL, "lax");
   return id;
@@ -120,9 +107,9 @@ function referrerHost(referrer: string): string {
 
 export async function recordTouch(visitorId: string, search: string, referrer: string, landing: string) {
   const params = new URLSearchParams(search.slice(0, 2000));
-  const value = (name: string) => printable(params.get(name) ?? "", 200);
+  const value = (name: string) => parsePrintable(params.get(name) ?? "", 200);
   // Click ids run longer than UTM values; one over the limit would lose the click and its fbc.
-  const click = (kind: string) => printable(params.get(kind) ?? "", 500);
+  const click = (kind: string) => parsePrintable(params.get(kind) ?? "", 500);
   const clickKind: ClickKind = CLICK_KINDS.find((kind) => click(kind) !== "") ?? "";
 
   const fields = {
@@ -225,7 +212,7 @@ async function queueSignal(name: SignalName, visitorId: string, slug: string, re
 export async function trackRequest(request: Request): Promise<Response> {
   const ip = clientIp(request.headers);
   const cookie = (await cookies()).get(VISITOR_COOKIE)?.value ?? "";
-  const known = VISITOR.test(cookie);
+  const known = ID.test(cookie);
   // Per visitor, because one mobile carrier address carries many buyers each sending a retention beacon every 10 s.
   if (limited("track", known ? cookie : ip, 120, 60) || limited("track-ip", ip, 3000, 60))
     return Response.json({ code: "RATE_LIMITED" }, { status: 429 });

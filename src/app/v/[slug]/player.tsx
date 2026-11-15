@@ -238,8 +238,7 @@ export function VslPlayer({
           >
             <span className={styles.unmute}>
               {icons.sound}
-              <strong>Seu vídeo já começou</strong>
-              <span>Clique para ouvir</span>
+              Toque para ouvir
             </span>
           </button>
         ) : null}

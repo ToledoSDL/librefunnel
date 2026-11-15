@@ -9,6 +9,7 @@ import type { ActionState, Code } from "@/lib/actions";
 import { createOrder } from "@/lib/actions";
 import { Money } from "./format";
 import { track } from "./track";
+import { formatPhoneInput } from "@/format";
 
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 type FormView = { code: Code | null; ok: boolean; withBump: boolean };
@@ -75,7 +76,8 @@ const ERROR_TEXT: Record<Code, string> = {
   INVALID_PRICE: "Preço inválido. Use um valor entre R$ 1,00 e R$ 100.000,00 com até 2 casas decimais, como 97,00.",
   INVALID_PIX_KEY:
     "Chave Pix inválida. Use o e-mail, CPF, CNPJ, chave aleatória ou o celular com +55 e DDD, como +5548999990000, exatamente como está no app do banco.",
-  INVALID_PIX_HOLDER: "Preencha o nome do recebedor e a cidade do Pix, como aparecem no app do banco.",
+  INVALID_PIX_HOLDER:
+    "Não deu para descobrir o nome e a cidade do recebedor. Abra Ajustar nome e cidade e preencha como aparecem no app do banco.",
   INVALID_DATE:
     "Data de fim da oferta inválida. Escolha dia e hora no calendário ou deixe em branco para vender sem prazo.",
   INVALID_CTA_SECONDS:
@@ -206,6 +208,8 @@ const ERROR_TEXT: Record<Code, string> = {
     "O prazo do município para cancelar esta nota acabou. Peça o cancelamento por análise fiscal no Emissor Nacional (nfse.gov.br).",
   NFSE_CANCEL_FORBIDDEN:
     "O município não deixa cancelar nota sem CPF ou CNPJ do comprador. Peça o cancelamento pelo Emissor Nacional (nfse.gov.br).",
+  CNPJ_LOOKUP_FAILED:
+    "Não deu para buscar os dados do CNPJ agora. Abra Ajustar dados fiscais, escolha o regime e preencha o código IBGE do município.",
   CERTIFICATE_UNREADABLE:
     "Não deu para abrir o certificado. Envie o arquivo .pfx ou .p12 do certificado A1 e confira a senha.",
   CERTIFICATE_NOT_CNPJ: "Este certificado não é de CNPJ (e-CNPJ). Use o certificado A1 da empresa.",
@@ -213,14 +217,6 @@ const ERROR_TEXT: Record<Code, string> = {
   CERTIFICATE_REFUSED:
     "O gov.br recusou o certificado (revogado, de outra empresa ou fora da ICP-Brasil). Envie o A1 atual da empresa.",
 };
-
-function formatPhone(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length > 11) return value;
-  if (digits.length > 6) return `(${digits.slice(0, 2)}) ${digits.slice(2, digits.length - 4)}-${digits.slice(-4)}`;
-  if (digits.length > 2) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  return digits;
-}
 
 function inputValue(form: HTMLFormElement, name: string) {
   const element = form.elements.namedItem(name);
@@ -358,7 +354,7 @@ export function CheckoutForm({
         const node = event.currentTarget;
         const target = event.target;
         if (!(target instanceof HTMLInputElement)) return;
-        if (target.name === "phone") target.value = formatPhone(target.value);
+        if (target.name === "phone") target.value = formatPhoneInput(target.value);
         if (target.name === "bump") {
           setWithBump(target.checked);
           if (target.checked) track("bump_add", slug);
@@ -381,21 +377,13 @@ export function CheckoutForm({
   );
 }
 
-export function CheckoutTotal({ price, bump }: { price: number; bump?: { name: string; price: number } }) {
+export function CheckoutTotal({ price, bump }: { price: number; bump?: number }) {
   const { withBump } = useContext(FormContext);
-  const added = withBump ? bump : undefined;
 
   return (
-    <div aria-live="polite">
-      <Text variant="metric">
-        <Money cents={price + (added?.price ?? 0)} />
-      </Text>
-      {added ? (
-        <Text variant="caption" tone="muted">
-          com {added.name}
-        </Text>
-      ) : null}
-    </div>
+    <strong aria-live="polite">
+      <Money cents={price + (withBump ? (bump ?? 0) : 0)} />
+    </strong>
   );
 }
 

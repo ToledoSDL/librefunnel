@@ -8,6 +8,7 @@ import { settings } from "@/lib/catalog";
 import type { Testimonial } from "@/lib/catalog";
 import { Logo } from "@/components/media/logo";
 import styles from "./buyer.module.css";
+import { formatDocument } from "@/format";
 
 // Escaping "<" keeps a product name like "</script>" from closing the tag.
 export function JsonLd({ schema }: { schema: object[] }) {
@@ -53,7 +54,11 @@ export async function StoreHeader({ href = "/", children }: { href?: string; chi
 export async function Footer() {
   const store = await settings();
   const whatsapp = store.supportWhatsapp?.replace(/\D/g, "");
-  const seller = [store.legalName ?? store.brand, store.document ? documentLabel(store.document) : undefined];
+
+  const seller = [
+    store.legalName ?? store.brand,
+    store.document ? `${store.document.length === 14 ? "CNPJ" : "CPF"} ${formatDocument(store.document)}` : undefined,
+  ];
 
   const links = [
     store.supportEmail ? { label: "Suporte", href: `mailto:${store.supportEmail}` } : undefined,
@@ -100,11 +105,6 @@ export async function Footer() {
   );
 }
 
-function documentLabel(digits: string) {
-  return digits.length === 14
-    ? `CNPJ ${digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}`
-    : `CPF ${digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")}`;
-}
 export function Testimonials({ items }: { items: Testimonial[] }) {
   return items.map((item) => (
     <Card key={`${item.name}${item.text}`}>

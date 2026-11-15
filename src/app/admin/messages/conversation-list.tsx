@@ -5,8 +5,9 @@ import { SegmentedControl } from "@/components/form/segmented-control";
 import { Icon } from "@/components/media/icon";
 import { Text } from "@/components/text/text";
 import type { inbox, InboxFilter } from "@/lib/dashboard";
-import { contactLabel, conversationHref, KIND_LABEL, photoHref, shortWhen } from "./labels";
+import { conversationHref, KIND_LABEL, photoHref, shortWhen } from "./labels";
 import styles from "./messages.module.css";
+import { formatContact } from "@/format";
 
 type Inbox = Awaited<ReturnType<typeof inbox>>;
 
@@ -62,7 +63,7 @@ export function ConversationList({ box, filter }: { box: Inbox; filter: InboxFil
                   <Avatar name={row.name ?? ""} src={photoHref(row.address, row.photo)} />
                   <span className={styles.itemLine}>
                     <Text as="span" variant="body-sm" weight="semibold">
-                      {row.name ?? contactLabel(row.address)}
+                      {row.name ?? formatContact(row.address)}
                     </Text>
                   </span>
                   <span className={styles.itemWhen}>

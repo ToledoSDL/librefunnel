@@ -5,6 +5,8 @@ dela vira as notas da release no GitHub e no aviso de atualização do painel.
 
 ## Próxima versão
 
+## v0.9.0 (2026-11-16)
+
 - Vendas enviadas pelo servidor ao TikTok (Events API), ao Google Ads (Data Manager API, com login do Google) e ao
   Google Analytics (compra e reembolso), além da Meta. Página, checkout, Pix gerado e compra contam mesmo quando o
   comprador paga no app do banco e não volta para a página.

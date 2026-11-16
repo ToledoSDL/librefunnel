@@ -5,6 +5,8 @@ dela vira as notas da release no GitHub e no aviso de atualização do painel.
 
 ## Próxima versão
 
+## v0.10.0 (2026-11-16)
+
 - Atualizar pelo painel traz também a configuração do servidor da versão nova (como a de domínios próprios) e o próprio
   atualizador novo, sem rodar o instalador de novo. Lojas instaladas antes desta versão rodam o instalador uma última
   vez para ganhar isso.

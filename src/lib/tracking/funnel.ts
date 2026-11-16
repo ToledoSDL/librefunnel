@@ -3,13 +3,13 @@ import { sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { productNames } from "../catalog/products";
 import { db } from "../db";
-import type { Database } from "../db";
 import { clientIp, hostOf, jsonObject, limited, readBody } from "../guard";
-import type { JsonObject } from "../guard";
+import type { Json, JsonObject } from "../guard";
 import { ID } from "../input";
-import { conversion, event } from "../schema";
-import { queueSignal } from "./meta";
-import type { ConversionKey, SignalName } from "./meta";
+import { event } from "../schema";
+import { STEPS } from "@/funnel";
+import type { ClientEvent } from "@/funnel";
+import { queueSignal } from "./conversions";
 import { recordRetention } from "./retention";
 import { VISITOR_COOKIE, recordTouch, visitor } from "./visitors";
 
@@ -17,44 +17,11 @@ export type TrackCode = "INVALID_EVENT" | "RATE_LIMITED";
 
 type EventName = (typeof event.$inferSelect)["name"];
 
-// The whole funnel in one place. Each step a buyer can reach in the browser is a first-party event (counted in the
-// panel) and, when it means something to an ad platform, that platform's event name. Order steps happen on the server.
-// Integrating a platform is one more column here and one more sender in sendConversions.
-const STEPS = {
-  page_view: { meta: "ViewContent" },
-  store_click: {},
-  video_play: {},
-  video_unmute: {},
-  video_25: {},
-  video_50: {},
-  video_75: {},
-  video_100: {},
-  cta_view: {},
-  cta_click: {},
-  checkout_view: { meta: "InitiateCheckout" },
-  checkout_start: {},
-  bump_add: {},
-  pix_view: {},
-  pix_copy: {},
-} as const satisfies Partial<Record<EventName, { meta?: SignalName }>>;
+// The id the browser tags sent the same event with; one the browser made up of anything else is ignored.
+const EVENT_ID = /^[\w-]{8,64}$/;
 
-const ORDER_STEPS = {
-  created: { meta: "AddPaymentInfo" },
-  paid: { meta: "Purchase" },
-} as const satisfies Record<string, { meta: ConversionKey["name"] }>;
-
-export type ClientEvent = keyof typeof STEPS;
-
-function isClientEvent(value: unknown): value is ClientEvent {
+function isClientEvent(value: Json | undefined): value is ClientEvent {
   return typeof value === "string" && Object.hasOwn(STEPS, value);
-}
-
-// Orders call this inside their transaction, so the step and the order commit together.
-export async function orderStep(tx: Database, orderId: string, step: keyof typeof ORDER_STEPS) {
-  await tx
-    .insert(conversion)
-    .values({ orderId, name: ORDER_STEPS[step].meta, nextAt: new Date() })
-    .onConflictDoNothing();
 }
 
 // The last time, so a period counts everyone who reached the step in it, returning visitors included.
@@ -97,8 +64,10 @@ async function track(body: JsonObject, visitorId: string, request: Request): Pro
     );
   }
   await recordEvent(visitorId, [slug], name);
-  const step: { meta?: SignalName } = STEPS[name];
-  if (slug && step.meta) await queueSignal(step.meta, visitorId, slug, request);
+  const step: { ads?: "ViewContent" | "InitiateCheckout" } = STEPS[name];
+  if (!slug || !step.ads) return null;
+  const eventId = typeof body.i === "string" && EVENT_ID.test(body.i) ? body.i : `${visitorId}:${slug}:${step.ads}`;
+  await queueSignal(step.ads, visitorId, slug, eventId, request);
   return null;
 }
 

@@ -1,15 +1,17 @@
-import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
+import { beforeEach, describe, expect, test, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { removeConnection, saveEvolution, saveMeta, savePix, saveSmtp } from "@/lib/actions/connections";
+import { saveMeta } from "@/lib/actions/ads";
+import { removeConnection, saveEvolution, savePix, saveSmtp } from "@/lib/actions/connections";
 import { credentials } from "@/lib/settings";
 import { db } from "@/lib/db";
 import { funnel, integrations, orders, revenueByDay, summary } from "@/lib/dashboard";
 import type { OrderFilter } from "@/lib/dashboard";
 import { seal, unseal } from "@/lib/guard";
 import { integration, message, order as orderTable } from "@/lib/schema";
+import { adConnections } from "@/lib/tracking/accounts";
 import { GET as csvRoute } from "@/app/admin/orders.csv/route";
 import { POST as trackRoute } from "@/app/t/route";
-import { form, freshBrowser } from "./fakes";
+import { fakeServer, form, freshBrowser, redirectFetch } from "./fakes";
 import { buy, pay, signInAsAdmin, webhook } from "./flows";
 
 let ip = 0;
@@ -169,10 +171,15 @@ describe("integration settings", () => {
         form({ preset: "brevo", user: "login@smtp-brevo.com", password: smtpPass ?? "", from: "loja@example.com" }),
       ),
     ).toEqual({ code: null, ok: true });
+    // Saving the Meta connection tests it, so Meta answers from a fake server here.
+    const graph = await fakeServer({ "POST /v27.0/1234567/events": { status: 200, body: { events_received: 1 } } });
+    redirectFetch("https://graph.facebook.com", graph.url);
     expect(await saveMeta({ code: null }, form({ pixelId: "1234567", token: metaToken ?? "" }))).toEqual({
       code: null,
       ok: true,
     });
+    vi.restoreAllMocks();
+    await graph.close();
     expect(
       await savePix(
         { code: null },
@@ -205,7 +212,7 @@ describe("integration settings", () => {
       await db().select({ fields: integration.fields, secrets: integration.secrets }).from(integration),
     );
 
-    const read = JSON.stringify(await integrations());
+    const read = JSON.stringify([await integrations(), await adConnections()]);
     for (const secret of SECRETS) {
       expect(rows).not.toContain(secret);
       expect(read).not.toContain(secret);
@@ -219,7 +226,7 @@ describe("integration settings", () => {
       user: "login@smtp-brevo.com",
       passwordSet: true,
     });
-    expect(links.meta).toMatchObject({ configured: true, pixelId: "1234567", tokenSet: true });
+    expect((await adConnections()).meta).toMatchObject({ configured: true, pixelId: "1234567", tokenSet: true });
     expect(links.whatsapp).toMatchObject({ external: true, url: "https://evo.example.com", keySet: true });
     expect(links.pix.provider).toBe("abacatepay");
     expect(links.pix.providers.map((entry) => [entry.id, entry.needsCnpj, entry.configured])).toEqual([

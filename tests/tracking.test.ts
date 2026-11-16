@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { and, asc, eq } from "drizzle-orm";
-import { saveMeta, testConnection } from "@/lib/actions/connections";
+import { saveMeta } from "@/lib/actions/ads";
+import { testConnection } from "@/lib/actions/connections";
 import { removeCredentials, saveCredentials } from "@/lib/settings";
 import { db, one } from "@/lib/db";
 import { sources } from "@/lib/dashboard";
 import { conversion, customer, event, order, signal, touch } from "@/lib/schema";
-import { sendConversions } from "@/lib/tracking/meta";
+import { sendConversions } from "@/lib/tracking/conversions";
 import { POST as trackRoute } from "@/app/t/route";
 import { cookieOptions, cookieStore, fakeServer, form, freshBrowser, redirectFetch } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
@@ -38,7 +39,7 @@ function conversionOf(id: string) {
       nextAt: conversion.nextAt,
     })
     .from(conversion)
-    .where(eq(conversion.orderId, id))
+    .where(and(eq(conversion.orderId, id), eq(conversion.platform, "meta")))
     .then(one);
 }
 
@@ -215,7 +216,7 @@ describe("Meta Conversions API", () => {
         await db()
           .select({ status: conversion.status })
           .from(conversion)
-          .where(and(eq(conversion.orderId, order), eq(conversion.name, "Purchase"))),
+          .where(and(eq(conversion.orderId, order), eq(conversion.name, "Purchase"), eq(conversion.platform, "meta"))),
       ).status,
     ).toBe("sent");
     await sendConversions();
@@ -261,13 +262,17 @@ describe("Meta Conversions API", () => {
     await buy({ email: "fixing@example.com", name: "Ana Souza Lima" });
 
     const steps = await db()
-      .select({ name: conversion.name })
+      .select({ name: conversion.name, platform: conversion.platform })
       .from(conversion)
       .innerJoin(order, eq(order.id, conversion.orderId))
       .innerJoin(customer, eq(customer.id, order.customerId))
-      .where(eq(customer.email, "fixing@example.com"));
+      .where(eq(customer.email, "fixing@example.com"))
+      .orderBy(asc(conversion.platform));
 
-    expect(steps).toEqual([{ name: "AddPaymentInfo" }]);
+    expect(steps).toEqual([
+      { name: "AddPaymentInfo", platform: "meta" },
+      { name: "AddPaymentInfo", platform: "tiktok" },
+    ]);
   });
 
   test("a rejected batch fails without retry and an unconfigured pixel is skipped", async () => {

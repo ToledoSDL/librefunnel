@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import * as catalog from "../catalog/products";
@@ -13,7 +13,7 @@ import * as charges from "../orders/charges";
 import * as checkout from "../orders/checkout";
 import * as payments from "../orders/payments";
 import * as config from "../settings";
-import { fbcFor, metaCookie, recordTouch, visitor } from "../tracking/visitors";
+import { browserIds, fbcFor, recordTouch, visitor } from "../tracking/visitors";
 import { done, field } from "./form";
 import type { ActionState, FormArgs } from "./form";
 
@@ -39,7 +39,7 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
   if (coupon && "code" in coupon) return { code: coupon.code };
   const visitorId = await visitor();
   await recordTouch(visitorId, field(form, "touch"), "", `/c/${product.slug}`);
-  const jar = await cookies();
+  const browser = await browserIds();
 
   const result = await checkout.placeOrder({
     product,
@@ -53,8 +53,7 @@ export async function createOrder(...[, form]: FormArgs): Promise<ActionState> {
     visitorId,
     ip,
     userAgent: (requestHeaders.get("user-agent") ?? "").slice(0, 500),
-    fbp: metaCookie(jar.get("_fbp")?.value, "_fbp"),
-    fbc: metaCookie(jar.get("_fbc")?.value, "_fbc") ?? (await fbcFor(visitorId)),
+    browser: { ...browser, fbc: browser.fbc ?? (await fbcFor(visitorId)) },
   });
 
   if ("code" in result) return { code: result.code };

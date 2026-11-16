@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Icon } from "@/components/media/icon";
 import { Badge } from "@/components/text/badge";
 import type { Product } from "@/lib/catalog/products";
+import { AdsSection } from "./ads-section";
 import { href } from "../shared";
 import { CheckoutSection } from "./checkout-section";
 import { GeneralSection } from "./general-section";
@@ -14,7 +15,7 @@ import styles from "./products.module.css";
 import { ReviewsSection } from "./reviews-section";
 import { SalesSection } from "./sales-section";
 
-type Section = FormSection | "content";
+type Section = FormSection | "content" | "ads";
 
 const SECTIONS: { key: Section; label: string }[] = [
   { key: "general", label: "Geral" },
@@ -22,6 +23,7 @@ const SECTIONS: { key: Section; label: string }[] = [
   { key: "checkout", label: "Checkout" },
   { key: "content", label: "Conteúdo" },
   { key: "reviews", label: "Perguntas e depoimentos" },
+  { key: "ads", label: "Anúncios" },
 ];
 
 export function ProductEditor({
@@ -110,6 +112,7 @@ export function ProductEditor({
       {current === "checkout" ? <CheckoutSection product={product} others={others} /> : null}
       {current === "content" ? <ModulesEditor product={product} /> : null}
       {current === "reviews" ? <ReviewsSection product={product} /> : null}
+      {current === "ads" ? <AdsSection product={product} /> : null}
     </>
   );
 }

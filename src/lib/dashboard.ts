@@ -62,7 +62,7 @@ const PHOTO_VERSION = sql<number | null>`(SELECT EXTRACT(EPOCH FROM k.photo_chec
   WHERE k.address = message.address AND k.photo IS NOT NULL)`.mapWith(Number);
 
 const ZONE = "America/Sao_Paulo";
-const SOURCE = sql<string>`COALESCE(NULLIF(${touch.source}, ''), CASE ${touch.clickKind} WHEN 'fbclid' THEN 'facebook' WHEN 'gclid' THEN 'google' WHEN 'ttclid' THEN 'tiktok' END, NULLIF(${touch.referrerHost}, ''), '(direto)')`;
+const SOURCE = sql<string>`COALESCE(NULLIF(${touch.source}, ''), CASE ${touch.clickKind} WHEN 'fbclid' THEN 'facebook' WHEN 'gclid' THEN 'google' WHEN 'ttclid' THEN 'tiktok' WHEN 'gbraid' THEN 'google' WHEN 'wbraid' THEN 'google' END, NULLIF(${touch.referrerHost}, ''), '(direto)')`;
 
 const RECEIVED = sql<number>`${new QueryBuilder()
   .select({ received: sql`COALESCE(SUM(${payment.amount}), 0)` })
@@ -599,7 +599,6 @@ export async function integrations() {
   const [stored, failedMessages] = await Promise.all([
     credentials(
       "smtp",
-      "meta",
       "pix",
       "mercadopago",
       "woovi",
@@ -622,7 +621,6 @@ export async function integrations() {
   const [state, live] = await Promise.all([whatsappState(evolution), cloudLink ? cloudStatus(cloudLink) : null]);
 
   const smtp = stored("smtp");
-  const meta = stored("meta");
   const panelEvolution = stored("evolution");
   const active = pixProvider(stored("pix")("provider")) ?? "static";
   const account = await storePix();
@@ -637,12 +635,6 @@ export async function integrations() {
       from: smtp("from"),
       passwordSet: smtp("password") !== "",
       presets: SMTP_PRESETS,
-    },
-    meta: {
-      configured: meta("pixelId") !== "" && meta("token") !== "",
-      pixelId: meta("pixelId"),
-      testEventCode: meta("testEventCode"),
-      tokenSet: meta("token") !== "",
     },
     pix: {
       provider: active,

@@ -24,6 +24,10 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: store.icon ? { icon: store.icon } : undefined,
     formatDetection: { telephone: false, email: false, address: false },
     twitter: { card: "summary_large_image" },
+    verification: {
+      google: store.googleVerification,
+      other: store.metaVerification ? { "facebook-domain-verification": store.metaVerification } : undefined,
+    },
   };
 }
 

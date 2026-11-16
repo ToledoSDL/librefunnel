@@ -16,6 +16,7 @@ export const WEBHOOK_SECRET = "webhook-test-secret";
 
 export const jar = {
   get: (name: string) => (cookieStore.has(name) ? { name, value: cookieStore.get(name) ?? "" } : undefined),
+  getAll: () => [...cookieStore].map(([name, value]) => ({ name, value })),
   set: (name: string, value: string, options: CookieOptions) => {
     cookieStore.set(name, value);
     cookieOptions.set(name, options);

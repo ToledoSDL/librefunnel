@@ -12,6 +12,7 @@ import { Text } from "@/components/text/text";
 import { refundOrder, resendAccess } from "@/lib/actions/orders";
 import { integrations, orders } from "@/lib/dashboard";
 import { isAdmin } from "@/lib/sessions";
+import type { adConnections } from "@/lib/tracking/accounts";
 import type { OrderStatus } from "@/lib/orders/checkout";
 import { redirect } from "next/navigation";
 import type { ComponentProps } from "react";
@@ -24,6 +25,8 @@ export type Days = 7 | 30 | 90;
 export type Query = Record<string, string | string[] | undefined>;
 
 export type Links = Awaited<ReturnType<typeof integrations>>;
+
+export type Ads = Awaited<ReturnType<typeof adConnections>>;
 
 export type OrderRow = Awaited<ReturnType<typeof orders>>["rows"][number];
 

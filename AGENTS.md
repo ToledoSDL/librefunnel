@@ -26,7 +26,7 @@ bun run check          # typecheck, lint, unused code (knip), formatting and tes
 bun run fix            # fixes lint (blank lines around multi-line consts) and formatting
 bun run test           # tests only (bun test, one process per file)
 bun run migration      # after editing src/lib/schema.ts: writes the next migration
-bun run release        # patch, minor, major or 1.2.3: checks, bumps, tags and pushes; GitHub publishes the release
+bun run release        # patch, minor, major or 1.2.3: checks, dates CHANGELOG.md, bumps, tags and pushes; GitHub publishes it
 bun run brand          # after changing the logo or the colors: rewrites every logo, icon and banner file
 bun run icons          # after adding a Lucide or brand icon to docs/icons.ts: rewrites src/components/media/icon-set.ts
 bun run demo-art       # after editing demo/art.ts: rewrites the demo images and sales video (needs rsvg-convert, ffmpeg, fonts in demo/media/CREDITS.md)
@@ -34,7 +34,8 @@ bun run demo-art       # after editing demo/art.ts: rewrites the demo images and
 
 A change is done only when `bun run check` passes. CI runs the same on every push; the Docker build runs only when
 something the image ships changes. The site goes out by itself on every push that changes `site/`, so a site fix needs
-no release; a release is for the store.
+no release; a release is for the store. Every change a seller notices goes under `## Próxima versão` in `CHANGELOG.md`
+(pt-BR, one line per change): the release turns it into the version's notes, which the admin shows with the update.
 
 ## Layout
 
@@ -127,11 +128,15 @@ no release; a release is for the store.
 - Every module in `src/lib` except the `"use server"` files in `actions/` (the edge client components import) starts
   with `import "server-only"`. Every export of a `"use server"` file is a public endpoint, so helpers live in
   `actions/form.ts` or stay unexported.
-- Tracking lives in `src/lib/tracking/`: `STEPS` in `funnel.ts` lists every browser funnel step (the first-party event
-  the panel counts and its ad platform event) and `ORDER_STEPS` the server ones, which orders record with `orderStep`
-  inside their transaction. The browser sends steps only through `track`/`Tracker`/`TrackClick` in `src/app/track.tsx`.
-  `sendConversions` in `meta.ts` is the one sender. A new step or ad platform (Google Ads next) is a change there, never
-  a call scattered in a page.
+- Tracking lives in `src/lib/tracking/`. `STEPS` in `src/funnel.ts` (shared with the browser) lists every browser funnel
+  step (the first-party event the panel counts and its ad platform events) and `ORDER_STEPS` the server ones and the
+  platforms each goes to, which orders record with `orderStep` inside their transaction. The browser sends steps only
+  through `track`/`Tracker`/`OrderTracker`/`TrackClick` in `src/app/track.tsx`, which also fire the browser tags
+  (`src/app/tags.tsx`) with the same event id, so each platform counts a step once. `sendConversions` in
+  `conversions.ts` is the one sender; each platform (`meta`, `tiktok`, `analytics`, `googleads`) is a `Destination` in
+  its own file, and `accounts.ts` picks the connection for each product (its own from `product_tracking`, or the
+  store's). A new step or ad platform is a change there, never a call scattered in a page. Browser tags load only on
+  buyer pages, only when the seller turns them on, never in the demo.
 - Sessions go only through `src/lib/sessions.ts`: a random 256-bit id in an `HttpOnly`, `Secure`, `__Host-` cookie
   (`SameSite=Strict` for the admin), stored in `session` as its SHA-256, ended by deleting the row. No session id, token
   or credential in `localStorage`, `sessionStorage`, a URL that lasts, or anything else JavaScript can read, and no

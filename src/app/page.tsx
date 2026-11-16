@@ -12,6 +12,7 @@ import { baseUrl, hostOf } from "@/lib/guard";
 import { Footer, JsonLd, StoreHeader } from "./buyer";
 import styles from "./page.module.css";
 import { Money } from "./format";
+import { Tags } from "./tags";
 import { TrackClick, Tracker } from "./track";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -68,6 +69,7 @@ export default async function Home({
 
   return (
     <div className={`surface-experience ${styles.page}`}>
+      <Tags product="" />
       <Tracker product="" />
       <JsonLd schema={schema} />
       <StoreHeader>

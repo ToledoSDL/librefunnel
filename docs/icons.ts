@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import { icons as logos } from "@iconify-json/logos";
 import { icons as lucide } from "@iconify-json/lucide";
 import { icons as simpleIcons } from "@iconify-json/simple-icons";
 import type { IconifyJSON } from "@iconify/types";
@@ -60,7 +61,21 @@ const LUCIDE = [
   "zap",
 ];
 
-const BRANDS = ["pix", "gmail", "brevo", "whatsapp", "meta", "cloudflare"];
+// Brands without a full-color logo, drawn in one color.
+const BRANDS = ["pix", "brevo"];
+
+// Full-color brand logos, drawn in their own colors on a light tile.
+const LOGOS = [
+  "google-gmail",
+  "whatsapp-icon",
+  "meta-icon",
+  "cloudflare-icon",
+  "tiktok-icon",
+  "google-ads",
+  "google-analytics",
+  "google-search-console",
+  "mailjet-icon",
+];
 
 function bodies(set: IconifyJSON, names: string[]): Record<string, string> {
   const body = (name: string): string => {
@@ -74,11 +89,29 @@ function bodies(set: IconifyJSON, names: string[]): Record<string, string> {
   return Object.fromEntries(names.map((name) => [name, body(name)]));
 }
 
+// Logos keep their own proportions, so each carries its box for the viewBox.
+function sized(set: IconifyJSON, names: string[]): Record<string, { body: string; width: number; height: number }> {
+  const drawn = bodies(set, names);
+
+  return Object.fromEntries(
+    names.map((name) => [
+      name,
+      {
+        body: drawn[name] ?? "",
+        width: set.icons[name]?.width ?? set.width ?? 24,
+        height: set.icons[name]?.height ?? set.height ?? 24,
+      },
+    ]),
+  );
+}
+
 writeFileSync(
   "src/components/media/icon-set.ts",
-  `// Written by \`bun run icons\` (docs/icons.ts): only the Lucide and Simple Icons the store draws, all on a 24 x 24 grid.
+  `// Written by \`bun run icons\` (docs/icons.ts): only the Lucide icons, Simple Icons and full-color logos the store draws.
 export const LUCIDE = ${JSON.stringify(bodies(lucide, LUCIDE))} as const;
 
 export const SIMPLE_ICONS = ${JSON.stringify(bodies(simpleIcons, BRANDS))} as const;
+
+export const LOGOS = ${JSON.stringify(sized(logos, LOGOS))} as const;
 `,
 );

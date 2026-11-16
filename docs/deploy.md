@@ -31,7 +31,7 @@ Desktop (or OrbStack or Colima on a Mac) and asks before installing one.
 7. [Set up your store in the dashboard](#7-set-up-your-store-in-the-dashboard)
 
 Optional: [Cloudflare](#cloudflare), [WhatsApp](#whatsapp), [Pix providers](#pix-providers-automatic-confirmation),
-[other payment providers](#other-payment-providers), [Meta Conversions API](#meta-conversions-api),
+[other payment providers](#other-payment-providers), [ads and analytics](#ads-and-analytics),
 [video storage](#video-storage-cloudflare-r2-or-s3). Without the installer: [manual install](#manual-install). Day to
 day: [updating](#updating), [logs](#logs), [backups and restore](#backups-and-restore),
 [troubleshooting](#troubleshooting).
@@ -285,7 +285,7 @@ Everything below is saved instantly, with no restart.
 4. **Automations**: review the recovery steps (channel, delay and text) and the WhatsApp keyword replies. Texts can use
    `{name}`, `{product}`, `{amount}`, `{link}` and `{pix}`.
 5. **Conexões**: optionally pick a [Pix provider](#pix-providers-automatic-confirmation), connect [WhatsApp](#whatsapp)
-   and [Meta](#meta-conversions-api).
+   and the [ad platforms](#ads-and-analytics).
 
 Your sales page is at `/v/<product-slug>` and the checkout at `/c/<product-slug>`. Make a test purchase with your own
 e-mail, then release it in **Orders** to see the whole flow, including the access e-mail and the members area at `/m`.
@@ -600,26 +600,113 @@ and click **Ativar e gerar segredo**. Copy the secret right away: it is shown on
 HMAC-SHA256 of the raw body, in hex, using the secret as the key. **Gerar novo segredo** replaces it at once and the old
 one stops working. **Remover** turns the address off: it then answers 404.
 
-## Meta Conversions API
+## Ads and analytics
 
-The app sends the whole funnel to Meta from the server, so your ads optimize for sales instead of clicks: `ViewContent`
-(sales page), `InitiateCheckout` (checkout opened), `AddPaymentInfo` (Pix generated) and `Purchase` (paid). No pixel
-script runs in the browser; the store sets the `_fbp` cookie itself and builds `fbc` from the ad's `fbclid`. Before an
-order exists, the visitor's IP and browser are stored only while Meta is connected.
+The store sends each step of the funnel from the server to every platform you connect in `/admin` > **Conexões** >
+**Anúncios e análise**, so your ads optimize for sales instead of clicks and a sale counts even when the buyer pays in
+the bank app and never comes back to the page:
 
-1. In Meta **Events Manager**, open **Data sources**, select your pixel and copy its ID.
-2. In the pixel's **Settings**, under Conversions API, click **Generate access token** and copy it.
-3. To check the setup, open the pixel's **Test events** tab and copy the test code.
-4. In `/admin` > **Conexões** > **Meta (API de Conversões)**, fill in **ID do Pixel**, **Token da API de Conversões**
-   and, for now, **Código de teste (opcional)**. Click **Salvar Meta**.
-5. Click **Testar** and confirm the event appears in **Test events**.
-6. Clear **Código de teste (opcional)** and click **Salvar Meta** again. While it is set, sales do not count toward your
-   campaigns.
+| Step            | Meta and TikTok    | Google Ads | Google Analytics         |
+| --------------- | ------------------ | ---------- | ------------------------ |
+| Sales page      | `ViewContent`      |            | `view_item` (tag)        |
+| Checkout opened | `InitiateCheckout` |            | `begin_checkout` (tag)   |
+| Pix generated   | `AddPaymentInfo`   |            | `add_payment_info` (tag) |
+| Paid            | `Purchase`         | conversion | `purchase`               |
+| Refunded        |                    |            | `refund`                 |
+
+Each platform's dialog has numbered steps with links to the exact page of the platform. Every field takes whatever you
+copy: the id, the whole tag code or, for Google Ads, the address of the conversion action's page. **Salvar e testar**
+saves and sends a test event at once, and shows the platform's answer. A platform that refuses events later shows **Com
+recusas** on its card, with how many in the last 7 days.
+
+E-mail, phone and name reach the platforms only as SHA-256 hashes. Before an order exists, the visitor's IP and browser
+are stored only for the platforms that are connected.
+
+The browser tags (Meta Pixel, TikTok Pixel, Google tag) come on with each connection, under **Avançado** in its dialog.
+They load only on the sales page, the checkout and the showcase, and send the same event id as the server, so a step
+counts once. The Google tag is what lets Google Analytics show where visits come from; for the other platforms the tag
+is a second channel, for buyers whose browser does not block it. With every tag off, no third-party script runs on your
+pages.
+
+Every platform works on [product domains](#product-domains) with no extra setup. A product sold under another ad account
+sets its own pixel, Google Analytics property or conversion action in **Produtos** > the product > **Anúncios**; a blank
+field uses the store's connection.
+
+### Meta
+
+1. Open Meta **Events Manager** (the link is in the dialog), select your pixel and copy its ID or its whole code.
+2. In the pixel's **Settings**, under Conversions API, click **Generate access token**.
+3. In **Conexões** > **Meta (Facebook e Instagram)**, paste both and click **Salvar e testar**.
+
+To watch the test in Meta's **Test events** tab, paste its code under **Avançado** > **Código de teste** first, and
+clear it afterwards: while it is set, sales do not count toward your campaigns. The store sets the `_fbp` cookie itself
+and builds `fbc` from the ad's `fbclid`, so the Conversions API matches buyers even with the browser Pixel off.
+
+### TikTok
+
+1. Open TikTok **Events Manager** (the link is in the dialog), select your web pixel (or create one with **Events API**
+   as the connection method) and copy its code.
+2. In the pixel's **Settings**, under Events API, click **Generate access token**.
+3. In **Conexões** > **TikTok**, paste both and click **Salvar e testar**.
+
+The test code works as with Meta, under **Avançado**.
+
+### Google Ads
+
+Google takes new server-side conversion integrations only through its Data Manager API, which needs a sign-in with your
+Google account. You do this once; each step below has its link in the dialog.
+
+1. In Google Ads, open **Goals**, then **Conversions**, and create a **New conversion action** of type **Import**,
+   **Track conversions from clicks**, with "Use different values for each conversion". Open the action and copy the page
+   address.
+2. In Google Cloud, enable the **Data Manager API**, fill in the **OAuth consent screen** (External, app name and your
+   e-mail) and under **Audience** click **Publish app**. While the app is in testing, Google ends the sign-in after 7
+   days.
+3. Create an **OAuth client** of type **Web application** with the redirect URI the dialog shows (copy button), such as
+   `https://yourstore.duckdns.org/api/google/callback`.
+4. In **Conexões** > **Google Ads**, paste the client ID and secret, the 10-digit account ID and the conversion action's
+   address. If you reach the account through a manager (MCC) account, its ID goes under **Avançado**. Click **Salvar e
+   entrar com Google**.
+5. Sign in with a Google account that has access to the Google Ads account. Google warns the app is not verified: click
+   **Advanced** > **Go to** your app, since it is your own. The store comes back to **Conexões** connected and tested;
+   the test checks the sign-in, the account and the action without recording a conversion.
+
+Each sale goes with the buyer's latest Google click (`gclid`, or `gbraid`/`wbraid` from iPhones) and the hashed e-mail
+and phone, so Enhanced Conversions for Leads can match buyers without a click id. Google takes conversions up to 90 days
+after the click. A refund is not sent to Google Ads: the Data Manager API only restates a conversion's value.
+
+The Google tag of Google Ads (`AW-...`) under **Avançado** loads the tag on your pages for remarketing lists. Sales
+still go only from the server, so they never count twice.
+
+### Google Analytics
+
+1. In Google Analytics, open **Admin** > **Data streams** and select your web stream (create one with your store's
+   address if needed). Copy the **Measurement ID** (`G-...`) or the whole Google tag from **View tag instructions**.
+2. In the same stream, open **Measurement Protocol API secrets** and click **Create**.
+3. In **Conexões** > **Google Analytics**, paste both and click **Salvar e testar**. A pasted Google tag that also has a
+   Google Ads id (`AW-`) fills that in too.
+
+Sales and refunds go from the server with the same transaction id the Google tag uses, so each counts once. Google only
+checks the test event's format, not the secret: after the first sale, look at **Reports** > **Realtime**.
+
+### Attribution
 
 Add UTMs to every ad link (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`) so the dashboard knows
-which ad sold. `fbclid`, `gclid` and `ttclid` are recognized too. The **Overview** tab shows sales by source with
-first-touch and last-touch attribution, and the order export (CSV) has the last ad click id of each order, ready for a
-Google Ads offline conversion upload.
+which ad sold. `fbclid`, `gclid`, `gbraid`, `wbraid` and `ttclid` are recognized too, every one a link carries. The
+**Overview** tab shows sales by source with first-touch and last-touch attribution, and the order export (CSV) has the
+last ad click id of each order.
+
+### Domain verification
+
+Meta asks you to verify the domains your ads link to, and Search Console verifies each address you add. Open
+**Conexões**, then **Verificação de domínio**, paste the meta tag each platform shows (or only its `content` value) and
+save. The tags go on every page of every domain of the store.
+
+- **Google Search Console**: a **URL prefix** property per domain, verified with **HTML tag**. Each product domain has
+  its own code: paste one per line. A **Domain** property verified by DNS (see
+  [Google and AI assistants](#google-and-ai-assistants)) needs nothing here.
+- **Meta**: **Business settings** > **Brand safety** > **Domains** > add the domain > **Meta-tag verification**. The
+  same code works for every domain.
 
 ## Video storage (Cloudflare R2 or S3)
 

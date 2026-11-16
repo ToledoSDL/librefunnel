@@ -47,8 +47,12 @@ function accessMessages(id: string) {
   return db().$count(message, and(eq(message.orderId, id), eq(message.kind, "access")));
 }
 
+// Per platform: each one gets the sale once.
 function purchases(id: string) {
-  return db().$count(conversion, and(eq(conversion.orderId, id), eq(conversion.name, "Purchase")));
+  return db().$count(
+    conversion,
+    and(eq(conversion.orderId, id), eq(conversion.name, "Purchase"), eq(conversion.platform, "meta")),
+  );
 }
 
 beforeEach(() => freshBrowser(`203.0.113.${Math.floor(Math.random() * 250)}`));

@@ -60,6 +60,15 @@ jobs:
           tags: |
             ${{ steps.image.outputs.name }}-demo:${{ github.ref_name }}
             ${{ steps.image.outputs.name }}-demo:latest
+      # The notes are the version's section of CHANGELOG.md, which the admin shows with the update.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+      - name: Release notes
+        run: |
+          awk -v tag="$GITHUB_REF_NAME" '$0 ~ "^## " tag " " { found = 1; next } found && /^## / { exit } found' CHANGELOG.md > notes.md
+          grep -q '[^[:space:]]' notes.md || { echo "::error::CHANGELOG.md has no section for $GITHUB_REF_NAME."; exit 1; }
       # The installer and the updater pull the image by this digest, so one changed in the registry later is refused.
       - name: Publish release
         env:
@@ -70,7 +79,7 @@ jobs:
         run: |
           printf 'app=%s\nupdater=%s\n' "$APP_DIGEST" "$UPDATER_DIGEST" > images.txt
           grep -Eq '^app=sha256:[0-9a-f]{64}$' images.txt
-          gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag images.txt
+          gh release create "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag images.txt
 
   # librefunnel.com serves /install from the latest release, so the site goes out right after it.
   site:

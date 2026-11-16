@@ -72,6 +72,7 @@
     "server-only": "0.0.1"
   },
   "devDependencies": {
+    "@iconify-json/logos": "1.2.20",
     "@iconify-json/lucide": "1.2.155",
     "@iconify-json/simple-icons": "1.2.102",
     "@iconify/types": "2.0.0",

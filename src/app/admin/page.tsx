@@ -13,6 +13,7 @@ import { Stat } from "@/components/text/stat";
 import { Text } from "@/components/text/text";
 import { productStates } from "@/lib/catalog/products";
 import { settings } from "@/lib/settings";
+import { adConnections } from "@/lib/tracking/accounts";
 import { funnel, integrations, orders, revenueByDay, sources, summary } from "@/lib/dashboard";
 import { redirect } from "next/navigation";
 import styles from "./admin.module.css";
@@ -89,12 +90,13 @@ function Broken({ links }: { links: Links }) {
 }
 
 async function Overview({ days, model }: { days: Days; model: Model }) {
-  const [stats, daily, steps, origins, links, items, store, waiting] = await Promise.all([
+  const [stats, daily, steps, origins, links, ads, items, store, waiting] = await Promise.all([
     summary(days),
     revenueByDay(days),
     funnel(days),
     sources(days, model),
     integrations(),
+    adConnections(),
     productStates(),
     settings(),
     orders({ q: "", status: "pending", product: "", days: null, page: 1 }),
@@ -110,7 +112,7 @@ async function Overview({ days, model }: { days: Days; model: Model }) {
         actions={<Periods tab="overview" days={days} extra={model === "first" ? { model: "first" } : {}} />}
       />
       <Broken links={links} />
-      <Setup links={links} store={store} items={items} />
+      <Setup links={links} ads={ads} store={store} items={items} />
       <Card>
         <Stat
           lead

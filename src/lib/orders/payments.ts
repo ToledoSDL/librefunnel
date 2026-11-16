@@ -9,7 +9,7 @@ import type { GuardCode } from "../guard";
 import { cancelInvoice, queueInvoice } from "../invoices";
 import { enqueueSale } from "../messages";
 import { customer, order, payment } from "../schema";
-import { orderStep } from "../tracking/funnel";
+import { orderStep } from "../tracking/conversions";
 import type { OrderCode, OrderStatus } from "./checkout";
 
 type StoredOrder = {
@@ -109,11 +109,7 @@ export function recordPayment(
     const net = debit === 0 ? 0 : await insertPayment(tx, found.id, debit, "webhook", externalId, payload);
     if (net === undefined) return "DUPLICATE_PAYMENT";
     if (amount < 0) {
-      await tx
-        .update(order)
-        .set({ status: "refunded" })
-        .where(and(eq(order.id, found.id), eq(order.status, "paid")));
-      await cancelInvoice(tx, found.id);
+      await markRefunded(tx, found.id);
       return null;
     }
     if (settled) return null;
@@ -161,11 +157,19 @@ export function refundOrder(orderId: string): Promise<OrderCode | null> {
     if (!found) return "ORDER_NOT_FOUND";
     if (found.status !== "paid") return "INVALID_TRANSITION";
     if (found.net > 0) await insertPayment(tx, orderId, -found.net, "admin", null, null);
-    await tx
-      .update(order)
-      .set({ status: "refunded" })
-      .where(and(eq(order.id, orderId), eq(order.status, "paid")));
-    await cancelInvoice(tx, orderId);
+    await markRefunded(tx, orderId);
     return null;
   });
+}
+
+// Only the change from paid reports the refund, so a second debit for the same order (the MED after a refund) does not.
+async function markRefunded(tx: Database, orderId: string) {
+  const changed = await tx
+    .update(order)
+    .set({ status: "refunded" })
+    .where(and(eq(order.id, orderId), eq(order.status, "paid")))
+    .returning({ id: order.id });
+
+  if (changed.length === 1) await orderStep(tx, orderId, "refunded");
+  await cancelInvoice(tx, orderId);
 }

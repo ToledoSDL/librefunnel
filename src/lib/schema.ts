@@ -22,7 +22,7 @@ function literals<const T extends readonly [string, ...string[]]>(...values: T):
 
 const ORDER_STATUSES = literals("pending", "paid", "expired", "canceled", "refunded");
 const PAYMENT_SOURCES = literals("webhook", "admin");
-const CLICK_KINDS = literals("", "fbclid", "gclid", "ttclid");
+const CLICK_KINDS = literals("", "fbclid", "gclid", "ttclid", "gbraid", "wbraid");
 const COUPON_KINDS = literals("percent", "fixed");
 const SESSION_KINDS = literals("admin", "member", "order");
 
@@ -50,9 +50,10 @@ const CHANNELS = literals("email", "whatsapp");
 const MESSAGE_KINDS = literals("access", "paid", "recovery", "login", "reply", "owner", "inbound", "manual", "invoice");
 const INVOICE_STATUSES = literals("queued", "issued", "failed", "canceled", "cancel_failed");
 const MESSAGE_STATUSES = literals("queued", "sending", "sent", "delivered", "read", "failed", "skipped", "received");
-const CONVERSION_NAMES = literals("InitiateCheckout", "AddPaymentInfo", "Purchase");
+const CONVERSION_NAMES = literals("InitiateCheckout", "AddPaymentInfo", "Purchase", "Refund");
 const SIGNAL_NAMES = literals("ViewContent", "InitiateCheckout");
 const CONVERSION_STATUSES = literals("queued", "sent", "failed", "skipped");
+const PLATFORMS = literals("meta", "tiktok", "analytics", "googleads");
 
 const SETTING_KEYS = literals(
   "brand",
@@ -84,11 +85,16 @@ const SETTING_KEYS = literals(
   "checkout_testimonials",
   "thanks_url",
   "thanks_label",
+  "google_verification",
+  "meta_verification",
 );
 
 const INTEGRATION_KINDS = literals(
   "smtp",
   "meta",
+  "tiktok",
+  "analytics",
+  "googleads",
   "pix",
   "mercadopago",
   "woovi",
@@ -153,6 +159,9 @@ export const order = pgTable(
     userAgent: text("user_agent").notNull(),
     fbp: text("fbp"),
     fbc: text("fbc"),
+    ttp: text("ttp"),
+    gaClient: text("ga_client"),
+    gaSession: text("ga_session"),
     termsVersion: text("terms_version").notNull(),
     createdAt: timestamptz("created_at").notNull(),
   },
@@ -352,6 +361,7 @@ export const conversion = pgTable(
       .notNull()
       .references(() => order.id),
     name: text("name", { enum: CONVERSION_NAMES }).notNull(),
+    platform: text("platform", { enum: PLATFORMS }).notNull().default("meta"),
     status: text("status", { enum: CONVERSION_STATUSES }).notNull().default("queued"),
     error: text("error"),
     attempts: integer("attempts").notNull().default(0),
@@ -359,8 +369,9 @@ export const conversion = pgTable(
     sentAt: timestamptz("sent_at"),
   },
   (table) => [
-    primaryKey({ columns: [table.orderId, table.name] }),
+    primaryKey({ columns: [table.orderId, table.name, table.platform] }),
     check("conversion_name", oneOf(table.name, CONVERSION_NAMES)),
+    check("conversion_platform", oneOf(table.platform, PLATFORMS)),
     check("conversion_status", oneOf(table.status, CONVERSION_STATUSES)),
     index("conversion_due")
       .on(table.nextAt)
@@ -368,17 +379,21 @@ export const conversion = pgTable(
   ],
 );
 
-// Meta events from before an order exists, one per visitor, product and name, sent by the background loop.
+// Ad platform events from before an order exists, one per visitor, product, name and platform, sent by the background
+// loop. event_id is the one the browser tag sent the same event with, so the platform counts it once.
 export const signal = pgTable(
   "signal",
   {
     visitorId: text("visitor_id").notNull(),
     product: text("product").notNull(),
     name: text("name", { enum: SIGNAL_NAMES }).notNull(),
+    platform: text("platform", { enum: PLATFORMS }).notNull().default("meta"),
+    eventId: text("event_id"),
     ip: text("ip").notNull(),
     userAgent: text("user_agent").notNull(),
     fbp: text("fbp"),
     fbc: text("fbc"),
+    ttp: text("ttp"),
     status: text("status", { enum: CONVERSION_STATUSES }).notNull().default("queued"),
     error: text("error"),
     attempts: integer("attempts").notNull().default(0),
@@ -387,8 +402,9 @@ export const signal = pgTable(
     createdAt: timestamptz("created_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.visitorId, table.product, table.name] }),
+    primaryKey({ columns: [table.visitorId, table.product, table.name, table.platform] }),
     check("signal_name", oneOf(table.name, SIGNAL_NAMES)),
+    check("signal_platform", oneOf(table.platform, PLATFORMS)),
     check("signal_status", oneOf(table.status, CONVERSION_STATUSES)),
     index("signal_due")
       .on(table.nextAt)
@@ -583,6 +599,25 @@ export const integration = pgTable(
     check("integration_kind", oneOf(table.kind, INTEGRATION_KINDS)),
     check("integration_fields", sql`jsonb_typeof(${table.fields}) = 'object'`),
     check("integration_secrets", sql`jsonb_typeof(${table.secrets}) = 'object'`),
+  ],
+);
+
+// A product's own pixel, property or conversion action, for products sold under another ad account. What a row leaves
+// blank comes from the store's connection; secrets are sealed like integration's, bound to the product.
+export const productTracking = pgTable(
+  "product_tracking",
+  {
+    product: text("product")
+      .notNull()
+      .references(() => product.slug),
+    platform: text("platform", { enum: PLATFORMS }).notNull(),
+    fields: jsonb("fields").$type<Record<string, string>>().notNull().default({}),
+    secrets: jsonb("secrets").$type<Record<string, string>>().notNull().default({}),
+    updatedAt: timestamptz("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.product, table.platform] }),
+    check("product_tracking_platform", oneOf(table.platform, PLATFORMS)),
   ],
 );
 

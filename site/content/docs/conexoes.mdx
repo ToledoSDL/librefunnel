@@ -87,17 +87,43 @@ Nos dois casos: quem responde SAIR ou PARAR deixa de receber mensagens automáti
 Brasília), o limite é de 2 mensagens de recuperação por pessoa por dia e 300 mensagens automáticas por dia, e a
 recuperação para assim que o pedido é pago.
 
-## Meta (API de Conversões)
+## Anúncios e análise
 
-A loja envia para a Meta, pelo servidor, o checkout iniciado (quando o Pix é gerado) e a compra (quando é paga). Assim
-os anúncios otimizam para venda, não para clique. A Meta recebe nome, e-mail e telefone só em hash.
+A loja envia cada etapa do funil, pelo servidor, para as plataformas que você conectar: página de vendas, checkout
+aberto, Pix gerado e compra paga. Assim os anúncios otimizam para venda, não para clique, e a venda conta mesmo quando o
+comprador paga no app do banco e não volta para a página. Nome, e-mail e telefone saem só em hash.
 
-1. No Gerenciador de Eventos, copie o ID do pixel e gere um token da API de Conversões nas configurações dele.
-2. Em Conexões, cole os dois e, para conferir, o código de teste da aba Eventos de teste. Clique em Testar.
-3. Depois que o evento aparecer, apague o código de teste e salve de novo. Enquanto ele estiver lá, as vendas não contam
-   para as campanhas.
+| Plataforma       | O que recebe                                        | Precisa de                                        |
+| ---------------- | --------------------------------------------------- | ------------------------------------------------- |
+| Meta             | Página, checkout, Pix gerado e compra               | ID do Pixel e token da API de Conversões          |
+| TikTok           | Página, checkout, Pix gerado e compra               | Código do Pixel e token da Events API             |
+| Google Ads       | Compra, com o gclid (ou gbraid e wbraid, do iPhone) | Cliente OAuth no Google Cloud e ação de conversão |
+| Google Analytics | Compra e reembolso (o resto vem da Google tag)      | ID da métrica (G-) e chave secreta da API         |
+
+Cada plataforma tem uma tag no navegador (Pixel da Meta, Pixel do TikTok, Google tag), ligada por padrão e com chave em
+Avançado. Ela roda só na página de vendas, no checkout e na vitrine, com o mesmo ID de evento do servidor, então nada
+conta em dobro. O Google Analytics só mostra de onde vieram as visitas com a Google tag ligada. Sem nenhuma tag, nenhum
+script de terceiros roda nas suas páginas.
+
+Tudo funciona nos domínios próprios de produto, sem configuração a mais. O passo a passo de cada plataforma, incluindo o
+login do Google Ads pelo Data Manager API, está no
+[guia de instalação](https://github.com/ToledoSDL/librefunnel/blob/main/docs/deploy.md#ads-and-analytics).
+
+Cada janela tem os passos com o link da página certa de cada plataforma. Os campos aceitam o que você copiar: o ID, o
+código inteiro da tag ou, no Google Ads, o endereço da página da ação de conversão. Salvar e testar salva e manda um
+evento de teste na hora, com a resposta da plataforma. Se a plataforma recusar eventos depois, o cartão dela mostra
+quantos nos últimos 7 dias.
+
+Produto vendido por outra conta de anúncio tem o próprio Pixel, propriedade do Analytics ou ação de conversão em
+Produtos, na aba Anúncios. Campo em branco usa a conexão da loja.
 
 Coloque UTMs em todo link de anúncio para o painel saber qual anúncio vendeu.
+
+### Verificação de domínio
+
+Em Conexões, Verificação de domínio, cole a meta tag do Google Search Console e a da Meta. Elas entram em todas as
+páginas, em todos os domínios da loja. No Search Console, cada domínio de produto é uma propriedade com o próprio
+código: cole um por linha. A Meta usa o mesmo código para todos.
 
 ## Vídeos (Cloudflare R2 ou S3)
 

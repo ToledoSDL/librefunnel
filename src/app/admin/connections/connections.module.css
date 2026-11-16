@@ -74,9 +74,11 @@
     gap: var(--space-2);
     grid-column: 1 / -1;
 
+    /* A long test result wraps under the buttons instead of squeezing the name. */
     @media (min-width: 768px) {
       grid-column: auto;
       justify-content: flex-end;
+      max-width: 26rem;
     }
   }
 

@@ -100,7 +100,10 @@ const INCLUDED = [
   ["Checkout Pix", "QR Code, copia e cola, order bump, cupons de desconto e aparência configurável."],
   ["Área de membros", "Módulos, aulas, progresso e entrada por link enviado por e-mail."],
   ["Recuperação", "E-mail por qualquer SMTP e WhatsApp pelo QR Code ou pela API oficial da Meta."],
-  ["Atribuição", "UTMs com primeiro e último toque, e vendas enviadas à Meta pela API de Conversões."],
+  [
+    "Atribuição",
+    "UTMs com primeiro e último toque, e vendas enviadas pelo servidor à Meta, ao TikTok, ao Google Ads e ao Google Analytics.",
+  ],
   ["Nota fiscal", "NFS-e de cada venda pelo Emissor Nacional, com o certificado A1 da empresa. Opcional."],
   ["Painel", "Faturamento, funil, origens, pedidos com liberação e reembolso, retenção do vídeo e CSV."],
   ["Operação", "HTTPS automático, backup diário de 7 dias, atualização pelo painel e vídeos no Cloudflare R2."],
@@ -235,7 +238,7 @@ const STRUCTURED = {
       "@id": `${SITE}/#app`,
       name: "LibreFunnel",
       description:
-        "Funil de vendas de código aberto para infoprodutos no Brasil: página de vendas com vídeo, checkout Pix com order bump, área de membros, recuperação de carrinho por e-mail e WhatsApp, atribuição com a API de Conversões da Meta e painel. Instalado no servidor do vendedor, sem taxa por venda.",
+        "Funil de vendas de código aberto para infoprodutos no Brasil: página de vendas com vídeo, checkout Pix com order bump, área de membros, recuperação de carrinho por e-mail e WhatsApp, conversões enviadas à Meta, ao TikTok e ao Google pelo servidor e painel. Instalado no servidor do vendedor, sem taxa por venda.",
       url: SITE,
       applicationCategory: "BusinessApplication",
       applicationSubCategory: "Sales funnel and checkout",

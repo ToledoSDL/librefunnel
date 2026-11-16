@@ -12,7 +12,7 @@ import { expireOrders } from "./lib/orders/checkout";
 import { convertToCrypto } from "./lib/orders/crypto";
 import { refreshWebhookKeys } from "./lib/orders/woovi";
 import { pruneSessions } from "./lib/sessions";
-import * as tracking from "./lib/tracking/meta";
+import * as tracking from "./lib/tracking/conversions";
 import { checkRelease } from "./lib/updates";
 
 declare global {

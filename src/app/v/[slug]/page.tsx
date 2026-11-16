@@ -12,6 +12,7 @@ import { standing } from "@/lib/members";
 import { offerOpen } from "@/lib/orders/checkout";
 import { Footer, JsonLd, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
+import { Tags } from "@/app/tags";
 import { TrackClick, Tracker } from "@/app/track";
 import { inkFor } from "@/app/color";
 import { StandingNotice } from "@/app/standing";
@@ -214,7 +215,8 @@ export default async function SalesPage({ params, searchParams }: Props) {
 
   return (
     <div className={`surface-experience ${styles.page}`}>
-      <Tracker product={slug} />
+      <Tags product={slug} />
+      <Tracker product={slug} value={product.price} />
       <JsonLd schema={schema(product, brand, open)} />
       {bar ? (
         <div className={styles.bar} style={{ background: barColor, color: inkFor(barColor) }}>

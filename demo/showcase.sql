@@ -29,7 +29,9 @@ INSERT INTO setting (key, value) VALUES
   ('checkout_guarantee', '1'),
   ('checkout_testimonials', '1'),
   ('thanks_url', 'https://librefunnel.com'),
-  ('thanks_label', 'Conhecer o LibreFunnel')
+  ('thanks_label', 'Conhecer o LibreFunnel'),
+  ('google_verification', ''),
+  ('meta_verification', '')
 ON CONFLICT (key) DO UPDATE SET value = excluded.value;
 --> statement-breakpoint
 UPDATE product SET pix_key = 'demo@librefunnel.com';

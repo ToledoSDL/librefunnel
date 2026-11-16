@@ -14,6 +14,8 @@ export function proxy(request: NextRequest) {
     "media-src 'self' https: blob:",
     "font-src 'self'",
     "connect-src 'self' https:",
+    // The Google tag, when the seller turns it on, loads its service frames from these hosts.
+    "frame-src 'self' https://www.googletagmanager.com https://td.doubleclick.net",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -32,7 +34,8 @@ const DAY = 86400;
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 // Set with the page itself, so the first tracking beacons and the order share one visitor id, and Meta gets fbp
-// without a browser pixel.
+// without a browser pixel. _fbp stays readable by scripts: when the seller turns the Meta Pixel on, it reads and keeps
+// this same value instead of making another.
 function identify(request: NextRequest, response: NextResponse) {
   if (request.method !== "GET" || request.nextUrl.pathname.startsWith("/admin")) return;
   const secure = (process.env.BASE_URL ?? "").startsWith("https://");
@@ -45,7 +48,7 @@ function identify(request: NextRequest, response: NextResponse) {
 
   if (!request.cookies.has("_fbp")) {
     const random = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
-    response.cookies.set("_fbp", `fb.1.${Date.now()}.${random}`, { ...options, maxAge: 90 * DAY });
+    response.cookies.set("_fbp", `fb.1.${Date.now()}.${random}`, { ...options, httpOnly: false, maxAge: 90 * DAY });
   }
 }
 

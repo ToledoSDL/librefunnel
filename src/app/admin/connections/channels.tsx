@@ -2,7 +2,7 @@ import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
 import { Icon } from "@/components/media/icon";
 import { Dialog } from "@/components/overlay/dialog";
-import { disconnectWhatsApp, saveMeta, saveSmtp } from "@/lib/actions/connections";
+import { disconnectWhatsApp, saveSmtp } from "@/lib/actions/connections";
 import { DANGER, OUTLINE, PRIMARY, TextField, type Links, type Tone } from "../shared";
 import { ActionButton, SaveForm, WebhookSecret, WhatsAppConnect } from "../ui";
 import styles from "./connections.module.css";
@@ -143,52 +143,6 @@ export function WhatsApp({ whatsapp, official }: { whatsapp: Links["whatsapp"]; 
             : "Este servidor não tem o WhatsApp por QR Code. Instale a loja pelo Docker do guia de instalação ou use a API oficial acima."}
         </span>
       )}
-    </Integration>
-  );
-}
-
-export function Meta({ meta }: { meta: Links["meta"] }) {
-  return (
-    <Integration brand="meta" name="Meta (Facebook e Instagram)" status={configured(meta.configured)}>
-      <Dialog
-        trigger={{ label: meta.configured ? "Configurar" : "Conectar", size: "sm" }}
-        title="Conectar a Meta"
-        body={
-          <SaveForm
-            action={saveMeta}
-            label="Salvar Meta"
-            pendingLabel="Salvando"
-            done="Meta salva. Clique em Testar."
-            button={PRIMARY}
-          >
-            <TextField
-              label="ID do Pixel"
-              hint="Gerenciador de Eventos > Fontes de dados."
-              name="pixelId"
-              inputMode="numeric"
-              defaultValue={meta.pixelId}
-            />
-            <SecretInput
-              name="token"
-              label="Token da API de Conversões"
-              set={meta.tokenSet}
-              hint="Seu Pixel > Configurações > Gerar token de acesso."
-            />
-            <TextField
-              label="Código de teste (opcional)"
-              hint="Apague depois de testar: enquanto existir, as vendas não contam nas campanhas."
-              name="testEventCode"
-              defaultValue={meta.testEventCode}
-            />
-          </SaveForm>
-        }
-      />
-      {meta.configured ? (
-        <>
-          <TestButton kind="meta" />
-          <RemoveButton kind="meta" warning="As vendas deixam de ser enviadas para a Meta." />
-        </>
-      ) : null}
     </Integration>
   );
 }

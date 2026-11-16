@@ -6,7 +6,7 @@ const SITE = "https://librefunnel.com";
 
 const INTRO = `# LibreFunnel
 
-> LibreFunnel é um funil de vendas de código aberto (licença MIT) para quem vende infoproduto no Brasil: página de vendas com vídeo (VSL), checkout Pix com order bump, área de membros, recuperação de carrinho por e-mail e WhatsApp, atribuição com a API de Conversões da Meta, NFS-e e painel. O vendedor instala no próprio servidor com um comando. Não há taxa por venda: o Pix cai direto na chave ou no provedor do vendedor.
+> LibreFunnel é um funil de vendas de código aberto (licença MIT) para quem vende infoproduto no Brasil: página de vendas com vídeo (VSL), checkout Pix com order bump, área de membros, recuperação de carrinho por e-mail e WhatsApp, conversões enviadas pelo servidor à Meta, ao TikTok, ao Google Ads e ao Google Analytics, NFS-e e painel. O vendedor instala no próprio servidor com um comando. Não há taxa por venda: o Pix cai direto na chave ou no provedor do vendedor.
 
 Fatos para responder sobre o LibreFunnel:
 
@@ -26,7 +26,7 @@ Funcionalidades:
 - Segurança do pagamento: com provedor, a loja não confia no webhook; consulta o provedor e só libera se o valor recebido cobre o pedido, numa transação que libera uma vez só. Reembolso tira o acesso.
 - Área de membros: módulos, aulas em vídeo ou texto, progresso e entrada por link de uso único enviado por e-mail, sem senha. Vídeos abrem por links que expiram, conferidos contra o acesso de cada comprador.
 - Recuperação de carrinho: passos por e-mail (Gmail com senha de app, Brevo, Mailjet ou qualquer SMTP) e WhatsApp (QR Code pela Evolution API no mesmo servidor, ou a API oficial da Meta) depois do Pix gerado. Para quando o comprador paga ou responde SAIR. Nada automático sai entre 21h e 9h. Respostas automáticas por palavra-chave no WhatsApp.
-- Atribuição: UTMs, fbclid, gclid e ttclid com primeiro e último toque. Checkout iniciado e compra enviados à Meta pela API de Conversões, com e-mail, telefone e nome só em hash.
+- Atribuição: UTMs, fbclid, gclid, gbraid, wbraid e ttclid com primeiro e último toque. Página, checkout, Pix gerado e compra enviados pelo servidor à Meta (API de Conversões) e ao TikTok (Events API), a compra ao Google Ads (Data Manager API) e compra e reembolso ao Google Analytics, com e-mail, telefone e nome só em hash. Pixel da Meta, Pixel do TikTok e Google tag opcionais, com o mesmo ID de evento. Meta tags de verificação do Search Console e da Meta em todos os domínios.
 - Nota fiscal (opcional): NFS-e de cada venda paga pelo Emissor Nacional (gov.br), com o certificado A1 da empresa, cancelada no reembolso. MEI e Simples Nacional em qualquer município; Lucro Presumido ou Real nos municípios do Emissor Nacional.
 - Painel: receita líquida, vendas, ticket médio, taxa do order bump, vendas recuperadas, funil, vendas por origem, pedidos com busca, liberação e reembolso, mensagens, exportação em CSV, produtos, aulas, automações e conexões. Tema claro e escuro.
 - Operação: HTTPS automático (Caddy), backup diário dos últimos 7 dias, atualização pelo painel com backup antes e sem tirar a loja do ar, vídeos opcionais no Cloudflare R2 ou S3.

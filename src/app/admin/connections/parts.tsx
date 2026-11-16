@@ -49,11 +49,30 @@ export function configured(ok: boolean, label = "Conectado"): { label: string; t
   return ok ? { label, tone: "success" } : { label: "Não conectado", tone: "default" };
 }
 
+// An ad platform's card: connected, connected with events refused in the last 7 days, or not connected.
+export function adStatus(ok: boolean, refused: number): { label: string; tone: Tone } {
+  return ok && refused ? { label: "Com recusas", tone: "warning" } : configured(ok);
+}
+
+export function refusedNote(refused: number): string | undefined {
+  if (!refused) return undefined;
+  const events = refused === 1 ? "1 evento recusado" : `${refused} eventos recusados`;
+  return `${events} nos últimos 7 dias. Clique em Testar para ver o motivo.`;
+}
+
+export function Out({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+}
+
 export function Steps({ children }: { children: ReactNode }) {
   return <ol className={styles.steps}>{children}</ol>;
 }
 
-export function TestButton({ kind }: { kind: string }) {
+export function TestButton({ kind, done = "Conexão funcionando." }: { kind: string; done?: string }) {
   return (
     <ActionButton
       action={testConnection}
@@ -61,7 +80,7 @@ export function TestButton({ kind }: { kind: string }) {
       button={OUTLINE}
       label="Testar"
       pendingLabel="Testando"
-      done="Conexão funcionando."
+      done={done}
     />
   );
 }

@@ -8,7 +8,7 @@ import { addSeconds, db, newId, one } from "../db";
 import { ID } from "../input";
 import { recoverySteps } from "../messages";
 import { customer, order } from "../schema";
-import { orderStep } from "../tracking/funnel";
+import { orderStep } from "../tracking/conversions";
 import { brCode } from "./pix";
 import { formatFirstName, formatMaskedEmail } from "@/format";
 
@@ -58,8 +58,14 @@ export type OrderInput = {
   visitorId: string;
   ip: string;
   userAgent: string;
-  fbp: string | null;
-  fbc: string | null;
+  // The ids the ad platforms' browser tags keep, so the order's events join the visit that led to it.
+  browser: {
+    fbp: string | null;
+    fbc: string | null;
+    ttp: string | null;
+    gaClient: string | null;
+    gaSession: string | null;
+  };
 };
 
 export function offerOpen(product: Product): boolean {
@@ -171,12 +177,11 @@ export async function placeOrder(input: OrderInput): Promise<{ id: string } | { 
       visitorId: input.visitorId,
       ip: input.ip,
       userAgent: input.userAgent,
-      fbp: input.fbp,
-      fbc: input.fbc,
+      ...input.browser,
       termsVersion: store.termsVersion,
       createdAt: t,
     });
-    // A buyer correcting their details replaces a live order: Meta already has this checkout.
+    // A buyer correcting their details replaces a live order: the ad platforms already have this checkout.
     if (!open || open.expiresAt <= t) await orderStep(tx, id, "created");
     return { id };
   });

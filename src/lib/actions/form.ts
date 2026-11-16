@@ -13,7 +13,7 @@ import type { AutomationCode, MessageCode } from "../messages";
 import type { OrderCode } from "../orders/checkout";
 import { company } from "../registry";
 import * as config from "../settings";
-import type { ConversionCode } from "../tracking/meta";
+import type { ConversionCode } from "../tracking/conversions";
 import type { TrackCode } from "../tracking/funnel";
 import type { UpdateCode } from "../updates";
 

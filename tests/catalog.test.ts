@@ -405,6 +405,7 @@ describe("automations and settings", () => {
       checkoutGuarantee: true,
       checkoutTestimonials: true,
       thanksLabel: "Próximo passo",
+      googleVerification: [],
     });
     expect((await saveSettings({ code: null }, form({ accent: "verde" }))).code).toBe("INVALID_COLOR");
     expect((await saveSettings({ code: null }, form({ document: "123" }))).code).toBe("INVALID_DOCUMENT");

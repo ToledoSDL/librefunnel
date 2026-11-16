@@ -134,6 +134,20 @@
       "when": 1794786851155,
       "tag": "0018_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794789537910,
+      "tag": "0019_ad_platforms",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794791738368,
+      "tag": "0020_product_tracking",
+      "breakpoints": true
     }
   ]
 }

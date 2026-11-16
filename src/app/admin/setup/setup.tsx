@@ -4,9 +4,13 @@ import type { ChecklistStepItem } from "@/components/feedback/checklist-step";
 import { TextLink } from "@/components/text/text-link";
 import type { productStates } from "@/lib/catalog/products";
 import type { Settings } from "@/lib/settings";
-import { Email, Meta, WhatsApp } from "../connections/channels";
+import { Analytics } from "../connections/analytics";
+import { Email, WhatsApp } from "../connections/channels";
+import { GoogleAds } from "../connections/google-ads";
+import { Meta } from "../connections/meta";
+import { TikTok } from "../connections/tiktok";
 import connections from "../connections/connections.module.css";
-import { href, type Links } from "../shared";
+import { href, type Ads, type Links } from "../shared";
 import { BrandForm } from "./brand-form";
 import { DemoProducts } from "./demo-products";
 import { PixChoice } from "./pix-choice";
@@ -18,10 +22,12 @@ const DEFAULT_BRAND = "LibreFunnel";
 
 export function Setup({
   links,
+  ads,
   store,
   items,
 }: {
   links: Links;
+  ads: Ads;
   store: Settings;
   items: Awaited<ReturnType<typeof productStates>>;
 }) {
@@ -29,6 +35,13 @@ export function Setup({
   const demos = items.filter((item) => DEMO_PRODUCTS.has(item.slug));
   const liveDemos = demos.filter((item) => !item.archived);
   const provider = links.pix.providers.find((entry) => entry.active);
+
+  const connected = [
+    ads.meta.configured ? "Meta" : "",
+    ads.tiktok.configured ? "TikTok" : "",
+    ads.googleAds.configured ? "Google Ads" : "",
+    ads.analytics.configured ? "Google Analytics" : "",
+  ].filter(Boolean);
 
   const steps: ChecklistStepItem[] = [
     {
@@ -107,15 +120,18 @@ export function Setup({
       ),
     },
     {
-      id: "meta",
-      title: "Anúncios na Meta",
+      id: "ads",
+      title: "Anúncios e análise",
       level: "optional",
-      done: links.meta.configured,
-      status: "Conectada",
-      why: "Cada venda é enviada para a Meta, que passa a mostrar seus anúncios a quem tem mais chance de comprar.",
+      done: connected.length > 0,
+      status: connected.join(", "),
+      why: "Cada venda vai para as plataformas onde você anuncia, que passam a mostrar seus anúncios a quem tem mais chance de comprar.",
       children: (
         <div className={connections.list}>
-          <Meta meta={links.meta} />
+          <Meta meta={ads.meta} />
+          <TikTok tiktok={ads.tiktok} />
+          <GoogleAds ads={ads.googleAds} />
+          <Analytics analytics={ads.analytics} />
         </div>
       ),
     },

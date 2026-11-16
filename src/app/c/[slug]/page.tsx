@@ -13,7 +13,8 @@ import { getPixOrder, offerOpen } from "@/lib/orders/checkout";
 import { Footer, StoreHeader, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
 import { StandingNotice } from "@/app/standing";
-import { Tracker } from "@/app/track";
+import { Tags } from "@/app/tags";
+import { OrderTracker, Tracker } from "@/app/track";
 import { Countdown } from "./countdown";
 import styles from "./page.module.css";
 import { PixPage } from "./pix";
@@ -94,7 +95,16 @@ export default async function Checkout({ params, searchParams }: Props) {
 
     return (
       <div className={SURFACE[store.checkoutTheme]}>
+        <Tags product={slug} />
         <Tracker product={slug} event="pix_view" />
+        {order.status === "pending" || order.status === "paid" ? (
+          <OrderTracker
+            step={order.status === "paid" ? "paid" : "created"}
+            order={order.id}
+            items={order.bump ? [slug, order.bump] : [slug]}
+            value={order.amount}
+          />
+        ) : null}
         <Topbar />
         <PixPage
           product={product}
@@ -132,8 +142,9 @@ export default async function Checkout({ params, searchParams }: Props) {
 
   return (
     <div className={SURFACE[store.checkoutTheme]}>
-      <Tracker product={slug} />
-      <Tracker product={slug} event="checkout_view" />
+      <Tags product={slug} />
+      <Tracker product={slug} value={product.price} />
+      <Tracker product={slug} event="checkout_view" value={product.price} />
       {open && deadline && store.checkoutCountdown ? (
         <div className={styles.countdown} role="timer">
           <Icon name="clock" size={16} />

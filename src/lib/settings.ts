@@ -36,6 +36,8 @@ export type Settings = {
   checkoutTestimonials: boolean;
   thanksUrl?: string;
   thanksLabel: string;
+  googleVerification: string[];
+  metaVerification?: string;
 };
 
 export const CHECKOUT_PHONE = ["optional", "required", "hidden"] as const;
@@ -62,7 +64,14 @@ export type Credentials<K extends IntegrationKind> = (name: FieldName<K> | Secre
 // The Pix providers share field names; the panel labels them Access Token, AppID, API key or Client Secret.
 const INTEGRATIONS = {
   smtp: { fields: ["host", "port", "user", "from"], secrets: ["password"] },
-  meta: { fields: ["pixelId", "testEventCode"], secrets: ["token"] },
+  meta: { fields: ["pixelId", "testEventCode", "pixel"], secrets: ["token"] },
+  tiktok: { fields: ["pixelCode", "testEventCode", "pixel"], secrets: ["token"] },
+  analytics: { fields: ["measurementId", "tag"], secrets: ["apiSecret"] },
+  // state and stateAt hold the pending "Conectar com Google" login, checked once by the callback.
+  googleads: {
+    fields: ["clientId", "customerId", "loginCustomerId", "actionId", "tagId", "state", "stateAt"],
+    secrets: ["clientSecret", "refreshToken"],
+  },
   pix: { fields: ["provider", "key", "name", "city"], secrets: [] },
   mercadopago: { fields: [], secrets: ["apiKey", "webhookSecret"] },
   woovi: {
@@ -125,6 +134,9 @@ export const settings = cache(async (executor: Database = db()): Promise<Setting
     checkoutTestimonials: values.get("checkout_testimonials") !== "0",
     thanksUrl: values.get("thanks_url") || undefined,
     thanksLabel: values.get("thanks_label") || CHECKOUT_LABELS.thanks,
+    // One per Search Console property: each product domain is its own property with its own code.
+    googleVerification: (values.get("google_verification") ?? "").split(" ").filter(Boolean),
+    metaVerification: values.get("meta_verification") || undefined,
   };
 });
 

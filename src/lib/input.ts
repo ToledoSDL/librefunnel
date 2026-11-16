@@ -37,6 +37,53 @@ export function parsePhone(raw: string): string | undefined {
   return /^55\d{10,11}$/.test(digits) ? digits : undefined;
 }
 
+// Ad platform ids, typed alone or found in whatever the seller copied: the whole tag code, a link or the id itself.
+export function parseMetaPixel(raw: string): string | undefined {
+  const text = raw.trim();
+  const found = /fbq\(\s*['"]init['"]\s*,\s*['"]?(\d{5,20})/.exec(text) ?? /[?&]id=(\d{5,20})\b/.exec(text);
+  return found?.[1] ?? (/^\d{5,20}$/.test(text) ? text : undefined);
+}
+
+export function parseTikTokPixel(raw: string): string | undefined {
+  const text = raw.trim();
+
+  const found =
+    /ttq\.load\(\s*['"]([A-Za-z0-9]{10,30})['"]/.exec(text) ?? /[?&]sdkid=([A-Za-z0-9]{10,30})\b/.exec(text);
+
+  const code = found?.[1] ?? (/^[A-Za-z0-9]{10,30}$/.test(text) ? text : undefined);
+  return code?.toUpperCase();
+}
+
+// The Google tag code carries the Analytics id (G-) and the Google Ads one (AW-); either may be pasted alone.
+export function parseGoogleTags(raw: string): { analytics?: string; ads?: string } {
+  return {
+    analytics: /\bG-[A-Z0-9]{4,20}\b/i.exec(raw)?.[0].toUpperCase(),
+    ads: /\bAW-\d{5,20}\b/i.exec(raw)?.[0].toUpperCase(),
+  };
+}
+
+// The id alone, or the address of the conversion action's page in Google Ads (ctId=).
+export function parseConversionAction(raw: string): string | undefined {
+  const text = raw.trim();
+  return /[?&]ctId=(\d{1,20})\b/.exec(text)?.[1] ?? (/^\d{1,20}$/.test(text) ? text : undefined);
+}
+
+// Google shows account ids as 123-456-7890.
+export function parseGoogleAccount(raw: string): string | undefined {
+  const digits = raw.replace(/[\s-]/g, "");
+  return /^\d{10}$/.test(digits) ? digits : undefined;
+}
+
+// Site verification codes, typed alone or pasted inside the whole <meta> tag the platform shows.
+export function parseVerifications(raw: string, max: number): string[] | undefined {
+  const codes = raw.split(/\r?\n/).flatMap((line) => {
+    const tagged = [...line.matchAll(/content=["']([^"']*)["']/g)].map((match) => match[1] ?? "");
+    return tagged.length ? tagged : line.split(/[\s,]+/).filter(Boolean);
+  });
+
+  return codes.length <= max && codes.every((code) => /^[\w-]{10,100}$/.test(code)) ? [...new Set(codes)] : undefined;
+}
+
 export function parsePrintable(value: string, max: number): string {
   const trimmed = value.trim();
   return trimmed.length <= max && !CONTROL.test(trimmed) ? trimmed : "";

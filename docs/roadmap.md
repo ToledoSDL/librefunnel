@@ -30,11 +30,35 @@ LibreFunnel to n8n, Zapier and Make without one integration per tool.
 
 A WhatsApp or e-mail to the seller on each sale goes through the same outbox.
 
-### 4. Google Ads conversions
+### 4. Ad platforms and analytics (done)
 
-Already planned in `src/lib/tracking/`. The gclid of the last click is already stored per order. `conversion` already
-has attempts and the next attempt time, keyed by order and event name; adding a platform column to that key makes Google
-Ads a second destination there, and a platform never receives the same conversion twice.
+Built in `src/lib/tracking/`: `conversion` and `signal` are keyed by platform, and Meta, TikTok (Events API), Google Ads
+(Data Manager API, OAuth from Conexões) and Google Analytics (Measurement Protocol, sale and refund) each are a
+`Destination`. The Meta Pixel, the TikTok Pixel and the Google tag are on by default, share the server's event ids and
+load only on buyer pages. Each field takes whatever the seller pastes (the id, the tag code, the conversion action's
+link) and saving tests the connection. A product can have its own pixel, property and conversion action
+(`product_tracking`, the "Anúncios" tab), falling back to the store's. Every click id of a link is kept. Search Console
+and Meta domain verification codes go on every domain.
+
+Not covered: a refund in Google Ads. The Data Manager API only restates a conversion's value, and its documentation does
+not say a zero value retracts it.
+
+### 4a. Connect the ad platforms with one click
+
+"Conectar com Meta", "Conectar com Google" and "Conectar com TikTok": the seller signs in and picks the pixel, account
+or conversion action from a list, with no token to copy and no Google Cloud project. The pasted connection stays for
+those who prefer it.
+
+The platforms only send a login back to addresses registered in an app, and each store has its own domain, so this needs
+LibreFunnel's own apps and a small login service on librefunnel.com that hands the access back to the store that asked
+(signed state, one use, the token sealed for that store only). Before any code:
+
+1. Meta: a business-verified app with Facebook Login for Business, `ads_management` and `business_management` approved
+   in App Review.
+2. Google: a Cloud project with the Data Manager API and a verified OAuth consent screen for the `datamanager` scope.
+3. TikTok: a TikTok for Business developer app with the Events Manager and Ads Management scopes approved.
+
+Built only once the three are approved, since none of it can be tested before.
 
 ### 5. Drip content
 

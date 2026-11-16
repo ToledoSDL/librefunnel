@@ -1,7 +1,13 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { integrations } from "@/lib/dashboard";
+import { adConnections } from "@/lib/tracking/accounts";
 import { requireAdmin } from "../shared";
-import { Email, Meta, Webhook, WhatsApp } from "./channels";
+import { Analytics } from "./analytics";
+import { Email, Webhook, WhatsApp } from "./channels";
+import { GoogleAds } from "./google-ads";
+import { Meta } from "./meta";
+import { TikTok } from "./tiktok";
+import { Verification } from "./verification";
 import { WhatsAppCloud } from "./cloud";
 import styles from "./connections.module.css";
 import { Nfse } from "./nfse";
@@ -13,7 +19,7 @@ import { WooviCrypto } from "./woovi-crypto";
 export default async function ConnectionsPage() {
   await requireAdmin();
 
-  const links = await integrations();
+  const [links, ads] = await Promise.all([integrations(), adConnections()]);
 
   return (
     <>
@@ -35,8 +41,12 @@ export default async function ConnectionsPage() {
           <WhatsAppCloud cloud={links.cloud} />
           <WhatsApp whatsapp={links.whatsapp} official={links.cloud.configured} />
         </Section>
-        <Section title="Anúncios">
-          <Meta meta={links.meta} />
+        <Section title="Anúncios e análise">
+          <Meta meta={ads.meta} />
+          <TikTok tiktok={ads.tiktok} />
+          <GoogleAds ads={ads.googleAds} />
+          <Analytics analytics={ads.analytics} />
+          <Verification verification={ads.verification} />
         </Section>
         <Section title="Vídeos e arquivos">
           <Storage storage={links.storage} />

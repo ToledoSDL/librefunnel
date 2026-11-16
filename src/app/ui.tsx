@@ -65,6 +65,33 @@ const ERROR_TEXT: Record<Code, string> = {
   META_REJECTED:
     "A Meta recusou o evento. Confira em Conexões se o token foi gerado no mesmo Pixel do ID informado (Gerenciador de Eventos > seu Pixel > Configurações > Gerar token de acesso).",
   META_UNREACHABLE: "A Meta não respondeu agora. O envio é tentado de novo sozinho.",
+  TIKTOK_NOT_CONFIGURED:
+    "TikTok não configurado: preencha o código do Pixel e o token da Events API em Conexões e salve.",
+  TIKTOK_REJECTED:
+    "O TikTok recusou o evento. Confira em Conexões se o token foi gerado no mesmo Pixel do código informado (Gerenciador de Eventos > seu Pixel > Configurações > Gerar token de acesso).",
+  TIKTOK_UNREACHABLE: "O TikTok não respondeu agora. O envio é tentado de novo sozinho.",
+  ANALYTICS_NOT_CONFIGURED:
+    "Google Analytics não configurado: preencha o ID da métrica (G-) e o segredo da API em Conexões e salve.",
+  ANALYTICS_REJECTED:
+    "O Google Analytics recusou o evento. Confira em Conexões o ID da métrica (Administrador > Fluxos de dados > seu fluxo) e o segredo da API criado nesse mesmo fluxo.",
+  ANALYTICS_UNREACHABLE: "O Google Analytics não respondeu agora. O envio é tentado de novo sozinho.",
+  GOOGLE_ADS_NOT_CONFIGURED:
+    "Google Ads não configurado: salve o ID do cliente OAuth, a chave secreta, a conta e a ação de conversão em Conexões e clique em Conectar com Google.",
+  GOOGLE_ADS_REJECTED:
+    "O Google Ads recusou o envio. Confira em Conexões o ID da conta, que a ação de conversão é do tipo Importação de cliques nessa conta, e que o e-mail usado em Conectar com Google tem acesso a ela. Se o login expirou, clique em Conectar com Google de novo.",
+  GOOGLE_ADS_UNREACHABLE: "O Google Ads não respondeu agora. O envio é tentado de novo sozinho.",
+  INVALID_TIKTOK_PIXEL:
+    "Código do Pixel inválido. Copie o código de letras e números do Gerenciador de Eventos do TikTok, como C4ABCDEF1234567890.",
+  INVALID_MEASUREMENT_ID:
+    "ID da métrica inválido. Ele começa com G-, como G-ABC123XYZ, e aparece em Administrador > Fluxos de dados > seu fluxo.",
+  INVALID_GOOGLE_ADS_ACCOUNT:
+    "ID da conta inválido. Use os 10 números mostrados no topo do Google Ads, como 123-456-7890. A conta de administrador é opcional.",
+  INVALID_CONVERSION_ACTION:
+    "ID da ação de conversão inválido. Abra a ação em Metas > Conversões e copie o número depois de ctId= no endereço da página.",
+  INVALID_GOOGLE_TAG:
+    "ID da tag inválido. Ele começa com AW-, como AW-123456789, e aparece em Ferramentas > Google tag. Ou deixe em branco.",
+  INVALID_VERIFICATION:
+    "Código de verificação inválido. Cole a meta tag inteira que a plataforma mostra ou só o valor de content. A Meta aceita um código; o Google, até 20.",
   CHANNEL_NOT_CONFIGURED: "Canal não configurado. Preencha os dados do e-mail ou do WhatsApp em Conexões e salve.",
   WHATSAPP_DISCONNECTED: "WhatsApp desconectado. Conecte de novo pelo QR Code na aba Conexões e reenvie.",
   WHATSAPP_STARTING:

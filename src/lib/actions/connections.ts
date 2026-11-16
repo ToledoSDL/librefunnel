@@ -14,7 +14,7 @@ import * as providers from "../orders/psp";
 import * as webhooks from "../orders/webhooks";
 import { company } from "../registry";
 import * as config from "../settings";
-import { sendMetaTest } from "../tracking/meta";
+import { testConversions } from "../tracking/conversions";
 import { done, field, pixFields } from "./form";
 import type { ActionState, FormArgs } from "./form";
 
@@ -23,6 +23,9 @@ export type WhatsAppState = ActionState & { qr?: string; pairingCode?: string };
 const REMOVABLE = [
   "smtp",
   "meta",
+  "tiktok",
+  "analytics",
+  "googleads",
   "mercadopago",
   "woovi",
   "abacatepay",
@@ -54,20 +57,21 @@ export async function disconnectWhatsApp(): Promise<ActionState> {
   return done(await messages.disconnectWhatsApp());
 }
 
-// The form field "kind" is smtp, meta, evolution, whatsapp, storage or a Pix provider id.
+// The form field "kind" is smtp, an ad platform, evolution, whatsapp, storage, nfse or a Pix provider id.
 export async function testConnection(...[, form]: FormArgs): Promise<ActionState> {
   if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
   if (demoMode()) return { code: "DEMO_BLOCKED" };
   const kind = field(form, "kind");
   const psp = providers.pixProvider(kind);
-  const known = ["smtp", "meta", "evolution", "whatsapp", "storage", "nfse"].includes(kind);
+  const ads = (["meta", "tiktok", "analytics", "googleads"] as const).find((platform) => platform === kind);
+  const known = ads !== undefined || ["smtp", "evolution", "whatsapp", "storage", "nfse"].includes(kind);
   if (!known && (!psp || psp === "static")) return { code: "INVALID_PAYLOAD" };
   if (limited("test", kind, 10, 600)) return { code: "RATE_LIMITED" };
   if (kind === "storage") return done(await testStorage());
   if (kind === "smtp") return done(await messages.testEmail());
   if (kind === "evolution") return done(await messages.testWhatsApp());
   if (kind === "whatsapp") return done(await messages.testCloud());
-  if (kind === "meta") return done(await sendMetaTest());
+  if (ads) return done(await testConversions(ads));
   if (kind === "nfse") return done(await invoices.testNfse());
   return done(psp && psp !== "static" ? await charges.testPsp(psp) : "INVALID_PAYLOAD");
 }
@@ -135,20 +139,6 @@ export async function saveStorage(...[, form]: FormArgs): Promise<ActionState> {
 
   if (code) return { code };
   await config.saveCredentials("storage", { endpoint: endpoint.origin, bucket, region, accessKey }, { secret });
-  return done(null);
-}
-
-export async function saveMeta(...[, form]: FormArgs): Promise<ActionState> {
-  if (!(await isAdmin())) return { code: "NOT_SIGNED_IN" };
-  if (demoMode()) return { code: "DEMO_BLOCKED" };
-  const pixelId = field(form, "pixelId").trim();
-  if (!/^\d{5,20}$/.test(pixelId)) return { code: "INVALID_PIXEL_ID" };
-  const testEventCode = field(form, "testEventCode").trim();
-  if (testEventCode && !/^[A-Za-z0-9]{1,40}$/.test(testEventCode)) return { code: "INVALID_TEST_EVENT_CODE" };
-  const token = parseCredential(field(form, "token"));
-  if (token === undefined || (!token && !(await config.credentials("meta"))("meta")("token")))
-    return { code: "INVALID_CREDENTIAL" };
-  await config.saveCredentials("meta", { pixelId, testEventCode }, { token });
   return done(null);
 }
 

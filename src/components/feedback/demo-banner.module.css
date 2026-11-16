@@ -5,4 +5,26 @@
     background: var(--surface-2);
     text-align: center;
   }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-1) var(--space-4);
+    margin-top: var(--space-1);
+    font-size: var(--text-sm);
+
+    & a,
+    & button {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--primary);
+      font: inherit;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+      cursor: pointer;
+    }
+  }
 }

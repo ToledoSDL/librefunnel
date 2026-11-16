@@ -1,4 +1,5 @@
 import "server-only";
+import { demoMode } from "./guard";
 
 type Release = { version: string; notes: string; url: string; publishedAt: string };
 export type UpdaterStatus = {
@@ -89,6 +90,9 @@ function updater(method: "GET" | "POST", path: string, timeout = 5000) {
 }
 
 export async function updaterStatus(): Promise<UpdaterStatus | undefined> {
+  // The demo has no updater but shows the panel as a store has it; its actions answer DEMO_BLOCKED.
+  if (demoMode()) return { state: "idle", pinned: currentVersion(), autoHour: "" };
+
   const response = await updater("GET", "/status", 1500);
 
   if (!response?.ok) return undefined;

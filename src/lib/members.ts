@@ -4,7 +4,7 @@ import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { ownedProducts } from "./catalog/products";
 import type { Product } from "./catalog/products";
 import { addSeconds, db } from "./db";
-import { baseUrl, limited, sha256 } from "./guard";
+import { baseUrl, demoMode, limited, sha256 } from "./guard";
 import { endCustomerSessions, endSession, readSession, startSession } from "./sessions";
 import { customer, login, message, order, progress } from "./schema";
 
@@ -190,6 +190,21 @@ export async function enterFromOrder(): Promise<MemberCode | null> {
   if (!paid) return "NOT_SIGNED_IN";
   await startSession("member", { customerId: paid.customerId, orderId: paid.id }, ORDER_TTL);
   return null;
+}
+
+// The demo sends no e-mail, so its members area opens as the example buyer who owns the most products.
+export async function enterDemo() {
+  if (!demoMode()) return;
+
+  const [buyer] = await db()
+    .select({ customerId: order.customerId })
+    .from(order)
+    .where(eq(order.status, "paid"))
+    .groupBy(order.customerId)
+    .orderBy(desc(count()), desc(sql`max(${order.createdAt})`))
+    .limit(1);
+
+  if (buyer) await startSession("member", { customerId: buyer.customerId }, FULL_TTL);
 }
 
 export async function completeLesson(product: string, lesson: string): Promise<MemberCode | null> {

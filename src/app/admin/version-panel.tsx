@@ -8,7 +8,6 @@ import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";
 import { restartStore, saveAutoUpdate, updateStore } from "@/lib/actions/store";
-import { demoMode } from "@/lib/guard";
 import { currentVersion, latestRelease, newer, updaterStatus } from "@/lib/updates";
 import styles from "./admin.module.css";
 import { StoreCommand } from "./store-command";
@@ -111,8 +110,7 @@ export async function VersionPanel() {
               <section className={styles.versionPart}>
                 <Text weight="semibold">Reiniciar a loja</Text>
                 <Text variant="body-sm" tone="muted">
-                  Sobe a loja de novo na mesma versão, sem sair do ar. Use quando algo travar ou depois de mudar o .env
-                  no servidor.
+                  Sobe a loja de novo na mesma versão, sem sair do ar. Use quando algo travar.
                 </Text>
                 <StoreCommand
                   action={restartStore}
@@ -126,18 +124,12 @@ export async function VersionPanel() {
             </>
           ) : (
             <Text variant="body-sm" tone="muted">
-              {demoMode() ? (
-                "Na demonstração, atualizar e reiniciar pelo painel ficam desligados."
-              ) : (
-                <>
-                  Atualizar e reiniciar pelo painel só funcionam quando a loja roda pelo Docker do guia de instalação.
-                  Fora dele, atualize pelo terminal:{" "}
-                  <TextLink href="https://librefunnel.com/docs/atualizar" external>
-                    como atualizar
-                  </TextLink>
-                  .
-                </>
-              )}
+              Atualizar e reiniciar pelo painel só funcionam quando a loja roda pelo Docker do guia de instalação. Fora
+              dele, atualize pelo terminal:{" "}
+              <TextLink href="https://librefunnel.com/docs/atualizar" external>
+                como atualizar
+              </TextLink>
+              .
             </Text>
           )}
         </div>

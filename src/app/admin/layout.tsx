@@ -28,7 +28,7 @@ function SignIn() {
         title="Entrar no painel"
         description={
           demoPassword === undefined
-            ? "Use a senha definida em ADMIN_PASSWORD no servidor."
+            ? "Use a senha da instalação: a que você digitou ou a que o instalador mostrou no final."
             : `Painel de demonstração, aberto a todos. A senha já está preenchida: ${demoPassword}`
         }
       />

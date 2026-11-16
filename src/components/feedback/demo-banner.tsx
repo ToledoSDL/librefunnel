@@ -1,3 +1,4 @@
+import { enterDemo } from "@/lib/actions/members";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";
 import styles from "./demo-banner.module.css";
@@ -11,6 +12,13 @@ export function DemoBanner() {
           Instale a sua loja
         </TextLink>
       </Text>
+      <nav className={styles.links} aria-label="Partes da demonstração">
+        <a href="/">Loja</a>
+        <form action={enterDemo}>
+          <button type="submit">Área de membros</button>
+        </form>
+        <a href="/admin">Painel</a>
+      </nav>
     </div>
   );
 }

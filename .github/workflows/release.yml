@@ -63,13 +63,18 @@ jobs:
       # The notes are the version's section of CHANGELOG.md, which the admin shows with the update.
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: CHANGELOG.md
+          sparse-checkout: |
+            CHANGELOG.md
+            compose.yaml
+            deploy/Caddyfile
+            deploy/evolution.sql
           sparse-checkout-cone-mode: false
       - name: Release notes
         run: |
           awk -v tag="$GITHUB_REF_NAME" '$0 ~ "^## " tag " " { found = 1; next } found && /^## / { exit } found' CHANGELOG.md > notes.md
           grep -q '[^[:space:]]' notes.md || { echo "::error::CHANGELOG.md has no section for $GITHUB_REF_NAME."; exit 1; }
-      # The installer and the updater pull the image by this digest, so one changed in the registry later is refused.
+      # The installer and the updater pull the image by this digest, so one changed in the registry later is refused. The
+      # updater also checks the files it brings with each update against these hashes.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,6 +83,7 @@ jobs:
           UPDATER_DIGEST: ${{ steps.updater.outputs.digest }}
         run: |
           printf 'app=%s\nupdater=%s\n' "$APP_DIGEST" "$UPDATER_DIGEST" > images.txt
+          for f in compose.yaml deploy/Caddyfile deploy/evolution.sql; do echo "$f=$(sha256sum "$f" | cut -d' ' -f1)" >> images.txt; done
           grep -Eq '^app=sha256:[0-9a-f]{64}$' images.txt
           gh release create "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag images.txt
 

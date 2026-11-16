@@ -55,7 +55,8 @@ const ERROR_TEXT: Record<Code, string> = {
     "Assinatura do webhook inválida. Confira se o segredo cadastrado no gateway é o mesmo salvo em Conexões; se gerou um segredo novo, atualize no gateway.",
   INVALID_PAYLOAD: "Os dados chegaram num formato inesperado. Atualize a página e tente de novo.",
   PAYLOAD_TOO_LARGE: "Os dados enviados passam do tamanho permitido. Envie menos conteúdo de uma vez.",
-  INVALID_PASSWORD: "Senha incorreta. Use o valor de ADMIN_PASSWORD configurado no servidor.",
+  INVALID_PASSWORD:
+    "Senha incorreta. Use a senha da instalação: a que você digitou ou a que o instalador mostrou no final.",
   DEMO_BLOCKED:
     "Isto fica desligado na demonstração, para nada sair de verdade nem encher o servidor. Na sua loja, funciona normalmente.",
   DEMO_ONLY: "O pagamento simulado só existe na demonstração. Pague o Pix pelo app do seu banco.",
@@ -153,7 +154,7 @@ const ERROR_TEXT: Record<Code, string> = {
     "A validade do pedido precisa ser de 1 a 720 horas e maior que a espera da última mensagem de recuperação.",
   INVALID_URL: "Os links precisam ser endereços completos, começando com https://, como https://seusite.com.br/termos.",
   UPDATER_UNAVAILABLE:
-    "O atualizador não respondeu. Ele só existe quando a loja roda pelo Docker do guia de instalação; no servidor, rode docker compose up -d e tente de novo.",
+    "O atualizador não respondeu. Espere um minuto e tente de novo; se continuar, reinicie o servidor pelo painel da hospedagem.",
   UPDATE_BUSY: "Já existe uma atualização ou reinício em andamento. Espere terminar: a página recarrega sozinha.",
   INVALID_VERSION: "Versão inválida. Use uma versão publicada no GitHub, como v0.3.0.",
   INVALID_HOUR: "Escolha uma hora de 0 a 23, ou desligue a atualização automática.",
@@ -205,7 +206,7 @@ const ERROR_TEXT: Record<Code, string> = {
   CLOUD_APP_SECRET_INVALID:
     "A chave secreta do app não confere. Copie de novo em Configurações do app > Básico > Chave secreta do app (32 letras e números), do mesmo app do token.",
   CLOUD_WEBHOOK_FAILED:
-    "A Meta não conseguiu acessar a loja para receber as respostas. A loja precisa estar no ar com https, no endereço de BASE_URL. Confira e clique em Conectar de novo.",
+    "A Meta não conseguiu acessar a loja para receber as respostas. Confira se o endereço principal da loja abre com https e clique em Conectar de novo.",
   CLOUD_PIN_REQUIRED:
     "Falta ativar o número na API da Meta. Digite no campo PIN 6 números: se o número já tem confirmação em duas etapas, o PIN dela; se não tem, invente um e guarde. Depois clique em Conectar de novo.",
   CLOUD_PIN_INVALID:

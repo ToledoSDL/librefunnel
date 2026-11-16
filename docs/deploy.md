@@ -786,16 +786,25 @@ para vX.Y.Z**:
   keeps running the previous one.
 - **Atualizar sozinha** picks an hour of the day for the same thing to happen automatically, always with a backup first.
 - **Reiniciar agora** swaps the store container the same way, without changing the version. It also picks up changes
-  made to `.env`.
+  made to `.env` by hand.
 
 This runs through the `updater` service in `compose.yaml`. It is the only part with access to Docker, it has no public
 port, it needs the same key as the store (`UPDATER_TOKEN`, which the installer sets and which falls back to
 `POSTGRES_PASSWORD` when empty) and it can only restart, update to a published version and back up.
 
+Each update also brings the release's `compose.yaml`, `Caddyfile` and `evolution.sql`: `compose.yaml` before the new
+store container starts, the `Caddyfile` after it answers, applied with a Caddy reload that drops no connection. A file
+whose SHA-256 differs from the one in `images.txt` stops the update before anything changes, and a `Caddyfile` Caddy
+refuses is put back. Last, the updater replaces itself with the new version's: compose run inside it would mount its own
+folder instead of the server's, so it starts a short-lived helper container with the store's folder at the same path,
+and that helper recreates the updater. On Docker Desktop for Windows the folder is not a Linux path and the updater
+stays as it is until the installer runs again. Stores installed before v0.10.0 run the installer once to get this
+updater.
+
 Each release lists the digest of its store image in `images.txt`. The dashboard and the installer save it in `.env` as
-`LIBREFUNNEL_DIGEST`, and Docker then refuses an image that was changed in the registry after the release. The dashboard
-does not install a release without `images.txt` (the ones published before it existed); the installer installs those by
-tag.
+`LIBREFUNNEL_DIGEST` (and the updater's as `LIBREFUNNEL_UPDATER_DIGEST`), and Docker then refuses an image that was
+changed in the registry after the release. The dashboard does not install a release without `images.txt` (the ones
+published before it existed); the installer installs those by tag.
 
 The installed version is pinned in `.env` as `LIBREFUNNEL_VERSION`. To go back to an earlier one, set it there, empty
 `LIBREFUNNEL_DIGEST` (with a digest set, Docker pulls that exact image whatever the version says) and run:

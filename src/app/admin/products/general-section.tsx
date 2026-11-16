@@ -36,7 +36,7 @@ export async function GeneralSection({ product }: { product: Product }) {
           hint={
             served
               ? `No DNS do domínio, crie um registro A com o mesmo IP de ${store}. O HTTPS sai sozinho no primeiro acesso.`
-              : "Esta instalação ainda não atende domínios próprios. Rode o comando de instalação de novo no servidor (os dados ficam) e depois aponte o domínio."
+              : "Esta loja foi instalada antes dos domínios próprios. Rode o comando de instalação no servidor uma última vez (os dados ficam): depois disso, as atualizações pelo painel trazem tudo sozinhas."
           }
         />
       </Section>

@@ -16,6 +16,15 @@ package binaries with Bun; never npm, npx or Node). Database: PostgreSQL with Dr
 
 Next.js 16 differs from older versions: read `node_modules/next/dist/docs/` before using an API you are not sure about.
 
+## One click to revenue
+
+The seller is not a developer. The path from install to the first sale is as short as it can be: the installer and the
+store set up and detect everything they can, and once installed, nothing asks for a terminal, `.env`, a file or the
+installer again. Updates from the admin bring everything a release changes (images, the updater itself, `compose.yaml`,
+`Caddyfile`), so a new feature never needs a step on the server. Visible text never names an environment variable, a
+file or a command; when the store needs something from the seller, it asks in the admin, in plain words, with the fix
+one click away.
+
 ## Commands
 
 ```sh
@@ -66,10 +75,11 @@ no release; a release is for the store. Every change a seller notices goes under
   migrations, then the background loop: order expiry, outbox, Meta events
 - `tests/`: `bun test` suites (setup in `bunfig.toml`) with fake HTTP servers for providers
 - `deploy/`: Dockerfile, Caddyfile, `evolution.sql` (Evolution's database on the shared PostgreSQL), `updater.ts` and
-  `Dockerfile.updater` (restarts and updates the store from the admin), `demo-deploy.sh` (run through Oracle Cloud Run
-  Command by the Release workflow to put each release on the public demo), `install.sh` (the one-command installer
-  served at librefunnel.com/install: POSIX sh, pt-BR output, downloads only `compose.yaml`, `Caddyfile` and
-  `evolution.sql` of the latest release, plus its `images.txt` (image digests); check with `shellcheck -s sh` and
+  `Dockerfile.updater` (restarts and updates the store from the admin, bringing the release's `compose.yaml`,
+  `Caddyfile` and `evolution.sql` along with the image), `demo-deploy.sh` (run through Oracle Cloud Run Command by the
+  Release workflow to put each release on the public demo), `install.sh` (the one-command installer served at
+  librefunnel.com/install: POSIX sh, pt-BR output, downloads only `compose.yaml`, `Caddyfile` and `evolution.sql` of the
+  latest release, plus its `images.txt` (image digests and the files' SHA-256); check with `shellcheck -s sh` and
   `--plan`)
 - `docs/`: `deploy.md` (layperson guide), `design-system.md`, `roadmap.md` (what to build next, in order), `brand.ts`
   and the brand SVGs it writes

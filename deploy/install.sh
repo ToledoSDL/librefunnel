@@ -756,10 +756,11 @@ fetch_files() {
   for f in $FILES; do run cp "$WORK/files/$f" "$DIR/$f"; done
   # The image digest published with the release: Docker then refuses an image changed in the registry after it.
   # Releases published before images.txt existed have none, and those keep pulling by tag.
-  DIGEST=''
+  DIGEST='' UPDATER_DIGEST=''
   if [ "$PLAN" = 0 ]; then
-    DIGEST=$(curl -fsSL --proto =https --max-time 15 "https://github.com/$REPO/releases/download/$TAG/images.txt" 2>/dev/null |
-      sed -n 's/^app=\(sha256:[0-9a-f]\{64\}\)$/\1/p' | head -n 1) || DIGEST=''
+    IMAGES=$(curl -fsSL --proto =https --max-time 15 "https://github.com/$REPO/releases/download/$TAG/images.txt" 2>/dev/null) || IMAGES=''
+    DIGEST=$(printf '%s\n' "$IMAGES" | sed -n 's/^app=\(sha256:[0-9a-f]\{64\}\)$/\1/p' | head -n 1)
+    UPDATER_DIGEST=$(printf '%s\n' "$IMAGES" | sed -n 's/^updater=\(sha256:[0-9a-f]\{64\}\)$/\1/p' | head -n 1)
   fi
   ok "Versão $TAG em $DIR"
 }
@@ -791,6 +792,7 @@ write_env() {
   if [ -z "$(env_get COMPOSE_PROJECT_NAME)" ]; then env_set COMPOSE_PROJECT_NAME "$PROJECT"; fi
   if [ "$FRESH" = 1 ]; then env_set LIBREFUNNEL_VERSION "$TAG"; fi
   env_set LIBREFUNNEL_DIGEST "$DIGEST"
+  env_set LIBREFUNNEL_UPDATER_DIGEST "$UPDATER_DIGEST"
   if ipv6_network; then env_set INSTALL_IPV6 true; else env_set INSTALL_IPV6 false; fi
   env_set INSTALL_CLOUDFLARE "$CF"
   if [ "$CF" = 1 ]; then

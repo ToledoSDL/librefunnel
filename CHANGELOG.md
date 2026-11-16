@@ -5,6 +5,11 @@ dela vira as notas da release no GitHub e no aviso de atualização do painel.
 
 ## Próxima versão
 
+- Atualizar pelo painel traz também a configuração do servidor da versão nova (como a de domínios próprios) e o próprio
+  atualizador novo, sem rodar o instalador de novo. Lojas instaladas antes desta versão rodam o instalador uma última
+  vez para ganhar isso.
+- Mensagens do painel sem nomes de configuração do servidor (ADMIN_PASSWORD, .env, BASE_URL, comandos de terminal).
+
 ## v0.9.0 (2026-11-16)
 
 - Vendas enviadas pelo servidor ao TikTok (Events API), ao Google Ads (Data Manager API, com login do Google) e ao

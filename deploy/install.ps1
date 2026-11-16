@@ -614,11 +614,13 @@ Guia completo: $Guide
     # The image digest published with the release: Docker then refuses an image changed in the registry after it.
     # Releases published before images.txt existed have none, and those keep pulling by tag.
     $Digest = ''
+    $UpdaterDigest = ''
     if (-not $Plan) {
       try {
         $Response = Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$Repo/releases/download/$Tag/images.txt"
         $Images = [Text.Encoding]::UTF8.GetString($Response.RawContentStream.ToArray())
         if ($Images -match '(?m)^app=(sha256:[0-9a-f]{64})$') { $Digest = $Matches[1] }
+        if ($Images -match '(?m)^updater=(sha256:[0-9a-f]{64})$') { $UpdaterDigest = $Matches[1] }
       } catch { $Digest = '' }
     }
     Ok "Versão $Tag em $Dir"
@@ -640,6 +642,7 @@ Guia completo: $Guide
     if (-not (Get-EnvValue COMPOSE_PROJECT_NAME)) { Set-EnvValue COMPOSE_PROJECT_NAME $Project }
     if ($Fresh) { Set-EnvValue LIBREFUNNEL_VERSION $Tag }
     Set-EnvValue LIBREFUNNEL_DIGEST $Digest
+    Set-EnvValue LIBREFUNNEL_UPDATER_DIGEST $UpdaterDigest
     Set-EnvValue INSTALL_CLOUDFLARE $Cf
     if ($Cf -eq '1') {
       Set-EnvValue INSTALL_CF_DNS $CfDns

@@ -1,3 +1,6 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { hostname } from "node:os";
+
 // Runs next to the store with the Docker socket. It is reachable only inside the compose network, needs the token,
 // and can do nothing but these fixed operations, so the admin never gets a shell on the server.
 const TOKEN = process.env.UPDATER_TOKEN ?? "";
@@ -6,6 +9,9 @@ const DIR = process.cwd();
 const ENV_FILE = `${DIR}/.env`;
 const VERSION = /^v\d+\.\d+\.\d+$/;
 const HEALTH_TIMEOUT_MS = 180_000;
+const CADDYFILE = "deploy/Caddyfile";
+// The files the installer downloads besides .env: each update brings them too, so no change needs the installer again.
+const FILES = ["compose.yaml", CADDYFILE, "deploy/evolution.sql"];
 
 type Status = {
   state: "idle" | "updating" | "restarting" | "failed";
@@ -120,15 +126,44 @@ function failed(error: Error | string, target?: string): Status {
   };
 }
 
-// The release lists the digest of the image it built, so an image swapped in the registry afterwards is refused by Docker.
-async function publishedDigest(version: string) {
-  const response = await fetch(`https://github.com/${REPO}/releases/download/${version}/images.txt`, {
+async function download(url: string) {
+  const response = await fetch(url, {
     headers: { "user-agent": "librefunnel-updater" },
     signal: AbortSignal.timeout(15_000),
   }).catch(() => undefined);
 
-  if (!response?.ok) return undefined;
-  return (await response.text()).match(/^app=(sha256:[0-9a-f]{64})$/m)?.[1];
+  return response?.ok ? response.text() : undefined;
+}
+
+// images.txt lists the digest of the image the release built and the SHA-256 of each file of FILES, so an image or a
+// file changed after publishing is refused. Releases from before the file hashes keep the files they have.
+async function published(version: string) {
+  const manifest = await download(`https://github.com/${REPO}/releases/download/${version}/images.txt`);
+  const hashes = new Map([...(manifest ?? "").matchAll(/^([\w./-]+)=(\S+)$/gm)].map(([, name, hash]) => [name, hash]));
+  const digest = hashes.get("app")?.match(/^sha256:[0-9a-f]{64}$/)?.[0];
+  const updaterDigest = hashes.get("updater")?.match(/^sha256:[0-9a-f]{64}$/)?.[0] ?? "";
+
+  const files = await Promise.all(
+    FILES.filter((path) => hashes.has(path)).map(async (path) => {
+      const content = await download(`https://raw.githubusercontent.com/${REPO}/${version}/${path}`);
+
+      if (content === undefined || new Bun.CryptoHasher("sha256").update(content).digest("hex") !== hashes.get(path))
+        throw new Error(`O arquivo ${path} da versão ${version} não baixou inteiro. Nada mudou: tente de novo.`);
+      return { path, content };
+    }),
+  );
+
+  return { digest, updaterDigest, files };
+}
+
+// Written in place, not replaced, so the file Caddy has mounted sees the new content.
+async function writeFiles(files: { path: string; content: string }[]) {
+  const previous = await Promise.all(
+    files.map(async ({ path }) => ({ path, content: await readFile(`${DIR}/${path}`, "utf8").catch(() => "") })),
+  );
+
+  await Promise.all(files.map(({ path, content }) => writeFile(`${DIR}/${path}`, content)));
+  return previous;
 }
 
 async function update(version: string) {
@@ -138,7 +173,7 @@ async function update(version: string) {
   status = { state: "updating", target: version, at: new Date().toISOString() };
 
   try {
-    const digest = await publishedDigest(version);
+    const { digest, updaterDigest, files } = await published(version);
 
     if (!digest)
       throw new Error(
@@ -157,6 +192,8 @@ async function update(version: string) {
     );
     await writeEnv("LIBREFUNNEL_VERSION", version);
     await writeEnv("LIBREFUNNEL_DIGEST", digest);
+    // compose.yaml goes first since the new app container is created from it; the Caddyfile only once that app answers.
+    const previousCompose = await writeFiles(files.filter(({ path }) => path !== CADDYFILE));
 
     try {
       await docker("compose", "pull", "app");
@@ -164,13 +201,71 @@ async function update(version: string) {
     } catch (error) {
       await writeEnv("LIBREFUNNEL_VERSION", previous);
       await writeEnv("LIBREFUNNEL_DIGEST", previousDigest);
+      await writeFiles(previousCompose);
       throw error;
     }
 
+    await reloadCaddy(files.find(({ path }) => path === CADDYFILE));
     status = { state: "idle", target: version, at: new Date().toISOString() };
+    await replaceSelf(updaterDigest).catch((error) => console.warn("[updater] kept the current updater", error));
   } catch (error) {
     status = failed(error instanceof Error ? error : "Falha desconhecida", version);
   }
+}
+
+// A reload swaps the configuration without dropping connections, and Caddy keeps the old one if the new one fails.
+async function reloadCaddy(caddyfile?: { path: string; content: string }) {
+  if (!caddyfile) return;
+  const [previous] = await writeFiles([caddyfile]);
+
+  if (previous?.content === caddyfile.content) return;
+
+  await docker("compose", "exec", "-T", "caddy", "caddy", "reload", "--config", "/etc/caddy/Caddyfile").catch(
+    async (error) => {
+      console.warn("[updater] Caddy refused the new Caddyfile, keeping the previous one", error);
+      if (previous) await writeFiles([previous]);
+    },
+  );
+}
+
+// Compose run here would mount this container's folder, not the host's, so a helper started with the host folder at the
+// same path recreates the updater; this one stops partway and the new one takes over. A host path that is not a Linux path
+// (Docker Desktop on Windows) cannot be mounted that way, so that updater stays until the installer runs again.
+async function replaceSelf(digest: string) {
+  const found = await docker(
+    "inspect",
+    "-f",
+    `{{.Image}} {{range .Mounts}}{{if eq .Destination "${DIR}"}}{{.Source}}{{end}}{{end}}`,
+    hostname(),
+  );
+
+  const image = found.slice(0, found.indexOf(" "));
+  const folder = found.slice(found.indexOf(" ") + 1);
+
+  if (!image || !folder.startsWith("/")) return;
+
+  await writeEnv("LIBREFUNNEL_UPDATER_DIGEST", digest);
+  await docker("compose", "pull", "updater");
+  await docker(
+    "run",
+    "-d",
+    "--rm",
+    "-v",
+    "/var/run/docker.sock:/var/run/docker.sock",
+    "-v",
+    `${folder}:${folder}`,
+    "-w",
+    folder,
+    "-e",
+    `COMPOSE_PROJECT_NAME=${process.env.COMPOSE_PROJECT_NAME ?? ""}`,
+    image,
+    "docker",
+    "compose",
+    "up",
+    "-d",
+    "--no-deps",
+    "updater",
+  );
 }
 
 async function restart() {

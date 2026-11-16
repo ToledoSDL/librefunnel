@@ -28,6 +28,11 @@ export async function enterFromOrder(): Promise<ActionState> {
   redirect("/m");
 }
 
+export async function enterDemo() {
+  await members.enterDemo();
+  redirect("/m");
+}
+
 export async function completeLesson(...[, form]: FormArgs): Promise<ActionState> {
   const code = await members.completeLesson(field(form, "product"), field(form, "lesson"));
   if (code) return { code };

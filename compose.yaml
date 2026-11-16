@@ -129,7 +129,8 @@ services:
 
   updater:
     logging: *logging
-    image: ghcr.io/toledosdl/librefunnel-updater:${LIBREFUNNEL_VERSION:-latest}
+    # Pinned like the app's image: it is the one service with the Docker socket.
+    image: ghcr.io/toledosdl/librefunnel-updater:${LIBREFUNNEL_VERSION:-latest}${LIBREFUNNEL_UPDATER_DIGEST:+@}${LIBREFUNNEL_UPDATER_DIGEST:-}
     # 0 when the installer was told --no-updater: updates are then the installer run again.
     scale: ${INSTALL_UPDATER:-1}
     build:

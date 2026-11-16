@@ -1,4 +1,4 @@
-import { serveMedia } from "@/lib/media";
+import { serveMedia } from "@/lib/media/serving";
 
 export async function GET(request: Request, { params }: { params: Promise<{ file: string; path: string[] }> }) {
   const { file, path } = await params;

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { asc, eq } from "drizzle-orm";
-import { archive, createProduct } from "@/lib/catalog";
+import { archive } from "@/lib/catalog/course";
+import { createProduct } from "@/lib/catalog/products";
 import { db } from "@/lib/db";
 import { retention } from "@/lib/schema";
-import { retentionCurve } from "@/lib/tracking";
+import { retentionCurve } from "@/lib/tracking/retention";
 import { POST as trackRoute } from "@/app/t/route";
 import { freshBrowser } from "./fakes";
 

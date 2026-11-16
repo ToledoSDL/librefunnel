@@ -56,6 +56,12 @@ Não. Você precisa conectar no servidor por SSH e colar um comando. Depois diss
 Sim. Aponte um registro `A` para o IP do servidor. Se o domínio está na Cloudflare, veja
 [Cloudflare](/docs/cloudflare/).
 
+Cada produto também pode ter o próprio domínio, como `meucurso.com.br`: crie o registro `A` com o mesmo IP da loja e
+preencha **Domínio** na aba **Geral** do produto. O HTTPS sai sozinho no primeiro acesso, e o endereço abre a página do
+produto mantendo as UTMs do anúncio. Em **Configurações** > **Página inicial**, escolha se o endereço principal mostra a
+vitrine com todos os produtos, um produto só ou apenas a entrada da área de membros. Lojas instaladas antes da v0.8.0
+precisam rodar o instalador de novo uma vez para atender domínios de produto.
+
 ## Como mudo de servidor?
 
 Baixe o backup do banco e a pasta de arquivos, instale a loja no servidor novo e restaure. Os comandos estão no

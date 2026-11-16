@@ -1,5 +1,5 @@
 import { demoMode } from "@/lib/guard";
-import { uploadMedia } from "@/lib/media";
+import { uploadMedia } from "@/lib/media/uploads";
 
 export async function POST(request: Request) {
   // The demo password is public, and uploads survive the nightly reset, so they would fill the disk.

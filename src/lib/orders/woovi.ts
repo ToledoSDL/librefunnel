@@ -1,7 +1,7 @@
 import "server-only";
 import { createPublicKey, createVerify } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { credentials, saveCredentials } from "../catalog";
+import { credentials, saveCredentials } from "../settings";
 import { db } from "../db";
 import { isObject, jsonObject, safeEqual } from "../guard";
 import { order, payment } from "../schema";

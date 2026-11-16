@@ -3,7 +3,7 @@ import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
 import { Stack } from "@/components/layout/stack";
 import { Text } from "@/components/text/text";
-import { saveCoupon } from "@/lib/actions";
+import { saveCoupon } from "@/lib/actions/coupons";
 import type { Coupon } from "@/lib/coupons";
 import styles from "../admin.module.css";
 import { PRIMARY, TextField } from "../shared";

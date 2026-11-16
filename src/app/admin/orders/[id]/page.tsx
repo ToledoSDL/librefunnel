@@ -6,7 +6,7 @@ import { Icon } from "@/components/media/icon";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";
-import { productNames } from "@/lib/catalog";
+import { productNames } from "@/lib/catalog/products";
 import { orderDetail } from "@/lib/dashboard";
 import { Profile } from "../../messages/profile";
 import { href, OrderActions, Release, requireAdmin, STATUS_LABEL, STATUS_TONE } from "../../shared";

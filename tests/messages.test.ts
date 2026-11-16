@@ -1,24 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { createHmac } from "node:crypto";
 import { and, asc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
-import {
-  connectWhatsApp,
-  optOut,
-  saveCloud,
-  saveEvolution,
-  saveSettings,
-  saveSmtp,
-  sendReply,
-  testConnection,
-} from "@/lib/actions";
-import { removeCredentials, saveCredentials } from "@/lib/catalog";
+import { connectWhatsApp, saveCloud, saveEvolution, saveSmtp, testConnection } from "@/lib/actions/connections";
+import { optOut, sendReply } from "@/lib/actions/messages";
+import { saveSettings } from "@/lib/actions/store";
+import { removeCredentials, saveCredentials } from "@/lib/settings";
 import { inbox, integrations } from "@/lib/dashboard";
 import type { Conversation } from "@/lib/dashboard";
 import { db, one } from "@/lib/db";
 import { derive } from "@/lib/guard";
 import { cloudVerify, cloudWebhook, optOutLink, queueRecovery, refreshPhotos, sendMessages } from "@/lib/messages";
 import { contact, message, order } from "@/lib/schema";
-import { GRAPH } from "@/lib/tracking";
+import { GRAPH } from "@/lib/tracking/meta";
 import { POST as botWebhook } from "@/app/api/webhooks/whatsapp/route";
 import { fakeServer, form, freshBrowser, mailFailures, mailTransports, redirectFetch, sentMail } from "./fakes";
 import { buy, pay, signInAsAdmin, webhook } from "./flows";

@@ -13,7 +13,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { Faq, Testimonial, Trigger } from "./catalog";
+import type { Faq, Testimonial, Trigger } from "./catalog/products";
 
 // The const type parameter keeps each value as a literal type, so enum columns stay typed without a cast.
 function literals<const T extends readonly [string, ...string[]]>(...values: T): T {
@@ -24,6 +24,7 @@ const ORDER_STATUSES = literals("pending", "paid", "expired", "canceled", "refun
 const PAYMENT_SOURCES = literals("webhook", "admin");
 const CLICK_KINDS = literals("", "fbclid", "gclid", "ttclid");
 const COUPON_KINDS = literals("percent", "fixed");
+const SESSION_KINDS = literals("admin", "member", "order");
 
 const EVENT_NAMES = literals(
   "page_view",
@@ -113,7 +114,7 @@ export const customer = pgTable("customer", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   createdAt: timestamptz("created_at").notNull(),
-  // Signing out ends every session of this buyer started before it, on any device.
+  // Read only by versions before the session table, which may run during an update; drop in the release after.
   sessionsAfter: timestamptz("sessions_after"),
 });
 
@@ -395,6 +396,28 @@ export const signal = pgTable(
   ],
 );
 
+// The cookie carries only a random id and this row keeps its hash, so a copied database opens no session and ending a
+// session is deleting its row. A member row with an order sees only that order; an order row is the checkout's.
+export const session = pgTable(
+  "session",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    kind: text("kind", { enum: SESSION_KINDS }).notNull(),
+    customerId: text("customer_id").references(() => customer.id, { onDelete: "cascade" }),
+    orderId: text("order_id").references(() => order.id, { onDelete: "cascade" }),
+    // Admin rows only: derived from the password, so changing ADMIN_PASSWORD ends every admin session.
+    tag: text("tag"),
+    createdAt: timestamptz("created_at").notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+  },
+  (table) => [
+    check("session_kind", oneOf(table.kind, SESSION_KINDS)),
+    index("session_customer").on(table.customerId),
+    index("session_order").on(table.orderId),
+    index("session_expires").on(table.expiresAt),
+  ],
+);
+
 export const login = pgTable(
   "login",
   {
@@ -467,8 +490,10 @@ export const product = pgTable(
     testimonials: jsonb("testimonials").$type<Testimonial[]>().notNull().default([]),
     position: integer("position").notNull(),
     archivedAt: timestamptz("archived_at"),
+    domain: text("domain"),
   },
   (table) => [
+    uniqueIndex("product_domain").on(table.domain),
     check("product_price", sql`${table.priceCents} > 0`),
     check("product_guarantee", sql`${table.guaranteeDays} BETWEEN 7 AND 365`),
     check("product_bump_price", sql`${table.bumpPriceCents} > 0`),

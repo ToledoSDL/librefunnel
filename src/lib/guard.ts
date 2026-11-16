@@ -22,9 +22,6 @@ export type GuardCode =
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 export type JsonObject = { [key: string]: Json };
 
-const ADMIN_COOKIE = "lf_admin";
-const ADMIN_TTL = 12 * 3600;
-
 const WINDOW_LIMIT = 50_000;
 const windows = new Map<string, { count: number; resetAt: number }>();
 let adminHash: { password: string; digest: Buffer } | undefined;
@@ -52,6 +49,15 @@ export function demoMode(): boolean {
 
 export function baseUrl(): string {
   return process.env.BASE_URL ?? "http://localhost:3000";
+}
+
+// Where a product's pages are linked from outside the store: its own domain when it has one.
+export function siteOf(product: { domain?: string | null }): string {
+  return product.domain ? `https://${product.domain}` : baseUrl();
+}
+
+export function hostOf(headers: Headers): string {
+  return (headers.get("host") ?? "").toLowerCase().replace(/:\d+$/, "");
 }
 
 function key(label: string): Buffer {
@@ -195,7 +201,7 @@ export function jsonObject(text: string): JsonObject | undefined {
 }
 
 // The only place the admin password is hashed: scrypt, slow on purpose. What it returns is a derived key, safe to
-// feed to HMAC as the session label so a new password signs everyone out.
+// feed to HMAC for the session tag, so a new password signs everyone out.
 function stretch(secret: string): Buffer {
   return scryptSync(secret, key("admin-password"), 32);
 }
@@ -207,23 +213,11 @@ function adminDigest(): Buffer {
   return adminHash.digest;
 }
 
-function adminLabel(): string {
-  return `admin:${adminDigest().toString("hex")}`;
+// Stored on each admin session, so a new ADMIN_PASSWORD ends them all; derived, so the database never holds the hash.
+export function adminTag(): string {
+  return createHmac("sha256", adminDigest()).update("admin-session").digest("hex");
 }
 
-export async function isAdmin(): Promise<boolean> {
-  const token = (await cookies()).get(ADMIN_COOKIE)?.value;
-  return token !== undefined && verify(adminLabel(), token) === "admin";
-}
-
-export async function signInAdmin(password: string, ip: string): Promise<GuardCode | null> {
-  if (limited("admin", ip, 10, 900)) return "RATE_LIMITED";
-  if ((process.env.ADMIN_PASSWORD ?? "").length < 16 || !timingSafeEqual(stretch(password), adminDigest()))
-    return "INVALID_PASSWORD";
-  await setCookie(ADMIN_COOKIE, sign(adminLabel(), "admin", ADMIN_TTL), ADMIN_TTL, "strict");
-  return null;
-}
-
-export async function signOutAdmin() {
-  (await cookies()).delete(ADMIN_COOKIE);
+export function adminPasswordMatches(password: string): boolean {
+  return (process.env.ADMIN_PASSWORD ?? "").length >= 16 && timingSafeEqual(stretch(password), adminDigest());
 }

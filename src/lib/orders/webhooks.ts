@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { credentials, saveCredentials } from "../catalog";
+import { credentials, saveCredentials } from "../settings";
 import { db } from "../db";
 import { hmacHex, jsonObject, readBody, safeEqual } from "../guard";
 import { order } from "../schema";

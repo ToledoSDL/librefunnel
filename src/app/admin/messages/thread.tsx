@@ -4,7 +4,7 @@ import { Avatar } from "@/components/feedback/avatar";
 import { Icon, type IconName } from "@/components/media/icon";
 import { Dialog } from "@/components/overlay/dialog";
 import { Text } from "@/components/text/text";
-import { resendMessage } from "@/lib/actions";
+import { resendMessage } from "@/lib/actions/messages";
 import type { inbox, InboxFilter } from "@/lib/dashboard";
 import { ActionButton } from "../ui";
 import { Composer } from "./composer";

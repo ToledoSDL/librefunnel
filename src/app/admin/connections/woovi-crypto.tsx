@@ -4,7 +4,7 @@ import { BrandLogo } from "@/components/media/brand-logo";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
-import { saveWooviCrypto } from "@/lib/actions";
+import { saveWooviCrypto } from "@/lib/actions/connections";
 import { WOOVI_ASSETS } from "@/lib/orders/crypto";
 import { ErrorText } from "@/app/ui";
 import { PRIMARY, TextField, type Links, type Tone } from "../shared";

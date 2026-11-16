@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/guard";
+import { isAdmin } from "@/lib/sessions";
 import { contactPhoto } from "@/lib/messages";
 
 export async function GET(request: Request) {

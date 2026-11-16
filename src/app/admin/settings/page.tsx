@@ -1,6 +1,7 @@
 import { Tabs } from "@/components/data/tabs";
 import { PageHeader } from "@/components/layout/page-header";
-import { products, settings } from "@/lib/catalog";
+import { products } from "@/lib/catalog/products";
+import { settings } from "@/lib/settings";
 import { pick, requireAdmin, type Query } from "../shared";
 import { CheckoutSection } from "./checkout";
 import { BrandSection, LegalSection, NoticesSection, StoreSection } from "./sections";

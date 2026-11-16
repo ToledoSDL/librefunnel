@@ -2,7 +2,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { Card } from "@/components/layout/card";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
-import { deleteReply } from "@/lib/actions";
+import { deleteReply } from "@/lib/actions/messages";
 import type { Reply } from "@/lib/messages";
 import { AutomationRow } from "./automation-row";
 import styles from "./automations.module.css";

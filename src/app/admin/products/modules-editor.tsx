@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Section } from "@/components/layout/section";
 import { Dialog } from "@/components/overlay/dialog";
-import type { Product } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog/products";
 import { ModuleForm } from "./module-form";
 import { ModuleItem } from "./module-item";
 import styles from "./products.module.css";

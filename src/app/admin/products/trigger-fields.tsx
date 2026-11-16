@@ -1,6 +1,6 @@
 import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
-import type { Trigger } from "@/lib/catalog";
+import type { Trigger } from "@/lib/catalog/products";
 import styles from "../admin.module.css";
 import { TextField } from "../shared";
 

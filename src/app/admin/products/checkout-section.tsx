@@ -1,7 +1,7 @@
 import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
 import { Section } from "@/components/layout/section";
-import type { Product } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog/products";
 import styles from "../admin.module.css";
 import { TextField } from "../shared";
 import { MoneyField } from "./money-field";

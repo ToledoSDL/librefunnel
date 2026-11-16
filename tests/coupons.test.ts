@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { checkCoupon, createOrder, deleteCoupon, refundOrder, releaseOrder, saveCoupon } from "@/lib/actions";
+import { checkCoupon, deleteCoupon, saveCoupon } from "@/lib/actions/coupons";
+import { createOrder } from "@/lib/actions/checkout";
+import { refundOrder, releaseOrder } from "@/lib/actions/orders";
 import { db, one } from "@/lib/db";
 import { coupon, order } from "@/lib/schema";
 import { form, freshBrowser } from "./fakes";

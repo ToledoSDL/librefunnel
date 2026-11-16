@@ -1,4 +1,4 @@
-import { directUpload } from "@/lib/media";
+import { directUpload } from "@/lib/media/uploads";
 
 export async function POST(request: Request) {
   return directUpload(request);

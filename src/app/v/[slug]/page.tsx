@@ -3,15 +3,18 @@ import { notFound } from "next/navigation";
 import { preload } from "react-dom";
 import { Disclosure } from "@/components/layout/disclosure";
 import { Icon } from "@/components/media/icon";
-import { DEFAULT_BAR, getProduct, settings } from "@/lib/catalog";
-import type { Product } from "@/lib/catalog";
-import { baseUrl } from "@/lib/guard";
-import { streamFor } from "@/lib/media";
+import { DEFAULT_BAR, getProduct } from "@/lib/catalog/products";
+import { settings } from "@/lib/settings";
+import type { Product } from "@/lib/catalog/products";
+import { siteOf } from "@/lib/guard";
+import { streamFor } from "@/lib/media/serving";
+import { standing } from "@/lib/members";
 import { offerOpen } from "@/lib/orders/checkout";
 import { Footer, JsonLd, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
 import { TrackClick, Tracker } from "@/app/track";
 import { inkFor } from "@/app/color";
+import { StandingNotice } from "@/app/standing";
 import { Countdown } from "./countdown";
 import styles from "./page.module.css";
 import { VslPlayer } from "./player";
@@ -43,12 +46,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${product.name} | ${brand}`,
     description: text,
-    alternates: { canonical: `/v/${slug}` },
+    alternates: { canonical: `${siteOf(product)}/v/${slug}` },
     openGraph: {
       type: "website",
       locale: "pt_BR",
       siteName: brand,
-      url: `/v/${slug}`,
+      url: `${siteOf(product)}/v/${slug}`,
       title: product.name,
       description: text,
       images: product.banner ?? product.cover,
@@ -57,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function schema(product: Product, brand: string, open: boolean): object[] {
-  const base = baseUrl();
+  const base = siteOf(product);
   const url = `${base}/v/${product.slug}`;
   const image = product.banner ?? product.cover;
 
@@ -195,7 +198,7 @@ export default async function SalesPage({ params, searchParams }: Props) {
   ).toString();
 
   const href = `/c/${slug}${query ? `?${query}` : ""}`;
-  const { brand } = await settings();
+  const [{ brand }, state] = await Promise.all([settings(), standing(slug)]);
   const open = offerOpen(product);
   const days = product.guaranteeDays;
   const video = product.vsl?.video;
@@ -229,6 +232,8 @@ export default async function SalesPage({ params, searchParams }: Props) {
           <h1 className={styles.headline}>{product.name}</h1>
           {product.tagline ? <p className={styles.sub}>{product.tagline}</p> : null}
         </header>
+
+        {state ? <StandingNotice standing={state} /> : null}
 
         {video ? (
           <VslPlayer
@@ -264,6 +269,12 @@ export default async function SalesPage({ params, searchParams }: Props) {
 
         {open ? (
           <div className={`${styles.below} ${delayed ? styles.later : ""}`}>
+            {/* Without the player script the video cannot open the offer, so it is shown from the start. */}
+            {delayed ? (
+              <noscript>
+                <style>{`.${styles.later}{display:flex}`}</style>
+              </noscript>
+            ) : null}
             <Offer product={product} href={href} />
 
             <section className={styles.guarantee}>

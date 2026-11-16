@@ -1,8 +1,10 @@
 import { createHmac, createSign, generateKeyPairSync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { createOrder, releaseOrder, rotateWebhookSecret, saveWooviCrypto } from "@/lib/actions";
-import { credentials, removeCredentials, saveCredentials } from "@/lib/catalog";
+import { createOrder } from "@/lib/actions/checkout";
+import { releaseOrder } from "@/lib/actions/orders";
+import { rotateWebhookSecret, saveWooviCrypto } from "@/lib/actions/connections";
+import { credentials, removeCredentials, saveCredentials } from "@/lib/settings";
 import { db, one } from "@/lib/db";
 import { attachCharges, checkCharges } from "@/lib/orders/charges";
 import { brCode } from "@/lib/orders/pix";

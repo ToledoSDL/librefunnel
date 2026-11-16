@@ -359,8 +359,9 @@ POSTGRES_PASSWORD=<the output of openssl rand -hex 24>
 - `BASE_URL` has `https://` and no slash at the end.
 - `DOMAIN` is the same name without `https://`.
 - `ADMIN_PASSWORD` is how you sign in to the dashboard. Save it in a password manager.
-- `SECRET` signs logins and access links and encrypts the passwords and keys you save in the dashboard. If you change it
-  later, everyone is signed out, WhatsApp must be reconnected and those passwords and keys must be typed again.
+- `SECRET` signs the unsubscribe links and encrypts the passwords and keys you save in the dashboard. If you change it
+  later, the dashboard asks for the password again, WhatsApp must be reconnected and those passwords and keys must be
+  typed again. Buyers stay signed in: their sessions live in the database.
 - `POSTGRES_PASSWORD` protects the database, which stays inside the server. Set it before the first start and do not
   change it afterwards.
 
@@ -633,8 +634,9 @@ choice: it charges nothing for data going out. Amazon S3, Backblaze B2 and other
 2. In `/admin` > **Conexões** > **Cloudflare R2**, click **Conectar**, then **Crie um token na Cloudflare**. The token
    form opens with the R2 edit permission filled in: create it and copy its value.
 3. Paste it and click **Conectar**. The store finds your account, creates a private bucket named after your store,
-   allows uploads from your address (CORS), derives the S3 keys from the token and tests them. The token itself is not
-   stored.
+   allows uploads from your address and reads from any site, so [product domains](#product-domains) play the videos too
+   (CORS), derives the S3 keys from the token and tests them. The token itself is not stored. The store applies the same
+   CORS rule again at every start.
 
 For Amazon S3, Backblaze B2 or another S3-compatible service, open **Usar Amazon S3, Backblaze ou outro serviço S3** in
 the same dialog: paste the S3 address with the bucket at the end and the two keys, and add the CORS policy shown there
@@ -645,6 +647,28 @@ The sales video and images get signed links valid for a week, renewed daily so b
 checked against the buyer's access on every request and get links valid for 15 minutes; HLS playlists pass through the
 store, so each segment is checked too. **Remover** keeps every file in the bucket, but they stop opening in the store
 until you connect it again. The daily backup covers the database only, not the files in the bucket.
+
+## Product domains
+
+Each product can have its own address, such as `meucurso.com.br`, while the store keeps its main address for the
+dashboard and the members area.
+
+1. In the place where you manage the domain, create an `A` record (and `AAAA` if the main address has one) with the same
+   IP as the store's main address. A subdomain such as `curso.yourdomain.com` works the same way.
+2. In `/admin` > **Produtos** > the product > **Geral**, fill in **Domínio** and save.
+3. Open the address. The first visit takes a few seconds while the HTTPS certificate is issued.
+
+The address opens the product's page and keeps the UTMs and click ids of the ad. Caddy asks the store before issuing a
+certificate (`/api/domain`), so only a domain saved on a product on sale gets one. The sitemap and the canonical address
+of the sales page use the product's domain.
+
+- Stores installed before this existed need the new `Caddyfile` once: run the installer again (see
+  [Run the installer](#5-run-the-installer)). The product's **Geral** tab says when this is still missing.
+- With Cloudflare's firewall (`--cf-firewall`) the server only answers Cloudflare, so the product domain must be on
+  Cloudflare too, proxied (orange cloud), with SSL **Full (strict)** and **Always Use HTTPS** off.
+
+**Página inicial** in **Configurações** chooses what the main address opens: the showcase with every product, one
+product, or **Sem vitrine: área de membros** when each product is sold only on its own link or domain.
 
 ## Google and AI assistants
 

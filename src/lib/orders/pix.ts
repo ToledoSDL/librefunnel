@@ -1,6 +1,6 @@
 import "server-only";
 import QRCode from "qrcode";
-import type { Product } from "../catalog";
+import type { Product } from "../catalog/products";
 
 function tlv(id: string, value: string): string {
   return `${id}${String(value.length).padStart(2, "0")}${value}`;

@@ -6,7 +6,7 @@ import { ErrorText } from "@/app/ui";
 import type { ButtonAttributes } from "@/components/action/button";
 import { SubmitButton } from "@/components/action/submit-button";
 import { Text } from "@/components/text/text";
-import { sendReply } from "@/lib/actions";
+import { sendReply } from "@/lib/actions/messages";
 import styles from "./messages.module.css";
 
 export function Composer({

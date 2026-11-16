@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
-import { products } from "@/lib/catalog";
+import { products } from "@/lib/catalog/products";
 import { baseUrl } from "@/lib/guard";
 import { RECOVERY_FIELDS, recoverySteps, replies, REPLY_FIELDS } from "@/lib/messages";
 import { requireAdmin } from "../shared";

@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/guard";
+import { isAdmin } from "@/lib/sessions";
 import { currentVersion } from "@/lib/updates";
 
 // Polled while the store restarts, so the panel knows when it is back and on which version.

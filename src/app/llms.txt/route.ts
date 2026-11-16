@@ -1,6 +1,7 @@
 import { connection } from "next/server";
-import { products, settings } from "@/lib/catalog";
-import { baseUrl } from "@/lib/guard";
+import { products } from "@/lib/catalog/products";
+import { settings } from "@/lib/settings";
+import { baseUrl, siteOf } from "@/lib/guard";
 import { offerOpen } from "@/lib/orders/checkout";
 import { formatMoney } from "@/format";
 
@@ -19,7 +20,7 @@ export async function GET() {
     "",
     ...items.map(
       (product) =>
-        `- [${product.name}](${base}/v/${product.slug}): ${formatMoney(product.price)} no Pix, garantia de ${product.guaranteeDays} dias${offerOpen(product) ? "" : ", inscrições encerradas"}.${product.tagline ? ` ${product.tagline}` : ""}`,
+        `- [${product.name}](${siteOf(product)}/v/${product.slug}): ${formatMoney(product.price)} no Pix, garantia de ${product.guaranteeDays} dias${offerOpen(product) ? "" : ", inscrições encerradas"}.${product.tagline ? ` ${product.tagline}` : ""}`,
     ),
     ...items
       .filter((product) => product.faq.length)

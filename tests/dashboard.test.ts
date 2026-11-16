@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
-import { removeConnection, saveEvolution, saveMeta, savePix, saveSmtp } from "@/lib/actions";
-import { credentials } from "@/lib/catalog";
+import { removeConnection, saveEvolution, saveMeta, savePix, saveSmtp } from "@/lib/actions/connections";
+import { credentials } from "@/lib/settings";
 import { db } from "@/lib/db";
 import { funnel, integrations, orders, revenueByDay, summary } from "@/lib/dashboard";
 import type { OrderFilter } from "@/lib/dashboard";

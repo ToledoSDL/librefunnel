@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { and, asc, eq } from "drizzle-orm";
-import { saveMeta, testConnection } from "@/lib/actions";
-import { removeCredentials, saveCredentials } from "@/lib/catalog";
+import { saveMeta, testConnection } from "@/lib/actions/connections";
+import { removeCredentials, saveCredentials } from "@/lib/settings";
 import { db, one } from "@/lib/db";
 import { sources } from "@/lib/dashboard";
 import { conversion, customer, event, order, signal, touch } from "@/lib/schema";
-import { sendConversions } from "@/lib/tracking";
+import { sendConversions } from "@/lib/tracking/meta";
 import { POST as trackRoute } from "@/app/t/route";
 import { cookieOptions, cookieStore, fakeServer, form, freshBrowser, redirectFetch } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";

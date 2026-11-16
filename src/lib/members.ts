@@ -1,64 +1,58 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
-import { cookies } from "next/headers";
-import { ownedProducts } from "./catalog";
-import type { Product } from "./catalog";
+import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { ownedProducts } from "./catalog/products";
+import type { Product } from "./catalog/products";
 import { addSeconds, db } from "./db";
-import { baseUrl, limited, now, setCookie, sha256, sign, verify } from "./guard";
+import { baseUrl, limited, sha256 } from "./guard";
+import { endCustomerSessions, endSession, readSession, startSession } from "./sessions";
 import { customer, login, message, order, progress } from "./schema";
 
 export type MemberCode = "INVALID_EMAIL" | "RATE_LIMITED" | "LINK_INVALID" | "NOT_SIGNED_IN" | "LESSON_NOT_FOUND";
 export type Member = { customerId: string; email: string; name: string; scope: "full" | "order"; owned: string[] };
 
-const MEMBER_COOKIE = "lf_member";
-const ORDER_COOKIE = "lf_order";
 const FULL_TTL = 30 * 86400;
 const ORDER_TTL = 7 * 86400;
 const LOGIN_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
 export async function currentMember(): Promise<Member | undefined> {
-  const token = (await cookies()).get(MEMBER_COOKIE)?.value;
-  const session = token ? verify("member", token) : undefined;
-  // Cookies from before sessions carried their start time count as started at 0.
-  const [scope, id, started = "0"] = session?.split(":") ?? [];
-  if (!id) return undefined;
-  const revoked = (after: Date | null) => after !== null && Number(started) < Math.floor(after.getTime() / 1000);
-  if (scope === "c") {
+  const found = await readSession("member");
+  if (!found?.customerId) return undefined;
+
+  if (!found.orderId) {
     const rows = await db()
-      .select({
-        email: customer.email,
-        sessionsAfter: customer.sessionsAfter,
-        name: order.name,
-        product: order.product,
-        bump: order.bump,
-      })
+      .select({ email: customer.email, name: order.name, product: order.product, bump: order.bump })
       .from(customer)
       .leftJoin(order, and(eq(order.customerId, customer.id), eq(order.status, "paid")))
-      .where(eq(customer.id, id))
+      .where(eq(customer.id, found.customerId))
       .orderBy(desc(order.createdAt));
 
     const [latest] = rows;
-    if (!latest || revoked(latest.sessionsAfter)) return undefined;
+    if (!latest) return undefined;
     const owned = rows.flatMap((row) => [row.product, row.bump]).filter((slug) => slug !== null);
-    return { customerId: id, email: latest.email, name: latest.name ?? "", scope: "full", owned: [...new Set(owned)] };
+
+    return {
+      customerId: found.customerId,
+      email: latest.email,
+      name: latest.name ?? "",
+      scope: "full",
+      owned: [...new Set(owned)],
+    };
   }
-  if (scope !== "o") return undefined;
 
   const [row] = await db()
     .select({
       customerId: order.customerId,
       email: customer.email,
-      sessionsAfter: customer.sessionsAfter,
       name: order.name,
       product: order.product,
       bump: order.bump,
     })
     .from(order)
     .innerJoin(customer, eq(customer.id, order.customerId))
-    .where(and(eq(order.id, id), eq(order.status, "paid")));
+    .where(and(eq(order.id, found.orderId), eq(order.status, "paid")));
 
-  if (!row || revoked(row.sessionsAfter)) return undefined;
+  if (!row) return undefined;
   return {
     customerId: row.customerId,
     email: row.email,
@@ -67,7 +61,6 @@ export async function currentMember(): Promise<Member | undefined> {
     owned: row.bump ? [row.product, row.bump] : [row.product],
   };
 }
-
 export function memberProducts(member: Member): Promise<Product[]> {
   return ownedProducts(member.owned);
 }
@@ -81,37 +74,49 @@ export async function completedLessons(member: Member): Promise<Set<string>> {
   return new Set(rows.map((row) => `${row.product}:${row.lesson}`));
 }
 
+// The checkout's own order: lets the buyer reuse an open Pix and, once paid, enter the members area without e-mail.
 export async function rememberOrder(orderId: string) {
-  await setCookie(ORDER_COOKIE, sign("order", orderId, FULL_TTL), FULL_TTL, "lax");
+  await startSession("order", { orderId }, FULL_TTL);
 }
 
 export async function orderFromCookie(): Promise<string | undefined> {
-  const token = (await cookies()).get(ORDER_COOKIE)?.value;
-  return token ? verify("order", token) : undefined;
+  return (await readSession("order"))?.orderId ?? undefined;
 }
 
-async function paidOrderFromCookie(): Promise<string | undefined> {
+async function paidOrderFromCookie(): Promise<{ id: string; customerId: string } | undefined> {
   const orderId = await orderFromCookie();
   if (!orderId) return undefined;
 
-  // The order cookie is set at checkout, so after a sign-out it must not open a new session.
   const [paid] = await db()
-    .select({ id: order.id })
+    .select({ id: order.id, customerId: order.customerId })
     .from(order)
-    .innerJoin(customer, eq(customer.id, order.customerId))
-    .where(
-      and(
-        eq(order.id, orderId),
-        eq(order.status, "paid"),
-        or(isNull(customer.sessionsAfter), gt(order.createdAt, customer.sessionsAfter)),
-      ),
-    );
+    .where(and(eq(order.id, orderId), eq(order.status, "paid")));
 
-  return paid?.id;
+  return paid;
 }
 
 export async function hasPaidOrderCookie(): Promise<boolean> {
   return (await paidOrderFromCookie()) !== undefined;
+}
+export type Standing = { kind: "owned" | "pending"; href: string };
+
+// What this browser already has for a product, so its pages lead there instead of selling it again: the members area
+// for a signed-in owner, the paid order (which opens the area) or the Pix still waiting from this browser's checkout.
+export async function standing(slug: string): Promise<Standing | undefined> {
+  const member = await currentMember();
+  if (member?.owned.includes(slug)) return { kind: "owned", href: "/m" };
+  const orderId = await orderFromCookie();
+  if (!orderId) return undefined;
+
+  const [found] = await db()
+    .select({ status: order.status, product: order.product, bump: order.bump, expiresAt: order.expiresAt })
+    .from(order)
+    .where(eq(order.id, orderId));
+
+  if (!found || (found.product !== slug && found.bump !== slug)) return undefined;
+  const href = `/c/${found.product}?order=${orderId}`;
+  if (found.status === "paid") return { kind: "owned", href };
+  return found.status === "pending" && found.expiresAt > new Date() ? { kind: "pending", href } : undefined;
 }
 
 export async function mintLogin(customerId: string, ttl: number): Promise<string> {
@@ -174,16 +179,16 @@ export async function confirmLogin(token: string): Promise<MemberCode | null> {
     .returning({ customerId: login.customerId });
 
   if (!used) return "LINK_INVALID";
-  await setCookie(MEMBER_COOKIE, sign("member", `c:${used.customerId}:${now()}`, FULL_TTL), FULL_TTL, "lax");
+  await startSession("member", { customerId: used.customerId }, FULL_TTL);
   return null;
 }
 
 export async function enterFromOrder(): Promise<MemberCode | null> {
   const current = await currentMember();
   if (current?.scope === "full") return null;
-  const orderId = await paidOrderFromCookie();
-  if (!orderId) return "NOT_SIGNED_IN";
-  await setCookie(MEMBER_COOKIE, sign("member", `o:${orderId}:${now()}`, ORDER_TTL), ORDER_TTL, "lax");
+  const paid = await paidOrderFromCookie();
+  if (!paid) return "NOT_SIGNED_IN";
+  await startSession("member", { customerId: paid.customerId, orderId: paid.id }, ORDER_TTL);
   return null;
 }
 
@@ -204,9 +209,10 @@ export async function completeLesson(product: string, lesson: string): Promise<M
   return null;
 }
 
-// A copied cookie would otherwise keep working for its 30 days; signing out ends it on every device.
+// Ends the session on every device, along with the checkout cookies that could open a new one.
 export async function signOut() {
   const member = await currentMember();
-  if (member) await db().update(customer).set({ sessionsAfter: new Date() }).where(eq(customer.id, member.customerId));
-  (await cookies()).delete(MEMBER_COOKIE);
+  if (member) await endCustomerSessions(member.customerId);
+  await endSession("member");
+  await endSession("order");
 }

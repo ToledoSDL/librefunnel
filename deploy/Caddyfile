@@ -3,6 +3,10 @@
 	email "{$ACME_EMAIL}"
 	# Browsers send no SNI to an IP address: a store on a computer (DOMAIN=localhost 127.0.0.1) answers https://127.0.0.1 too.
 	default_sni localhost
+	# A product's own domain gets its certificate on the first visit, and only if the store says it sells there.
+	on_demand_tls {
+		ask http://app:3000/api/domain
+	}
 	servers {
 		# Behind Cloudflare, TRUSTED_PROXIES lists its ranges so {client_ip} is the visitor (CF-Connecting-IP cannot be forged through Cloudflare).
 		trusted_proxies static {$TRUSTED_PROXIES:private_ranges}
@@ -14,6 +18,8 @@
 	reverse_proxy {
 		# The store reads the last X-Forwarded-For hop, so send only the resolved visitor address.
 		header_up X-Forwarded-For {client_ip}
+		# Tells the admin this Caddyfile serves product domains; stores installed before it need the installer run again.
+		header_up X-Product-Domains 1
 		# During an update two app containers answer to the same name; looking it up every second sends requests to both.
 		dynamic a app 3000 {
 			refresh 1s
@@ -25,7 +31,7 @@
 	}
 }
 
-{$DOMAIN} {
+(site) {
 	encode zstd gzip
 
 	header {
@@ -47,4 +53,20 @@
 		}
 		import app
 	}
+}
+
+{$DOMAIN} {
+	import site
+}
+
+# Any other name: product domains set in the admin.
+https:// {
+	tls {
+		on_demand
+	}
+	import site
+}
+
+http:// {
+	redir https://{host}{uri} permanent
 }

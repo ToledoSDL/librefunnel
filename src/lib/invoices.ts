@@ -3,7 +3,8 @@ import { createHash, createPrivateKey, createSign, X509Certificate } from "node:
 import { request } from "node:https";
 import { gzipSync } from "node:zlib";
 import { and, asc, eq, isNotNull, lte, sql } from "drizzle-orm";
-import { credentials, productNames } from "./catalog";
+import { credentials } from "./settings";
+import { productNames } from "./catalog/products";
 import { addSeconds, db } from "./db";
 import type { Database } from "./db";
 import { demoMode, isObject, jsonObject } from "./guard";

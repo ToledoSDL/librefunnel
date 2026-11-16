@@ -2,7 +2,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { DEMO_DIR } from "@/lib/db";
 import { demoMode } from "@/lib/guard";
-import { sendFile } from "@/lib/media";
+import { sendFile } from "@/lib/media/serving";
 
 // Only these names are ever joined to a path, so nothing outside demo/media can be reached.
 const FILES = new Map([

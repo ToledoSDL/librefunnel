@@ -43,13 +43,16 @@ no release; a release is for the store.
   in `layout.tsx`
 - `src/components/`: the component library, one component per file in folders by responsibility (see
   `docs/design-system.md`)
-- `src/lib/`: business rules, one file or folder per domain: `actions` (the only server action edge), `orders/`
-  (`checkout` places orders, `payments` releases and refunds them, `webhooks` is the payment entry, `charges` creates
-  and re-checks provider charges, `psp` holds what every provider shares, one file per provider, `pix` the static BR
-  Code, `crypto` the Woovi conversion), `coupons`, `invoices` (NFS-e Nacional), `members`, `messages`, `tracking`,
-  `dashboard`, `guard`, `db`, `catalog`; `input` parses and validates every value that comes from outside (`parse*`
-  returns the normalized value or `undefined`), and `registry` is the only caller of public registries (CNPJ through
-  BrasilAPI)
+- `src/lib/`: business rules, one file or folder per domain: `actions/` (the only server action edge: one `"use server"`
+  file per screen area, with `form` holding the shared `Code`, `ActionState` and form readers), `orders/` (`checkout`
+  places orders, `payments` releases and refunds them, `webhooks` is the payment entry, `charges` creates and re-checks
+  provider charges, `psp` holds what every provider shares, one file per provider, `pix` the static BR Code, `crypto`
+  the Woovi conversion), `catalog/` (`products`, `course` for modules and lessons), `settings` (store settings and
+  integration credentials), `media/` (`files`, `bucket` the S3 client, `uploads`, `serving`, `storage` connects the
+  bucket, `video` transcodes, `sweep`, `backup`), `tracking/` (`funnel`, `visitors`, `retention`, `meta`), `coupons`,
+  `invoices` (NFS-e Nacional), `members`, `sessions` (admin, member and checkout sessions), `messages`, `dashboard`,
+  `guard`, `db`; `input` parses and validates every value that comes from outside (`parse*` returns the normalized value
+  or `undefined`), and `registry` is the only caller of public registries (CNPJ through BrasilAPI)
 - `src/format.ts`: every text the store formats for people, server and browser alike (`format*`: money, CPF and CNPJ,
   phones, names); a new formatter or validator goes there or in `input`, never inline in a screen or action
 - `src/lib/schema.ts`, `src/lib/migrations/`: Drizzle schema and the SQL migrations generated from it
@@ -117,17 +120,22 @@ no release; a release is for the store.
   at a time; nothing grows without a bound on disk or in memory.
 - Queries: name every column (no `SELECT *`), aggregate and filter in the database, no N+1, no duplicate reads in one
   flow, no fetching what the flow does not use. Caching is never the fix for any of these.
-- Validate every external input at the edge (`src/lib/actions.ts`, route handlers). Server secrets (`SECRET`,
+- Validate every external input at the edge (`src/lib/actions/`, route handlers). Server secrets (`SECRET`,
   `ADMIN_PASSWORD`, database) only through environment variables; integration credentials set in `/admin` > Conexões
   live in the `integration` table, sealed with `guard.seal` (AES-256-GCM, key derived from `SECRET`), read per use and
   never sent to the browser. Provider errors never echo response bodies.
-- Every module in `src/lib` except `actions.ts` (a `"use server"` edge that client components import) starts with
-  `import "server-only"`.
-- Tracking lives in `src/lib/tracking.ts`: `STEPS` lists every browser funnel step (the first-party event the panel
-  counts and its ad platform event) and `ORDER_STEPS` the server ones, which orders record with `orderStep` inside their
-  transaction. The browser sends steps only through `track`/`Tracker`/`TrackClick` in `src/app/track.tsx`.
-  `sendConversions` is the one sender. A new step or ad platform (Google Ads next) is a change there, never a call
-  scattered in a page.
+- Every module in `src/lib` except the `"use server"` files in `actions/` (the edge client components import) starts
+  with `import "server-only"`. Every export of a `"use server"` file is a public endpoint, so helpers live in
+  `actions/form.ts` or stay unexported.
+- Tracking lives in `src/lib/tracking/`: `STEPS` in `funnel.ts` lists every browser funnel step (the first-party event
+  the panel counts and its ad platform event) and `ORDER_STEPS` the server ones, which orders record with `orderStep`
+  inside their transaction. The browser sends steps only through `track`/`Tracker`/`TrackClick` in `src/app/track.tsx`.
+  `sendConversions` in `meta.ts` is the one sender. A new step or ad platform (Google Ads next) is a change there, never
+  a call scattered in a page.
+- Sessions go only through `src/lib/sessions.ts`: a random 256-bit id in an `HttpOnly`, `Secure`, `__Host-` cookie
+  (`SameSite=Strict` for the admin), stored in `session` as its SHA-256, ended by deleting the row. No session id, token
+  or credential in `localStorage`, `sessionStorage`, a URL that lasts, or anything else JavaScript can read, and no
+  stateless session tokens (JWT or signed cookies): `guard.sign` is only for links such as unsubscribe.
 - Personal data: Meta receives e-mail, phone, name and customer id only as hashes; IP, user agent, `fbp` and `fbc` go
   raw because the Conversions API requires them that way. Access credentials go only by e-mail, never by WhatsApp or in
   a permanent URL.

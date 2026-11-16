@@ -1,7 +1,7 @@
 import { CopyField } from "@/components/action/copy-field";
 import { Disclosure } from "@/components/layout/disclosure";
 import { Dialog } from "@/components/overlay/dialog";
-import { connectR2, saveStorage } from "@/lib/actions";
+import { connectR2, saveStorage } from "@/lib/actions/connections";
 import { OUTLINE, PRIMARY, TextField, type Links } from "../shared";
 import { SaveForm } from "../ui";
 import styles from "./connections.module.css";
@@ -13,14 +13,12 @@ const TOKEN_URL = `https://dash.cloudflare.com/profile/api-tokens?${new URLSearc
   name: "LibreFunnel",
 })}`;
 
+// Same rule the store applies itself (applyCors): any site reads, since product domains play the videos too; only the
+// panel uploads.
 function cors(origin: string) {
   return JSON.stringify([
-    {
-      AllowedOrigins: [origin],
-      AllowedMethods: ["GET", "PUT", "HEAD"],
-      AllowedHeaders: ["*"],
-      ExposeHeaders: ["ETag"],
-    },
+    { AllowedOrigins: ["*"], AllowedMethods: ["GET", "HEAD"], AllowedHeaders: ["*"] },
+    { AllowedOrigins: [origin], AllowedMethods: ["PUT"], AllowedHeaders: ["*"], ExposeHeaders: ["ETag"] },
   ]);
 }
 

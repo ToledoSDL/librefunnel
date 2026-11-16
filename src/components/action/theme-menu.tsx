@@ -12,12 +12,14 @@ export function ThemeMenu({ theme, icons }: { theme: Theme; icons: Record<Theme,
 
   function choose(next: Theme) {
     setCurrent(next);
+    // Only the look of the page; set here so it applies without a reload, and never sent over plain http.
+    const flags = `path=/; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
 
     if (next === "system") {
-      document.cookie = "lf_theme=; path=/; max-age=0; samesite=lax";
+      document.cookie = `lf_theme=; max-age=0; ${flags}`;
       document.documentElement.removeAttribute("data-theme");
     } else {
-      document.cookie = `lf_theme=${next}; path=/; max-age=31536000; samesite=lax`;
+      document.cookie = `lf_theme=${next}; max-age=31536000; ${flags}`;
       document.documentElement.dataset.theme = next;
     }
   }

@@ -3,7 +3,7 @@ import { Input } from "@/components/form/input";
 import { Select } from "@/components/form/select";
 import { Disclosure } from "@/components/layout/disclosure";
 import { Dialog } from "@/components/overlay/dialog";
-import { saveNfse } from "@/lib/actions";
+import { saveNfse } from "@/lib/actions/connections";
 import type { Regime } from "@/lib/invoices";
 import { PRIMARY, TextField, type Links } from "../shared";
 import { SaveForm } from "../ui";

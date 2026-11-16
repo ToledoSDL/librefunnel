@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { saveProduct } from "@/lib/actions";
-import type { Product } from "@/lib/catalog";
+import { saveProduct } from "@/lib/actions/products";
+import type { Product } from "@/lib/catalog/products";
 import { SaveForm } from "../ui";
 
 export type FormSection = "general" | "sales" | "checkout" | "reviews";
@@ -22,6 +22,7 @@ function storedFields(product: Product): Record<FormSection, [string, string][]>
       ["name", product.name],
       ["price", (product.price / 100).toFixed(2)],
       ["tagline", product.tagline ?? ""],
+      ["domain", product.domain ?? ""],
     ],
     sales: [
       ["vslVideo", product.vsl?.video ?? ""],

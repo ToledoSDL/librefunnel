@@ -1,5 +1,5 @@
 import { Dialog } from "@/components/overlay/dialog";
-import type { deleteReply } from "@/lib/actions";
+import type { deleteReply } from "@/lib/actions/messages";
 import { DANGER } from "../shared";
 import { ActionButton } from "../ui";
 

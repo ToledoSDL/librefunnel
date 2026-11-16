@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import type { ButtonAttributes } from "@/components/action/button";
 import { Stack } from "@/components/layout/stack";
 import { Text } from "@/components/text/text";
-import type { ActionState } from "@/lib/actions";
+import type { ActionState } from "@/lib/actions/form";
 import { ErrorText } from "@/app/ui";
 import styles from "./admin.module.css";
 

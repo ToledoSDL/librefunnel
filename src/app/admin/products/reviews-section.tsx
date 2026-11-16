@@ -1,7 +1,7 @@
 import { Disclosure } from "@/components/layout/disclosure";
 import { Section } from "@/components/layout/section";
 import { Icon } from "@/components/media/icon";
-import type { Product } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog/products";
 import { GHOST } from "../shared";
 import { Rows } from "../ui";
 import { FaqFields } from "./faq-fields";

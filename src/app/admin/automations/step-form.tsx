@@ -2,7 +2,7 @@ import { Field } from "@/components/form/field";
 import { Input } from "@/components/form/input";
 import { Select } from "@/components/form/select";
 import { Row } from "@/components/layout/row";
-import { saveRecoveryStep } from "@/lib/actions";
+import { saveRecoveryStep } from "@/lib/actions/messages";
 import type { RecoveryStep } from "@/lib/messages";
 import styles from "../admin.module.css";
 import { PRIMARY } from "../shared";

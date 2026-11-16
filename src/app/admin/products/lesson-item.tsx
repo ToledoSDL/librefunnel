@@ -1,7 +1,7 @@
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
-import type { Module } from "@/lib/catalog";
+import type { Module } from "@/lib/catalog/products";
 import { ItemActions } from "./item-actions";
 import { LessonForm } from "./lesson-form";
 import styles from "./products.module.css";

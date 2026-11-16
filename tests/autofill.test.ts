@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "bun:test";
 import { inArray } from "drizzle-orm";
-import { savePixKey, saveSettings, saveSmtp } from "@/lib/actions";
-import { credentials, removeCredentials, settings, storePix } from "@/lib/catalog";
+import { savePixKey, saveSmtp } from "@/lib/actions/connections";
+import { saveSettings } from "@/lib/actions/store";
+import { credentials, removeCredentials, settings } from "@/lib/settings";
+import { storePix } from "@/lib/catalog/products";
 import { db } from "@/lib/db";
 import { setting } from "@/lib/schema";
 import { fakeServer, form, redirectFetch } from "./fakes";

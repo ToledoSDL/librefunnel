@@ -1,8 +1,8 @@
 import { Row } from "@/components/layout/row";
 import { Stack } from "@/components/layout/stack";
 import { Text } from "@/components/text/text";
-import { archiveItem } from "@/lib/actions";
-import type { productStates } from "@/lib/catalog";
+import { archiveItem } from "@/lib/actions/products";
+import type { productStates } from "@/lib/catalog/products";
 import { OUTLINE } from "../shared";
 import { ActionButton } from "../ui";
 

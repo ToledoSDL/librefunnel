@@ -5,13 +5,15 @@ import { count, eq, sql } from "drizzle-orm";
 import { drizzle as pglite } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { GET as demoFile } from "@/app/demo/[file]/route";
-import { restartStore, saveMeta, savePix, saveSmtp, simulatePayment, testConnection } from "@/lib/actions";
-import { credentials, saveCredentials } from "@/lib/catalog";
+import { restartStore } from "@/lib/actions/store";
+import { saveMeta, savePix, saveSmtp, testConnection } from "@/lib/actions/connections";
+import { simulatePayment } from "@/lib/actions/checkout";
+import { credentials, saveCredentials } from "@/lib/settings";
 import { db, nightlyDemoReset, one, resetDemo } from "@/lib/db";
 import { sendMessages } from "@/lib/messages";
 import { brCode } from "@/lib/orders/pix";
 import { conversion, event, lesson, message, order, payment, product, progress, setting, touch } from "@/lib/schema";
-import { sendConversions } from "@/lib/tracking";
+import { sendConversions } from "@/lib/tracking/meta";
 import { fakeServer, form, freshBrowser, sentMail, WEBHOOK_SECRET } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
 

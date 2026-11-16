@@ -1,7 +1,7 @@
 import { Chart } from "@/components/data/chart";
 import { Stack } from "@/components/layout/stack";
 import { Text } from "@/components/text/text";
-import { retentionCurve } from "@/lib/tracking";
+import { retentionCurve } from "@/lib/tracking/retention";
 import { INTEGER } from "../shared";
 
 const PERCENT = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });

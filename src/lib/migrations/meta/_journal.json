@@ -120,6 +120,20 @@
       "when": 1794775438545,
       "tag": "0016_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794785283491,
+      "tag": "0017_product_domain",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794786851155,
+      "tag": "0018_sessions",
+      "breakpoints": true
     }
   ]
 }

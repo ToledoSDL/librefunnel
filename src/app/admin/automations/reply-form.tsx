@@ -1,4 +1,4 @@
-import { saveReply } from "@/lib/actions";
+import { saveReply } from "@/lib/actions/messages";
 import type { Reply } from "@/lib/messages";
 import { PRIMARY, TextField } from "../shared";
 import { SaveForm } from "../ui";

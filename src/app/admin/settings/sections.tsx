@@ -5,8 +5,10 @@ import { SettingRow } from "@/components/form/setting-row";
 import { Switch } from "@/components/form/switch";
 import { Textarea } from "@/components/form/textarea";
 import { Card } from "@/components/layout/card";
-import { saveSettings } from "@/lib/actions";
-import type { Product, Settings } from "@/lib/catalog";
+import { saveSettings } from "@/lib/actions/store";
+import type { Product } from "@/lib/catalog/products";
+import { MEMBERS_HOME } from "@/lib/settings";
+import type { Settings } from "@/lib/settings";
 import { OUTLINE } from "../shared";
 import { MediaUpload, SaveForm } from "../ui";
 import { BrandStudio } from "./brand-studio";
@@ -55,7 +57,7 @@ export function StoreSection({ current, products }: { current: Settings; product
           </SettingRow>
           <SettingRow
             title="Página inicial"
-            description="O que abre no endereço principal da loja. Com um produto só, leve direto para a página dele."
+            description="O que abre no endereço principal da loja. Com um produto só, leve direto para a página dele. Sem vitrine, o endereço abre a entrada da área de membros."
           >
             <Select
               aria-label="Página inicial"
@@ -63,6 +65,7 @@ export function StoreSection({ current, products }: { current: Settings; product
               defaultValue={current.home ?? ""}
               options={[
                 { value: "", label: "Vitrine com todos os produtos" },
+                { value: MEMBERS_HOME, label: "Sem vitrine: área de membros" },
                 ...products.map((product) => ({ value: product.slug, label: product.name })),
               ]}
             />

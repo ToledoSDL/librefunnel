@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import type { Product } from "./catalog";
+import type { Product } from "./catalog/products";
 import { db } from "./db";
 import type { Database } from "./db";
 import { limited, throttled } from "./guard";

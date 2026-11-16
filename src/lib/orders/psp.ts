@@ -1,12 +1,21 @@
 import "server-only";
 import type { SQL } from "drizzle-orm";
-import type { Credentials } from "../catalog";
+import type { Credentials } from "../settings";
 import { isObject, jsonObject } from "../guard";
 import type { GuardCode, Json, JsonObject } from "../guard";
 import type { OrderCode } from "./checkout";
-import { NOXPAY_CURRENCIES } from "./noxpay";
 
 export const PSPS = ["mercadopago", "woovi", "abacatepay", "depix", "noxpay"] as const;
+
+// Each code is one currency on one network, as NoxPay lists them.
+export const NOXPAY_CURRENCIES = [
+  { code: "TRX_USDT_S2UZ", label: "USDT na rede Tron" },
+  { code: "SOL_USDT_EWAY", label: "USDT na rede Solana" },
+  { code: "USDT_ERC20", label: "USDT na rede Ethereum" },
+  { code: "SOL_USDC_PTHX", label: "USDC na rede Solana" },
+  { code: "USDC", label: "USDC na rede Ethereum" },
+  { code: "BTC", label: "Bitcoin" },
+] as const;
 
 export type Psp = (typeof PSPS)[number];
 

@@ -1,5 +1,5 @@
 import { ordersCsv } from "@/lib/dashboard";
-import { isAdmin } from "@/lib/guard";
+import { isAdmin } from "@/lib/sessions";
 
 export async function GET(request: Request) {
   if (!(await isAdmin())) return new Response(null, { status: 303, headers: { Location: "/admin" } });

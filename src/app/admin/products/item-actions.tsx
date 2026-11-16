@@ -1,6 +1,6 @@
 import { Menu } from "@/components/action/menu";
 import type { MenuEntry } from "@/components/action/menu-popover";
-import { archiveItem, moveItem } from "@/lib/actions";
+import { archiveItem, moveItem } from "@/lib/actions/products";
 
 // Archiving is undone with Restaurar from the same menu, so it needs no confirmation step.
 export function ItemActions({

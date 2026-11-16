@@ -3,23 +3,15 @@ import { join } from "node:path";
 import { createElement } from "react";
 import { prerender } from "react-dom/static";
 import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
-import {
-  archiveItem,
-  completeLesson,
-  createOrder,
-  createProduct,
-  enterFromOrder,
-  moveItem,
-  saveLesson,
-  saveModule,
-  savePixKey,
-  saveProduct,
-  saveRecoveryStep,
-  saveReply,
-  saveSettings,
-} from "@/lib/actions";
+import { archiveItem, createProduct, moveItem, saveLesson, saveModule, saveProduct } from "@/lib/actions/products";
+import { completeLesson, enterFromOrder } from "@/lib/actions/members";
+import { createOrder } from "@/lib/actions/checkout";
+import { savePixKey } from "@/lib/actions/connections";
+import { saveRecoveryStep, saveReply } from "@/lib/actions/messages";
+import { saveSettings } from "@/lib/actions/store";
 import { and, eq } from "drizzle-orm";
-import { getProduct, products, removeCredentials, settings } from "@/lib/catalog";
+import { getProduct, products } from "@/lib/catalog/products";
+import { removeCredentials, settings } from "@/lib/settings";
 import { db, migrate, one } from "@/lib/db";
 import { derive } from "@/lib/guard";
 import { completedLessons, currentMember, memberProducts } from "@/lib/members";

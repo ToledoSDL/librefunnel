@@ -156,6 +156,18 @@ export function parseCouponCode(raw: string): string | undefined {
   return /^[A-Z0-9_-]{3,30}$/.test(code) ? code : undefined;
 }
 
+// Accepts what sellers paste (https://MeuCurso.com.br/), keeps the bare name; at least one dot and a letter in the last
+// label, so an IP address or a name without a public suffix is refused.
+export function parseDomain(raw: string): string | undefined {
+  const domain = raw
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/[/.]+$/, "");
+
+  return HOST.test(domain) && /\.[a-z][a-z0-9-]*$/.test(domain) ? domain : undefined;
+}
+
 export function parseRowId(raw: string): number | undefined {
   return ROW_ID.test(raw) ? Number(raw) : undefined;
 }

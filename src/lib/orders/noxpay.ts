@@ -8,16 +8,6 @@ import { order } from "../schema";
 import { busy, callPsp, credentialsReply, limited, mismatch } from "./psp";
 import type { Adapter, Notice, PspKeys } from "./psp";
 
-// Each code is one currency on one network, as NoxPay lists them.
-export const NOXPAY_CURRENCIES = [
-  { code: "TRX_USDT_S2UZ", label: "USDT na rede Tron" },
-  { code: "SOL_USDT_EWAY", label: "USDT na rede Solana" },
-  { code: "USDT_ERC20", label: "USDT na rede Ethereum" },
-  { code: "SOL_USDC_PTHX", label: "USDC na rede Solana" },
-  { code: "USDC", label: "USDC na rede Ethereum" },
-  { code: "BTC", label: "Bitcoin" },
-] as const;
-
 function noxPayNotice(raw: string, keys: PspKeys, headers: Headers): Notice {
   const signature = createHmac("sha256", keys.webhookSecret).update(raw).digest("base64");
   if (!safeEqual(headers.get("x-signature") ?? "", signature)) return { code: "INVALID_SIGNATURE", status: 401 };

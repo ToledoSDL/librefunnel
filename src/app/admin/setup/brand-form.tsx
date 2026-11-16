@@ -1,7 +1,7 @@
 import { Field } from "@/components/form/field";
 import { TextLink } from "@/components/text/text-link";
-import { saveSettings } from "@/lib/actions";
-import type { Settings } from "@/lib/catalog";
+import { saveSettings } from "@/lib/actions/store";
+import type { Settings } from "@/lib/settings";
 import { href, OUTLINE, PRIMARY, TextField } from "../shared";
 import { MediaUpload, SaveForm } from "../ui";
 

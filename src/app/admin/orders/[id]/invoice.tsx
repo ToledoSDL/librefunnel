@@ -3,7 +3,7 @@ import { Stack } from "@/components/layout/stack";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";
-import { retryInvoice } from "@/lib/actions";
+import { retryInvoice } from "@/lib/actions/orders";
 import type { InvoiceCode, InvoiceStatus } from "@/lib/invoices";
 import { OUTLINE, type Tone } from "../../shared";
 import { ActionButton } from "../../ui";

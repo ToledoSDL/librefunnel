@@ -1,7 +1,7 @@
 import { Field } from "@/components/form/field";
 import { Textarea } from "@/components/form/textarea";
-import { saveLesson } from "@/lib/actions";
-import type { Module } from "@/lib/catalog";
+import { saveLesson } from "@/lib/actions/products";
+import type { Module } from "@/lib/catalog/products";
 import { PRIMARY, TextField } from "../shared";
 import { SaveForm } from "../ui";
 import { MediaField } from "./media-field";

@@ -5,8 +5,8 @@ import { createContext, useActionState, useContext, useEffect, useRef, useState 
 import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Text } from "@/components/text/text";
-import type { ActionState, Code } from "@/lib/actions";
-import { createOrder } from "@/lib/actions";
+import type { ActionState, Code } from "@/lib/actions/form";
+import { createOrder } from "@/lib/actions/checkout";
 import { Money } from "./format";
 import { track } from "./track";
 import { formatPhoneInput } from "@/format";
@@ -80,6 +80,10 @@ const ERROR_TEXT: Record<Code, string> = {
   INVALID_SLUG:
     "O endereço do produto aceita só letras minúsculas sem acento, números e hífen, até 60 caracteres, como bolo-no-pote. Ou deixe em branco para gerar pelo nome.",
   SLUG_TAKEN: "Já existe um produto com este endereço, mesmo arquivado. Escolha outro, como bolo-no-pote-2.",
+  INVALID_DOMAIN:
+    "Domínio inválido. Digite só o nome, como meucurso.com.br ou curso.seusite.com, diferente do endereço principal da loja. Ou deixe em branco.",
+  DOMAIN_TAKEN:
+    "Outro produto já usa este domínio, mesmo arquivado. Tire de lá primeiro ou use um subdomínio, como curso2.seusite.com.",
   INVALID_TITLE: "O nome precisa ter de 2 a 120 caracteres, numa linha só.",
   INVALID_PRICE: "Preço inválido. Use um valor entre R$ 1,00 e R$ 100.000,00 com até 2 casas decimais, como 97,00.",
   INVALID_PIX_KEY:

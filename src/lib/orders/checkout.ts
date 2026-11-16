@@ -1,13 +1,14 @@
 import "server-only";
 import { and, eq, lte, sql } from "drizzle-orm";
-import { orderBump, settings } from "../catalog";
-import type { Product } from "../catalog";
+import { orderBump } from "../catalog/products";
+import { settings } from "../settings";
+import type { Product } from "../catalog/products";
 import type { Applied } from "../coupons";
 import { addSeconds, db, newId, one } from "../db";
 import { ID } from "../input";
 import { recoverySteps } from "../messages";
 import { customer, order } from "../schema";
-import { orderStep } from "../tracking";
+import { orderStep } from "../tracking/funnel";
 import { brCode } from "./pix";
 import { formatFirstName, formatMaskedEmail } from "@/format";
 

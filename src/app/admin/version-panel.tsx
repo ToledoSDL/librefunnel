@@ -7,7 +7,7 @@ import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";
-import { restartStore, saveAutoUpdate, updateStore } from "@/lib/actions";
+import { restartStore, saveAutoUpdate, updateStore } from "@/lib/actions/store";
 import { demoMode } from "@/lib/guard";
 import { currentVersion, latestRelease, newer, updaterStatus } from "@/lib/updates";
 import styles from "./admin.module.css";

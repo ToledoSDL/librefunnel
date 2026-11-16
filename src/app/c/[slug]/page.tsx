@@ -3,12 +3,16 @@ import { notFound } from "next/navigation";
 import { tryCoupon } from "@/lib/coupons";
 import { clientIp } from "@/lib/guard";
 import { Icon } from "@/components/media/icon";
-import { getProduct, orderBump, settings } from "@/lib/catalog";
-import type { Product, Settings } from "@/lib/catalog";
+import { getProduct, orderBump } from "@/lib/catalog/products";
+import { settings } from "@/lib/settings";
+import type { Product } from "@/lib/catalog/products";
+import type { Settings } from "@/lib/settings";
 import { invoicesOn } from "@/lib/invoices";
+import { standing } from "@/lib/members";
 import { getPixOrder, offerOpen } from "@/lib/orders/checkout";
 import { Footer, StoreHeader, Testimonials } from "@/app/buyer";
 import { DateTime, Money } from "@/app/format";
+import { StandingNotice } from "@/app/standing";
 import { Tracker } from "@/app/track";
 import { Countdown } from "./countdown";
 import styles from "./page.module.css";
@@ -114,9 +118,10 @@ export default async function Checkout({ params, searchParams }: Props) {
 
   const typed = prefill(query.coupon, 30);
 
-  const [bump, invoices, applied] = await Promise.all([
+  const [bump, invoices, state, applied] = await Promise.all([
     orderBump(product),
     invoicesOn(),
+    standing(slug),
     typed ? tryCoupon(typed, product, null, clientIp(await headers())) : undefined,
   ]);
 
@@ -159,6 +164,7 @@ export default async function Checkout({ params, searchParams }: Props) {
             </div>
           </section>
           <div className={styles.form}>
+            {state ? <StandingNotice standing={state} /> : null}
             {open ? (
               <>
                 {store.checkoutNotice ? (

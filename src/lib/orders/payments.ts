@@ -9,7 +9,7 @@ import type { GuardCode } from "../guard";
 import { cancelInvoice, queueInvoice } from "../invoices";
 import { enqueueSale } from "../messages";
 import { customer, order, payment } from "../schema";
-import { orderStep } from "../tracking";
+import { orderStep } from "../tracking/funnel";
 import type { OrderCode, OrderStatus } from "./checkout";
 
 type StoredOrder = {

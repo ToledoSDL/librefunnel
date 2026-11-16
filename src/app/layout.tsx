@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
-import { settings } from "@/lib/catalog";
+import { settings } from "@/lib/settings";
 import { DemoBanner } from "@/components/feedback/demo-banner";
 import { baseUrl, demoMode } from "@/lib/guard";
 import { inkFor } from "./color";

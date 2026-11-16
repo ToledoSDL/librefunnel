@@ -75,8 +75,9 @@ Server settings live in `.env`. Each line in [`.env.example`](.env.example) expl
 - `BASE_URL`: public address of the store, such as `https://yourstore.duckdns.org` (no trailing slash).
 - `DOMAIN`: the same hostname without `https://`. Caddy uses it to get the certificate.
 - `ADMIN_PASSWORD`: dashboard password, at least 16 characters. Generate with `openssl rand -base64 24`.
-- `SECRET`: signs cookies and access links and encrypts the keys saved in **Conexões**, at least 32 characters. Generate
-  with `openssl rand -hex 32`.
+- `SECRET`: signs the unsubscribe links, ties the dashboard session to the password and encrypts the keys saved in
+  **Conexões**, at least 32 characters. Generate with `openssl rand -hex 32`. Sessions themselves are random ids in
+  `HttpOnly`, `Secure`, `__Host-` cookies, kept in the database only as hashes.
 - `POSTGRES_PASSWORD`: password of the PostgreSQL database that runs next to the app. Generate with
   `openssl rand -hex 24`.
 

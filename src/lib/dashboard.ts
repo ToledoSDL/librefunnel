@@ -18,7 +18,8 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/pg-core";
-import { credentials, productNames, storePix } from "./catalog";
+import { credentials } from "./settings";
+import { productNames, storePix } from "./catalog/products";
 import { addSeconds, db, one } from "./db";
 import { baseUrl } from "./guard";
 import { invoiceCode, publicLink, regime } from "./invoices";

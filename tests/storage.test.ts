@@ -3,10 +3,15 @@ import { mkdir, readdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
-import { enterFromOrder, saveLesson } from "@/lib/actions";
-import { removeCredentials, saveCredentials } from "@/lib/catalog";
+import { enterFromOrder } from "@/lib/actions/members";
+import { saveLesson } from "@/lib/actions/products";
+import { removeCredentials, saveCredentials } from "@/lib/settings";
 import { db } from "@/lib/db";
-import { connectCloudflare, directUpload, serveMedia, sign, sweepMedia } from "@/lib/media";
+import { connectCloudflare } from "@/lib/media/storage";
+import { directUpload } from "@/lib/media/uploads";
+import { serveMedia } from "@/lib/media/serving";
+import { sign } from "@/lib/media/bucket";
+import { sweepMedia } from "@/lib/media/sweep";
 import { order, product } from "@/lib/schema";
 import { fakeFetch, fakeServer, form, freshBrowser, redirected } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
@@ -113,7 +118,11 @@ describe("one-token Cloudflare setup", () => {
     const created = calls.find((call) => call.method === "POST" && call.url.endsWith("/r2/buckets"));
     expect(JSON.parse(created?.body ?? "{}").name).toMatch(/^librefunnel-/);
     const cors = calls.find((call) => call.url.endsWith("/cors"));
-    expect(JSON.parse(cors?.body ?? "{}").rules[0].allowed.methods).toEqual(["GET", "PUT", "HEAD"]);
+    // Product domains read from any origin; uploads only from the store's own address.
+    expect(JSON.parse(cors?.body ?? "{}").rules.map((rule: { allowed: object }) => rule.allowed)).toEqual([
+      { origins: ["*"], methods: ["GET", "HEAD"], headers: ["*"] },
+      { origins: ["https://shop.example"], methods: ["PUT"], headers: ["*"] },
+    ]);
     expect(
       calls.some((call) => call.method === "PUT" && new URL(call.url).hostname.endsWith(".r2.cloudflarestorage.com")),
     ).toBe(true);

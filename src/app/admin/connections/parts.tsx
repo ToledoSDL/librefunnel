@@ -3,7 +3,7 @@ import { BrandLogo } from "@/components/media/brand-logo";
 import type { Brand } from "@/components/media/brand-logo";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
-import { removeConnection, testConnection } from "@/lib/actions";
+import { removeConnection, testConnection } from "@/lib/actions/connections";
 import { DANGER, OUTLINE, TextField, type Tone } from "../shared";
 import { ActionButton } from "../ui";
 import styles from "./connections.module.css";

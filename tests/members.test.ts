@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, test, setSystemTime } from "bun:test";
-import { completeLesson, confirmLogin, enterFromOrder, refundOrder, requestLogin, signOut } from "@/lib/actions";
+import { completeLesson, confirmLogin, enterFromOrder, requestLogin, signOut } from "@/lib/actions/members";
+import { refundOrder } from "@/lib/actions/orders";
 import { and, eq } from "drizzle-orm";
 import { db, one } from "@/lib/db";
-import { clientIp, isAdmin, sign, verify } from "@/lib/guard";
-import { completedLessons, currentMember, hasPaidOrderCookie, memberProducts, mintLogin } from "@/lib/members";
-import { customer, login, message } from "@/lib/schema";
+import { clientIp, sha256, sign, verify } from "@/lib/guard";
+import { isAdmin } from "@/lib/sessions";
+import {
+  completedLessons,
+  currentMember,
+  hasPaidOrderCookie,
+  memberProducts,
+  mintLogin,
+  standing,
+} from "@/lib/members";
+import { customer, login, message, session } from "@/lib/schema";
 import { cookieOptions, cookieStore, form, freshBrowser, redirected, requestHeaders } from "./fakes";
 import { buy, pay, signInAsAdmin } from "./flows";
 
@@ -34,7 +43,7 @@ describe("members area", () => {
     freshBrowser();
     const token = await loginToken("student@example.com");
     expect(await redirected(confirmLogin({ code: null }, form({ token })))).toBe("/m");
-    expect(cookieOptions.get("lf_member")).toMatchObject({ httpOnly: true, secure: true, sameSite: "lax" });
+    expect(cookieOptions.get("__Host-lf_member")).toMatchObject({ httpOnly: true, secure: true, sameSite: "lax" });
     const member = await currentMember();
     expect(member).toMatchObject({ email: "student@example.com", name: "Ana Souza", scope: "full" });
     expect(member && (await memberProducts(member)).map((product) => product.slug)).toEqual([
@@ -116,6 +125,32 @@ describe("members area", () => {
     expect((await enterFromOrder()).code).toBe("NOT_SIGNED_IN");
   });
 
+  test("a returning browser is led to its waiting Pix, then to the access it bought, and never to someone else's", async () => {
+    freshBrowser("192.0.2.81");
+    expect(await standing("bolo-no-pote")).toBeUndefined();
+    const order = await buy({ email: "returning@example.com", bump: "1" });
+    expect(await standing("bolo-no-pote")).toEqual({ kind: "pending", href: `/c/bolo-no-pote?order=${order}` });
+    expect(await standing("planilha-preco")).toEqual({ kind: "pending", href: `/c/bolo-no-pote?order=${order}` });
+    expect(await standing("outro-produto")).toBeUndefined();
+
+    await pay(order, 9700 + 1990, `returning-${order}`);
+    expect(await standing("bolo-no-pote")).toEqual({ kind: "owned", href: `/c/bolo-no-pote?order=${order}` });
+    await redirected(enterFromOrder());
+    expect(await standing("planilha-preco")).toEqual({ kind: "owned", href: "/m" });
+
+    // Another browser typing the same e-mail has no cookie, so it sees nothing of this buyer.
+    freshBrowser("192.0.2.82");
+    expect(await standing("bolo-no-pote")).toBeUndefined();
+  });
+
+  test("an expired Pix is not offered to resume", async () => {
+    freshBrowser("192.0.2.83");
+    await buy({ email: "late@example.com" });
+    setSystemTime(new Date("2026-11-20T12:00:00-03:00"));
+    expect(await standing("bolo-no-pote")).toBeUndefined();
+    setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
+  });
+
   test("a refund revokes access immediately", async () => {
     const order = await buy({ email: "refund@example.com" });
     await pay(order);
@@ -158,14 +193,18 @@ describe("members area", () => {
 });
 
 describe("admin session and signatures", () => {
-  test("admin cookie is strict, expires, and dies when the password changes", async () => {
+  test("admin session is an opaque strict cookie that expires, signs out everywhere and dies with the password", async () => {
     await signInAsAdmin();
-    expect(cookieOptions.get("lf_admin")).toMatchObject({ httpOnly: true, secure: true, sameSite: "strict" });
+    expect(cookieOptions.get("__Host-lf_admin")).toMatchObject({ httpOnly: true, secure: true, sameSite: "strict" });
     expect(await isAdmin()).toBe(true);
-    const token = cookieStore.get("lf_admin") ?? "";
-    cookieStore.set("lf_admin", `${token.slice(0, -2)}xx`);
+    const token = cookieStore.get("__Host-lf_admin") ?? "";
+    // Random bytes only: nothing in the cookie to read, and the database keeps just its hash.
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(await db().$count(session, eq(session.tokenHash, token))).toBe(0);
+    expect(await db().$count(session, eq(session.tokenHash, sha256(token)))).toBe(1);
+    cookieStore.set("__Host-lf_admin", `${token.slice(0, -2)}xx`);
     expect(await isAdmin()).toBe(false);
-    cookieStore.set("lf_admin", token);
+    cookieStore.set("__Host-lf_admin", token);
     setSystemTime(new Date("2026-11-15T01:00:00-03:00"));
     expect(await isAdmin()).toBe(false);
     setSystemTime(new Date("2026-11-14T12:00:00-03:00"));
@@ -174,10 +213,14 @@ describe("admin session and signatures", () => {
     expect(await isAdmin()).toBe(false);
     process.env.ADMIN_PASSWORD = saved;
     expect(await isAdmin()).toBe(true);
-  });
 
+    const { adminSignOut } = await import("@/lib/actions/store");
+    await redirected(adminSignOut());
+    cookieStore.set("__Host-lf_admin", token);
+    expect(await isAdmin()).toBe(false);
+  });
   test("wrong passwords lock the IP even for the right one", async () => {
-    const { adminSignIn } = await import("@/lib/actions");
+    const { adminSignIn } = await import("@/lib/actions/store");
     freshBrowser("192.0.2.250");
     for (let attempt = 0; attempt < 10; attempt += 1) {
       expect((await adminSignIn({ code: null }, form({ password: "guess" }))).code).toBe("INVALID_PASSWORD");

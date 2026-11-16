@@ -1,4 +1,5 @@
-import { credentials, products, storePix } from "@/lib/catalog";
+import { credentials } from "@/lib/settings";
+import { products, storePix } from "@/lib/catalog/products";
 import { PIX_PROVIDERS, pixProvider } from "@/lib/orders/psp";
 import { ProductEditor } from "./product-editor";
 import { ProductList } from "./product-list";

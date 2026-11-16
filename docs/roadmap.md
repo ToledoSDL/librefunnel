@@ -32,7 +32,7 @@ A WhatsApp or e-mail to the seller on each sale goes through the same outbox.
 
 ### 4. Google Ads conversions
 
-Already planned in `src/lib/tracking.ts`. The gclid of the last click is already stored per order. `conversion` already
+Already planned in `src/lib/tracking/`. The gclid of the last click is already stored per order. `conversion` already
 has attempts and the next attempt time, keyed by order and event name; adding a platform column to that key makes Google
 Ads a second destination there, and a platform never receives the same conversion twice.
 

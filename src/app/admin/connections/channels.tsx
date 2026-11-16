@@ -2,7 +2,7 @@ import { Field } from "@/components/form/field";
 import { Select } from "@/components/form/select";
 import { Icon } from "@/components/media/icon";
 import { Dialog } from "@/components/overlay/dialog";
-import { disconnectWhatsApp, saveMeta, saveSmtp } from "@/lib/actions";
+import { disconnectWhatsApp, saveMeta, saveSmtp } from "@/lib/actions/connections";
 import { DANGER, OUTLINE, PRIMARY, TextField, type Links, type Tone } from "../shared";
 import { ActionButton, SaveForm, WebhookSecret, WhatsAppConnect } from "../ui";
 import styles from "./connections.module.css";

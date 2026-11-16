@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Icon } from "@/components/media/icon";
 import { Dialog } from "@/components/overlay/dialog";
 import { Badge } from "@/components/text/badge";
-import type { Product } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog/products";
 import { BrandLogo } from "@/components/media/brand-logo";
 import { Text } from "@/components/text/text";
 import { TextLink } from "@/components/text/text-link";

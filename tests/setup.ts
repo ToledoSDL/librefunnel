@@ -35,7 +35,7 @@ vi.mock("next/navigation", async () => {
 
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
-vi.mock("next/server", () => ({ ...server, after: () => undefined }));
+vi.mock("next/server", () => ({ ...server, after: () => undefined, connection: async () => undefined }));
 
 vi.mock("nodemailer", async () => {
   const fakes = await import("./fakes");
@@ -61,7 +61,7 @@ vi.mock("nodemailer", async () => {
   };
 });
 
-const { saveCredentials } = await import("@/lib/catalog");
+const { saveCredentials } = await import("@/lib/settings");
 const { db, migrate, seedDemo } = await import("@/lib/db");
 
 await migrate();

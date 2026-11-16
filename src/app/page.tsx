@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Button } from "@/components/action/button";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Icon } from "@/components/media/icon";
-import { products, settings } from "@/lib/catalog";
-import type { Product } from "@/lib/catalog";
-import { baseUrl } from "@/lib/guard";
+import { products } from "@/lib/catalog/products";
+import { MEMBERS_HOME, settings } from "@/lib/settings";
+import type { Product } from "@/lib/catalog/products";
+import { baseUrl, hostOf } from "@/lib/guard";
 import { Footer, JsonLd, StoreHeader } from "./buyer";
 import styles from "./page.module.css";
 import { Money } from "./format";
@@ -28,12 +30,23 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await connection();
-  const [{ brand, home }, items] = await Promise.all([settings(), products()]);
-  const start = items.find((product) => product.slug === home);
+  const [{ brand, home }, items, request, query] = await Promise.all([settings(), products(), headers(), searchParams]);
+  const host = hostOf(request);
+  const start = items.find((product) => product.domain === host) ?? items.find((product) => product.slug === home);
 
-  if (start) redirect(start.vsl ? `/v/${start.slug}` : `/c/${start.slug}`);
+  // Ads link the bare address with utm and click ids, which the product page reads to attribute the visit.
+  const search = new URLSearchParams(
+    Object.entries(query).flatMap(([key, value]) => [value ?? []].flat().map((one): [string, string] => [key, one])),
+  );
+
+  if (start) redirect(`${pageOf(start)}${search.size ? `?${search}` : ""}`);
+  if (home === MEMBERS_HOME) redirect("/m");
 
   const base = baseUrl();
 

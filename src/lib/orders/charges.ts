@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, gt, isNotNull, isNull, lte } from "drizzle-orm";
-import { credentials } from "../catalog";
+import { credentials } from "../settings";
 import { addSeconds, db } from "../db";
 import { demoMode } from "../guard";
 import { customer, order } from "../schema";

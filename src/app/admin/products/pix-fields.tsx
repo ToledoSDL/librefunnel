@@ -1,5 +1,5 @@
 import { Disclosure } from "@/components/layout/disclosure";
-import type { Product } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog/products";
 import styles from "../admin.module.css";
 import { TextField } from "../shared";
 

@@ -3,7 +3,7 @@ import { Card } from "@/components/layout/card";
 import { BrandLogo } from "@/components/media/brand-logo";
 import { Dialog } from "@/components/overlay/dialog";
 import { Text } from "@/components/text/text";
-import { deleteRecoveryStep } from "@/lib/actions";
+import { deleteRecoveryStep } from "@/lib/actions/messages";
 import type { RecoveryStep } from "@/lib/messages";
 import { AutomationRow } from "./automation-row";
 import styles from "./automations.module.css";

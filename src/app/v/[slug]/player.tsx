@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 import { attachStream } from "@/app/stream";
 import { QUARTILES, track } from "@/app/track";
 import type { TrackEvent } from "@/app/track";
-import type { Player, Trigger } from "@/lib/catalog";
+import type { Player, Trigger } from "@/lib/catalog/products";
 import styles from "./page.module.css";
 import { watched } from "./retention";
 
-type Mode = "preview" | "resume" | "playing" | "paused";
+type Mode = "preview" | "resume" | "playing" | "paused" | "error";
 
 const SPEEDS = [1, 1.25, 1.5, 2];
 
@@ -70,8 +70,11 @@ export function VslPlayer({
   const [docked, setDocked] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [subtitles, setSubtitles] = useState(false);
+  const [buffering, setBuffering] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const offerKey = `lf_cta_${product}`;
-  const timeKey = `lf_vsl_${product}`;
+  // Keyed by the file too, so a new video from the seller never resumes at the old one's second.
+  const timeKey = `lf_vsl_${product}_${src}`;
   const listening = mode === "playing" || mode === "paused";
   const floating = options.floating && mode === "playing" && !inView && !docked;
   const active = listening && !floating ? triggers.filter((entry) => time >= entry.at && time < entry.until) : [];
@@ -104,7 +107,20 @@ export function VslPlayer({
 
     if (!node) return;
     return attachStream(node, src, stream);
-  }, [src, stream]);
+    // attempt: "Tentar de novo" attaches the video again.
+  }, [src, stream, attempt]);
+
+  // Coming back with the browser's back button restores the page as it was, but the browser paused the video meanwhile.
+  useEffect(() => {
+    function restored(event: PageTransitionEvent) {
+      if (!event.persisted) return;
+      setBuffering(false);
+      setMode((current) => (current === "playing" && video.current?.paused ? "paused" : current));
+    }
+
+    addEventListener("pageshow", restored);
+    return () => removeEventListener("pageshow", restored);
+  }, []);
 
   useEffect(() => {
     const node = frame.current;
@@ -160,14 +176,39 @@ export function VslPlayer({
 
     if (!node) return;
 
-    node.currentTime = from;
+    // A saved second at or past the end (the seller trimmed the video) starts over instead of ending at once.
+    const seek = () => {
+      node.currentTime = node.duration && from >= node.duration - 3 ? 0 : from;
+    };
+
+    // Before the metadata arrives a seek is dropped, so it waits for it.
+    if (node.readyState >= HTMLMediaElement.HAVE_METADATA) seek();
+    else node.addEventListener("loadedmetadata", seek, { once: true });
     node.muted = false;
-    void node.play();
     setMode("playing");
     once("video_play");
+    // Refused or not loaded yet: the play button stays, instead of a screen that looks like it is playing.
+    node.play().catch(() => setMode((current) => (current === "playing" ? "paused" : current)));
+  }
+
+  // The offer opens too, so a viewer whose video never loads can still buy.
+  function failed() {
+    const error = video.current?.error;
+
+    if (!error || error.code === MediaError.MEDIA_ERR_ABORTED) return;
+    setBuffering(false);
+    setMode("error");
+    reveal();
+  }
+
+  function retry() {
+    setMode("preview");
+    setAttempt((current) => current + 1);
   }
 
   function ended() {
+    // The muted preview reaching the end is not a view.
+    if (!listening) return;
     once("video_100");
     reveal();
     setShare(1);
@@ -222,7 +263,11 @@ export function VslPlayer({
           onTimeUpdate={progress}
           onPause={() => setMode((current) => (current === "playing" ? "paused" : current))}
           onPlay={() => setMode((current) => (current === "paused" ? "playing" : current))}
+          onWaiting={() => setBuffering(true)}
+          onPlaying={() => setBuffering(false)}
+          onCanPlay={() => setBuffering(false)}
           onEnded={ended}
+          onError={failed}
         >
           {captions ? <track kind="captions" src={captions} srcLang="pt-BR" label="Português" /> : null}
         </video>
@@ -285,6 +330,27 @@ export function VslPlayer({
           >
             <span className={styles.bigPlay}>{icons.play}</span>
           </button>
+        ) : null}
+
+        {mode === "error" ? (
+          <div className={`${styles.overlay} ${styles.dim}`} role="alert">
+            <span className={styles.panel}>
+              <strong>O vídeo não carregou</strong>
+              <span>Confira a internet e tente de novo. A oferta continua logo abaixo.</span>
+              <span className={styles.choices}>
+                <button type="button" className={styles.choice} onClick={retry}>
+                  {icons.restart}
+                  Tentar de novo
+                </button>
+              </span>
+            </span>
+          </div>
+        ) : null}
+
+        {buffering && mode === "playing" ? (
+          <p className={styles.buffering} role="status">
+            Carregando o vídeo
+          </p>
         ) : null}
 
         {banner ? (

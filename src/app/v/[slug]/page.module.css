@@ -334,6 +334,18 @@
     }
   }
 
+  .buffering {
+    position: absolute;
+    bottom: var(--space-4);
+    left: var(--space-3);
+    z-index: 1;
+    margin: 0;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 0.75);
+    font-size: var(--text-sm);
+    pointer-events: none;
+  }
   .trigger {
     position: absolute;
     top: var(--space-3);

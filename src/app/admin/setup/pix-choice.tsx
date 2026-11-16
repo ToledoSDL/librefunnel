@@ -1,5 +1,5 @@
 import { Text } from "@/components/text/text";
-import { savePix } from "@/lib/actions";
+import { savePix } from "@/lib/actions/connections";
 import { PixKeyForm, PixProviders } from "../connections/pix";
 import { OUTLINE, type Links } from "../shared";
 import { ActionButton } from "../ui";

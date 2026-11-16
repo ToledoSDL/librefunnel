@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Stack } from "@/components/layout/stack";
 import { Badge } from "@/components/text/badge";
 import { Text } from "@/components/text/text";
-import { productNames } from "@/lib/catalog";
+import { productNames } from "@/lib/catalog/products";
 import { orders } from "@/lib/dashboard";
 import type { OrderStatus } from "@/lib/orders/checkout";
 import { type Days, href, INTEGER, pick, type Query, requireAdmin, STATUS_LABEL, STATUS_TONE } from "../shared";

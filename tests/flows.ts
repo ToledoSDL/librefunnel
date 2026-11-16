@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
-import { adminSignIn, createOrder } from "@/lib/actions";
+import { adminSignIn } from "@/lib/actions/store";
+import { createOrder } from "@/lib/actions/checkout";
 import { POST as paymentWebhook } from "@/app/api/webhooks/payment/route";
 import { form, freshBrowser, redirected, WEBHOOK_SECRET } from "./fakes";
 

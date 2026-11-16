@@ -3,7 +3,7 @@ import { Tabs } from "@/components/data/tabs";
 import { PageHeader } from "@/components/layout/page-header";
 import { Icon } from "@/components/media/icon";
 import { Badge } from "@/components/text/badge";
-import type { Product } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog/products";
 import { href } from "../shared";
 import { CheckoutSection } from "./checkout-section";
 import { GeneralSection } from "./general-section";
@@ -38,7 +38,7 @@ export function ProductEditor({
   last: boolean;
 }) {
   const current = SECTIONS.find((entry) => entry.key === section)?.key ?? "general";
-  const page = `/v/${product.slug}`;
+  const page = product.domain ? `https://${product.domain}` : `/v/${product.slug}`;
 
   const counts: Partial<Record<Section, number>> = {
     content: product.modules.length,

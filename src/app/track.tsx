@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import type { ClientEvent } from "@/lib/tracking";
+import type { ClientEvent } from "@/lib/tracking/funnel";
 
 export type TrackEvent = ClientEvent;
 

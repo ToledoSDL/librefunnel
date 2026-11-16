@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import type { ButtonAttributes } from "@/components/action/button";
 import { SubmitButton } from "@/components/action/submit-button";
 import { Text } from "@/components/text/text";
-import type { Code } from "@/lib/actions";
-import { createProduct } from "@/lib/actions";
+import type { Code } from "@/lib/actions/form";
+import { createProduct } from "@/lib/actions/products";
 import { ErrorText } from "@/app/ui";
 import styles from "./products.module.css";
 
